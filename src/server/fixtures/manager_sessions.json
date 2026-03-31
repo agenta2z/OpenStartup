@@ -269,5 +269,41 @@
         "timestamp": "2026-03-26T16:35:00Z"
       }
     ]
+  },
+  {
+    "id": "session-004",
+    "title": "Redis cluster failover readiness",
+    "created_at": "2026-03-27T10:00:00Z",
+    "updated_at": "2026-03-27T10:18:00Z",
+    "messages": [
+      {
+        "id": "s4-msg-001",
+        "role": "manager",
+        "content": "Alpha — quick check: are we ready for the Redis cluster failover drill next week?",
+        "timestamp": "2026-03-27T10:00:00Z"
+      },
+      {
+        "id": "s4-msg-002",
+        "role": "assistant",
+        "agent_name": "Agent-Alpha",
+        "agent_id": "emp-001",
+        "content": "Yes. Runbooks are updated for the three-node topology, Sentinel config is validated in staging, and I've queued a dry run for Tuesday 6am PT with on-call notified.",
+        "timestamp": "2026-03-27T10:08:00Z"
+      },
+      {
+        "id": "s4-msg-003",
+        "role": "manager",
+        "content": "Good. Any gaps I should know about before I sign off in the exec summary?",
+        "timestamp": "2026-03-27T10:12:00Z"
+      },
+      {
+        "id": "s4-msg-004",
+        "role": "assistant",
+        "agent_name": "Agent-Alpha",
+        "agent_id": "emp-001",
+        "content": "Only one: we still need Marcus to confirm the backup restore window on Thursday — I pinged him in conv-002. Everything else is green.",
+        "timestamp": "2026-03-27T10:18:00Z"
+      }
+    ]
   }
 ]

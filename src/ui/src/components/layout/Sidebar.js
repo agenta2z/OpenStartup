@@ -1,7 +1,8 @@
 /**
  * Sidebar — left navigation panel for "Manager Sessions".
  *
- * Fetches sessions from /api/sessions and displays them as a clickable list.
+ * Fetches sessions from /api/sessions, groups them by primary_agent, and displays
+ * section headers with a clickable list under each agent.
  * Highlights the currently active session.
  *
  * Props:
@@ -9,7 +10,7 @@
  *   activeSessionId  - currently selected session ID (for highlighting)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -39,6 +40,36 @@ function relativeTime(isoString) {
   const diffDays = Math.floor(diffHr / 24);
   if (diffDays === 1) return 'Yesterday';
   return `${diffDays}d ago`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Group sessions by primary agent                                    */
+/* ------------------------------------------------------------------ */
+
+function primaryAgentGroupKey(agent) {
+  if (!agent || agent.id == null || agent.id === '') return '_unassigned';
+  return String(agent.id);
+}
+
+function buildGroupedSessions(sessions) {
+  if (!sessions?.length) return [];
+  const buckets = new Map();
+  for (const session of sessions) {
+    const agent = session.primary_agent || { id: null, name: 'New conversation' };
+    const key = primaryAgentGroupKey(agent);
+    if (!buckets.has(key)) {
+      buckets.set(key, { agent, sessions: [] });
+    }
+    buckets.get(key).sessions.push(session);
+  }
+  const groups = Array.from(buckets.values());
+  for (const g of groups) {
+    g.sessions.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+  }
+  groups.sort((a, b) =>
+    (a.agent.name || '').localeCompare(b.agent.name || '', undefined, { sensitivity: 'base' })
+  );
+  return groups;
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,6 +124,7 @@ function SessionItem({ session, isActive, onClick }) {
 
 export default function Sidebar({ onSessionClick, activeSessionId }) {
   const { data: sessions, loading } = useApiData('/sessions');
+  const groupedSessions = useMemo(() => buildGroupedSessions(sessions), [sessions]);
 
   return (
     <Box
@@ -130,14 +162,33 @@ export default function Sidebar({ onSessionClick, activeSessionId }) {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress size={20} sx={{ color: 'text.secondary' }} />
           </Box>
-        ) : sessions?.length > 0 ? (
-          sessions.map((session) => (
-            <SessionItem
-              key={session.id}
-              session={session}
-              isActive={session.id === activeSessionId}
-              onClick={onSessionClick}
-            />
+        ) : groupedSessions.length > 0 ? (
+          groupedSessions.map((group) => (
+            <Box key={primaryAgentGroupKey(group.agent)} sx={{ mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  px: 2,
+                  py: 0.75,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                  color: 'text.secondary',
+                  fontSize: '0.65rem',
+                }}
+              >
+                {group.agent.name || 'Conversation'}
+              </Typography>
+              {group.sessions.map((session) => (
+                <SessionItem
+                  key={session.id}
+                  session={session}
+                  isActive={session.id === activeSessionId}
+                  onClick={onSessionClick}
+                />
+              ))}
+            </Box>
           ))
         ) : (
           <Typography variant="caption" sx={{ color: 'text.secondary', px: 2, py: 2, display: 'block' }}>

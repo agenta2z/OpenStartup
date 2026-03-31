@@ -19,6 +19,21 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _primary_agent_from_messages(messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Use the first assistant message as the session's primary agent (for list grouping)."""
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        agent_id = msg.get("agent_id")
+        agent_name = msg.get("agent_name")
+        if agent_id is not None or agent_name is not None:
+            return {
+                "id": agent_id,
+                "name": agent_name or (str(agent_id) if agent_id is not None else "Assistant"),
+            }
+    return {"id": None, "name": "New conversation"}
+
+
 class DataService(ABC):
     """Abstract interface for data access."""
 
@@ -375,16 +390,20 @@ class MockDataService(DataService):
     # ── Manager Sessions ─────────────────────────────────────────
 
     def get_sessions(self) -> list[dict]:
-        return [
-            {
-                "id": s["id"],
-                "title": s["title"],
-                "created_at": s.get("created_at"),
-                "updated_at": s.get("updated_at"),
-                "message_count": len(s.get("messages", [])),
-            }
-            for s in self._sessions
-        ]
+        out: list[dict] = []
+        for s in self._sessions:
+            messages = s.get("messages", [])
+            out.append(
+                {
+                    "id": s["id"],
+                    "title": s["title"],
+                    "created_at": s.get("created_at"),
+                    "updated_at": s.get("updated_at"),
+                    "message_count": len(messages),
+                    "primary_agent": _primary_agent_from_messages(messages),
+                }
+            )
+        return out
 
     def get_session(self, session_id: str) -> dict | None:
         return self._session_idx.get(session_id)
