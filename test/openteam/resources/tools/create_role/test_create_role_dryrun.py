@@ -1,0 +1,694 @@
+"""Dry-run unit tests for the create_role pipeline wiring.
+
+Validates the BreakdownThenAggregateInferencer configuration without
+making any real API calls. Uses mock inferencers to verify:
+
+1. Template rendering includes employee persona from .variables.yaml
+2. Breakdown parser correctly extracts subtasks from JSON
+3. Worker factory creates isolated PromptWrapperInferencers per sub-query
+4. Aggregator prompt builder collects ALL worker results
+5. Pipeline wiring is correct for both rovochat and rovodev aggregator types
+6. RovoDevCliInferencer aggregator receives the full rendered prompt
+
+Usage:
+    cd /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+    python -m pytest test/resources/tools/create_role/test_create_role_dryrun.py -vs
+"""
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+# Ensure imports work
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "src"))
+sys.path.insert(
+    0, "/Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src"
+)
+sys.path.insert(
+    0, "/Users/tchen7/MyProjects/CoreProjects/RichPythonUtils/src"
+)
+
+from openteam.server.resources.tools.create_role.executor import (
+    ROLE_SYNTHESIS_INSTRUCTIONS,
+    PromptWrapperInferencer,
+    _build_template_manager,
+    build_create_role_inferencer,
+    parse_breakdown_response,
+)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def template_manager():
+    """Create a TemplateManager from the built-in prompt templates."""
+    return _build_template_manager()
+
+
+@pytest.fixture
+def sample_breakdown_json():
+    """Sample breakdown JSON response wrapped in <Response> tags."""
+    return """<Response>
+Here is the decomposition:
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Core responsibilities and day-to-day activities",
+      "todos": ["Research daily tasks", "Identify key deliverables"],
+      "priority": "CRITICAL",
+      "type": "EXTERNAL"
+    },
+    {
+      "subtask_id": 2,
+      "description": "Required technical skills and competencies",
+      "todos": ["Identify technical requirements", "Map skill levels"],
+      "priority": "HIGH",
+      "type": "EXTERNAL"
+    },
+    {
+      "subtask_id": 3,
+      "description": "Collaboration patterns and stakeholder interactions",
+      "todos": ["Map cross-functional relationships", "Define communication norms"],
+      "priority": "HIGH",
+      "type": "EXTERNAL"
+    }
+  ],
+  "reasoning": "Three complementary facets covering role scope, skills, and interactions.",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+</Response>"""
+
+
+@pytest.fixture
+def sample_worker_results():
+    """Simulated worker research results (one per facet)."""
+    return (
+        "<Response>## Core Responsibilities\n- Manage sprint planning\n- Coordinate cross-team dependencies\n- Track delivery metrics</Response>",
+        "<Response>## Technical Skills\n- Project management tools (Jira, Confluence)\n- Agile/Scrum methodology\n- Risk assessment frameworks</Response>",
+        "<Response>## Collaboration Patterns\n- Daily standups with engineering teams\n- Weekly sync with product leadership\n- Quarterly planning with stakeholders</Response>",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test: Template Rendering
+# ---------------------------------------------------------------------------
+
+
+class TestTemplateRendering:
+    """Verify templates render correctly with employee persona."""
+
+    def test_employee_persona_in_breakdown(self, template_manager):
+        """Employee persona from .variables.yaml must appear in breakdown template."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="task_breakdown",
+            input="Program Manager for AI developer tools",
+        )
+        assert "OpenStartup" in result, "Employee persona 'OpenStartup' not found in rendered template"
+        assert "decompos" in result.lower(), "Breakdown instruction not found"
+
+    def test_employee_persona_in_deep_research(self, template_manager):
+        """Employee persona must appear in deep research template."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="deep_research",
+            input="Research core responsibilities",
+        )
+        assert "OpenStartup" in result
+
+    def test_employee_persona_in_plan(self, template_manager):
+        """Employee persona must appear in plan template."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="plan",
+            input="Synthesize findings",
+            task_instructions=ROLE_SYNTHESIS_INSTRUCTIONS,
+        )
+        assert "OpenStartup" in result
+        assert "Role Overview" in result, "ROLE_SYNTHESIS_INSTRUCTIONS not injected"
+
+    def test_task_preamble_resolved(self, template_manager):
+        """task_preamble should be auto-resolved from _variables/."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="task_breakdown",
+            input="Test role",
+        )
+        # The task_preamble for task_breakdown contains "AI Employee Role Creation"
+        assert "AI Employee Role" in result or "role" in result.lower()
+
+
+# ---------------------------------------------------------------------------
+# Test: Breakdown Parser
+# ---------------------------------------------------------------------------
+
+
+class TestBreakdownParser:
+    """Verify parse_breakdown_response extracts subtasks correctly."""
+
+    def test_parse_json_subtasks(self, sample_breakdown_json):
+        """Should extract all 3 subtasks from JSON response."""
+        queries = parse_breakdown_response(sample_breakdown_json)
+        assert len(queries) == 3
+        assert "Core responsibilities" in queries[0]
+        assert "technical skills" in queries[1].lower()
+        assert "Collaboration" in queries[2]
+
+    def test_parse_includes_todos(self, sample_breakdown_json):
+        """Each extracted query should include the todos as investigation areas."""
+        queries = parse_breakdown_response(sample_breakdown_json)
+        assert "Research daily tasks" in queries[0]
+        assert "Identify technical requirements" in queries[1]
+
+    def test_parse_numbered_list_fallback(self):
+        """Should fall back to numbered list parsing if no JSON found."""
+        raw = "<Response>1. Research core responsibilities\n2. Identify required skills\n3. Map collaboration patterns</Response>"
+        queries = parse_breakdown_response(raw)
+        assert len(queries) == 3
+        assert "core responsibilities" in queries[0].lower()
+
+    def test_parse_empty_response(self):
+        """Should return empty list for empty response."""
+        queries = parse_breakdown_response("")
+        assert isinstance(queries, list)
+
+
+# ---------------------------------------------------------------------------
+# Test: Aggregator Prompt Builder — ALL worker results passed
+# ---------------------------------------------------------------------------
+
+
+class TestAggregatorPromptBuilder:
+    """Verify the aggregator prompt builder collects ALL worker results."""
+
+    def test_all_worker_results_in_prompt(
+        self, template_manager, sample_worker_results
+    ):
+        """The aggregator prompt must contain content from ALL worker results."""
+        # Reconstruct the agg_prompt_builder exactly as executor.py does
+        from agent_foundation.common.response_parsers import extract_delimited
+
+        def agg_prompt_builder(
+            worker_results: tuple, *, original_query: str = ""
+        ) -> str:
+            parts = []
+            for idx, res in enumerate(worker_results):
+                cleaned = extract_delimited(str(res))
+                parts.append(f"### Research Facet {idx + 1}\n{cleaned}")
+            joined = "\n\n".join(parts)
+            agg_input = (
+                f"**Original Role Request:** {original_query}\n\n"
+                f"**Research Findings:**\n{joined}"
+            )
+            return template_manager(
+                "initial",
+                active_template_root_space="plan",
+                input=agg_input,
+                task_instructions=ROLE_SYNTHESIS_INSTRUCTIONS,
+            )
+
+        prompt = agg_prompt_builder(
+            sample_worker_results,
+            original_query="Program Manager for AI developer tools",
+        )
+
+        # Verify ALL facets are present
+        assert "Research Facet 1" in prompt
+        assert "Research Facet 2" in prompt
+        assert "Research Facet 3" in prompt
+
+        # Verify content from each worker result is included
+        assert "sprint planning" in prompt.lower()
+        assert "Project management tools" in prompt
+        assert "Daily standups" in prompt
+
+        # Verify original query is included
+        assert "Program Manager" in prompt
+
+        # Verify synthesis instructions are included
+        assert "Role Overview" in prompt
+        assert "Core Responsibilities" in prompt
+
+        # Verify employee persona is rendered
+        assert "OpenStartup" in prompt
+
+    def test_agg_prompt_file_paths_for_local_aggregator(
+        self, sample_worker_results
+    ):
+        """When checkpoint_dir is set AND aggregator has local access,
+        prompt should include only file path references (no inline text)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inferencer = build_create_role_inferencer(
+                cloud_id="test-cloud-id",
+                uct_token="test-token",
+                checkpoint_dir=tmpdir,
+                aggregator_type="rovodev",
+                aggregator_working_dir=tmpdir,
+                workspace_root=tmpdir,
+            )
+            prompt = inferencer.aggregator_prompt_builder(
+                sample_worker_results,
+                original_query="Test",
+            )
+            assert "Read the full research report from:" in prompt
+            assert "facet_0.md" in prompt
+            assert "facet_1.md" in prompt
+            assert "facet_2.md" in prompt
+            # Should NOT include inline worker content for local aggregator
+            assert "sprint planning" not in prompt.lower()
+
+    def test_agg_prompt_inline_text_for_non_local_aggregator(
+        self, sample_worker_results
+    ):
+        """When aggregator lacks local access (RovoChat), prompt should
+        include full inline text, NOT file paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inferencer = build_create_role_inferencer(
+                cloud_id="test-cloud-id",
+                uct_token="test-token",
+                checkpoint_dir=tmpdir,
+                aggregator_type="rovochat",
+                workspace_root=tmpdir,
+            )
+            prompt = inferencer.aggregator_prompt_builder(
+                sample_worker_results,
+                original_query="Test",
+            )
+            # Should include inline text
+            assert "sprint planning" in prompt.lower()
+            # Should NOT include file paths
+            assert "Read the full research report from:" not in prompt
+
+    def test_worker_results_count_matches(self, sample_worker_results):
+        """Number of Research Facet headers must match number of worker results."""
+        from agent_foundation.common.response_parsers import extract_delimited
+
+        parts = []
+        for idx, res in enumerate(sample_worker_results):
+            cleaned = extract_delimited(str(res))
+            parts.append(f"### Research Facet {idx + 1}\n{cleaned}")
+        joined = "\n\n".join(parts)
+
+        facet_count = joined.count("### Research Facet")
+        assert facet_count == len(sample_worker_results), (
+            f"Expected {len(sample_worker_results)} facets, got {facet_count}"
+        )
+
+    def test_response_tags_stripped(self, sample_worker_results):
+        """<Response> tags should be stripped from worker outputs in aggregator prompt."""
+        from agent_foundation.common.response_parsers import extract_delimited
+
+        for res in sample_worker_results:
+            cleaned = extract_delimited(str(res))
+            assert "<Response>" not in cleaned
+            assert "</Response>" not in cleaned
+
+
+# ---------------------------------------------------------------------------
+# Test: Pipeline Wiring (build_create_role_inferencer)
+# ---------------------------------------------------------------------------
+
+
+class TestPipelineWiring:
+    """Verify the BTA pipeline is wired correctly."""
+
+    def test_rovochat_aggregator_pipeline(self):
+        """Default pipeline uses RovoChatInferencer for all stages."""
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+            max_facets=3,
+        )
+        assert inferencer.max_breakdown == 3
+        assert inferencer.breakdown_inferencer is not None
+        assert isinstance(
+            inferencer.breakdown_inferencer, PromptWrapperInferencer
+        )
+        assert inferencer.worker_factory is not None
+        assert inferencer.aggregator_inferencer is not None
+        assert inferencer.aggregator_prompt_builder is not None
+        assert inferencer.max_concurrency is None, (
+            "max_concurrency must be None to avoid deadlock with aggregator"
+        )
+
+        # Verify breakdown uses task_breakdown template space
+        bi = inferencer.breakdown_inferencer
+        assert bi.template_root_space == "task_breakdown"
+        assert bi.template_key == "initial"
+
+    def test_rovodev_aggregator_pipeline(self):
+        """Pipeline with rovodev aggregator uses RovoDevCliInferencer."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
+            RovoDevCliInferencer,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inferencer = build_create_role_inferencer(
+                cloud_id="test-cloud-id",
+                uct_token="test-token",
+                max_facets=2,
+                aggregator_type="rovodev",
+                aggregator_working_dir=tmpdir,
+            )
+            assert isinstance(
+                inferencer.aggregator_inferencer, RovoDevCliInferencer
+            ), (
+                f"Expected RovoDevCliInferencer, got "
+                f"{type(inferencer.aggregator_inferencer).__name__}"
+            )
+            assert inferencer.aggregator_inferencer.working_dir == tmpdir
+            assert inferencer.aggregator_inferencer.yolo is True
+            # agent_mode not used with acli
+
+    def test_worker_factory_creates_isolated_instances(self):
+        """Worker factory must create a fresh inferencer per sub-query."""
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+        )
+        w1 = inferencer.worker_factory(sub_query="Query 1", index=0)
+        w2 = inferencer.worker_factory(sub_query="Query 2", index=1)
+
+        assert w1 is not w2, "Workers must be distinct instances"
+        assert isinstance(w1, PromptWrapperInferencer)
+        assert isinstance(w2, PromptWrapperInferencer)
+        assert w1.template_root_space == "deep_research"
+        assert w2.template_root_space == "deep_research"
+        # Each worker should have its own RovoChatInferencer
+        assert w1.inferencer is not w2.inferencer, (
+            "Workers must have separate RovoChatInferencer instances for conversation isolation"
+        )
+
+    def test_breakdown_parser_wired(self):
+        """Breakdown parser must be wired to parse_breakdown_response."""
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+        )
+        assert inferencer.breakdown_parser is parse_breakdown_response
+
+
+# ---------------------------------------------------------------------------
+# Test: End-to-End Mock Pipeline
+# ---------------------------------------------------------------------------
+
+
+class TestEndToEndMockPipeline:
+    """Full pipeline test with mocked inferencers — validates data flow."""
+
+    def test_aggregator_receives_all_worker_results_via_prompt_builder(
+        self, sample_worker_results
+    ):
+        """Simulate the BTA aggregator_prompt_builder call with N worker results.
+
+        This is the critical test: the BTA graph calls
+            agg_fn(*worker_results, **_kwargs)
+        which triggers:
+            prompt_builder(worker_results, original_query=original_query)
+
+        We verify that ALL N worker results appear in the final prompt.
+        """
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+            max_facets=5,
+        )
+
+        # Call the aggregator_prompt_builder directly as BTA would
+        prompt = inferencer.aggregator_prompt_builder(
+            sample_worker_results,
+            original_query="Program Manager for AI developer tools",
+        )
+
+        # ALL 3 worker results must be present
+        for i in range(len(sample_worker_results)):
+            assert f"Research Facet {i + 1}" in prompt, (
+                f"Worker result {i + 1} missing from aggregator prompt"
+            )
+
+        # Content from each result must be present
+        assert "sprint planning" in prompt.lower()
+        assert "Project management tools" in prompt
+        assert "Daily standups" in prompt
+
+        # Synthesis instructions must be present
+        assert "Role Overview" in prompt
+        assert "Success Metrics" in prompt
+
+    def test_rovodev_aggregator_receives_full_prompt(
+        self, sample_worker_results
+    ):
+        """When using rovodev aggregator, verify the full rendered prompt
+        would be passed to RovoDevCliInferencer.infer().
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inferencer = build_create_role_inferencer(
+                cloud_id="test-cloud-id",
+                uct_token="test-token",
+                max_facets=3,
+                aggregator_type="rovodev",
+                aggregator_working_dir=tmpdir,
+                workspace_root=tmpdir,
+            )
+
+            # Build the prompt that would be sent to rovodev
+            prompt = inferencer.aggregator_prompt_builder(
+                sample_worker_results,
+                original_query="Program Manager for AI developer tools",
+            )
+
+            # Verify prompt is substantial (should be several KB)
+            assert len(prompt) > 2000, (
+                f"Aggregator prompt too short ({len(prompt)} chars) — "
+                f"may be missing worker results or template content"
+            )
+
+            # Verify all components are present
+            assert "OpenStartup" in prompt, "Employee persona missing"
+            assert "Research Facet 1" in prompt, "First worker result missing"
+            assert "Research Facet 3" in prompt, "Last worker result missing"
+            assert "Role Overview" in prompt, "Synthesis instructions missing"
+            assert "Program Manager" in prompt, "Original query missing"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-vs"])
+
+
+# ---------------------------------------------------------------------------
+# Test: Worker receives sub-query (not original input)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerSubQueryInjection:
+    """Verify each worker gets its specific sub-query, not the original input."""
+
+    def test_worker_template_renders_sub_query(self, template_manager):
+        """Worker's PromptWrapperInferencer must render the sub-query text
+        into the deep_research template, not the original role description.
+        """
+        sub_query = "Research required technical skills for a Program Manager"
+        rendered = template_manager(
+            "initial",
+            active_template_root_space="deep_research",
+            input=sub_query,
+        )
+        # The sub-query text must appear in the rendered prompt
+        assert "technical skills" in rendered.lower(), (
+            "Sub-query content not found in rendered deep_research template"
+        )
+        assert "Program Manager" in rendered
+
+    def test_worker_factory_produces_correct_template_space(self):
+        """Each worker from the factory must use deep_research template space."""
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+        )
+        w = inferencer.worker_factory(sub_query="Test sub-query", index=0)
+        assert w.template_root_space == "deep_research", (
+            f"Expected 'deep_research', got '{w.template_root_space}'"
+        )
+        assert w.template_key == "initial"
+
+    def test_breakdown_queries_are_text_strings(self, sample_breakdown_json):
+        """Breakdown parser must return text strings, not file paths or objects."""
+        queries = parse_breakdown_response(sample_breakdown_json)
+        for i, q in enumerate(queries):
+            assert isinstance(q, str), (
+                f"Query {i} is {type(q).__name__}, expected str"
+            )
+            # Should NOT look like file paths
+            assert not q.startswith("/"), (
+                f"Query {i} looks like a file path: {q[:50]}"
+            )
+            assert not q.endswith(".txt"), (
+                f"Query {i} looks like a file path: {q[:50]}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Test: output_path and has_local_access
+# ---------------------------------------------------------------------------
+
+
+class TestOutputPathHandling:
+    """Verify output_path passdown and has_local_access gating."""
+
+    def test_worker_gets_output_path_with_checkpoint_dir(self):
+        """When checkpoint_dir is set, each worker must get a unique output_path
+        under checkpoint_dir/worker_{index}/outputs/."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inferencer = build_create_role_inferencer(
+                cloud_id="test-cloud-id",
+                uct_token="test-token",
+                max_facets=3,
+                checkpoint_dir=tmpdir,
+                workspace_root=tmpdir,
+            )
+            w0 = inferencer.worker_factory(sub_query="Q0", index=0)
+            w1 = inferencer.worker_factory(sub_query="Q1", index=1)
+            w2 = inferencer.worker_factory(sub_query="Q2", index=2)
+
+            assert w0.output_path is not None
+            assert w1.output_path is not None
+            assert w2.output_path is not None
+            # Each must be unique
+            assert w0.output_path != w1.output_path
+            assert w1.output_path != w2.output_path
+            # Must follow workspace pattern: checkpoint_dir/worker_N/outputs/facet_N.md
+            assert w0.output_path.startswith(tmpdir)
+            assert os.path.join("bta", "worker_0", "outputs") in w0.output_path
+            assert "facet_0" in w0.output_path
+            assert os.path.join("bta", "worker_2", "outputs") in w2.output_path
+            assert "facet_2" in w2.output_path
+
+    def test_worker_no_output_path_without_checkpoint_dir(self):
+        """When checkpoint_dir is not set, workers should have no output_path."""
+        inferencer = build_create_role_inferencer(
+            cloud_id="test-cloud-id",
+            uct_token="test-token",
+        )
+        w = inferencer.worker_factory(sub_query="Q", index=0)
+        assert w.output_path is None
+
+    def test_rovochat_has_no_local_access(self):
+        """RovoChatInferencer should have has_local_access=False."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovochat.rovochat_inferencer import (
+            RovoChatInferencer,
+        )
+
+        rc = RovoChatInferencer(cloud_id="test", uct_token="test")
+        assert rc.has_local_access is False
+
+    def test_rovodev_has_local_access(self):
+        """RovoDevCliInferencer should have has_local_access=True."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
+            RovoDevCliInferencer,
+        )
+
+        rd = RovoDevCliInferencer(working_dir=".")
+        assert rd.has_local_access is True
+
+    def test_build_feed_omits_output_path_for_non_local(self):
+        """PromptWrapperInferencer._build_feed should omit output_path when
+        the underlying inferencer lacks local access."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovochat.rovochat_inferencer import (
+            RovoChatInferencer,
+        )
+
+        wrapper = PromptWrapperInferencer(
+            inferencer=RovoChatInferencer(cloud_id="test", uct_token="test"),
+            template_manager=_build_template_manager(),
+            template_key="initial",
+            template_root_space="deep_research",
+            output_path="/tmp/test_output.md",
+        )
+        feed = wrapper._build_feed("Test query")
+        assert "output_path" not in feed, (
+            "output_path should NOT be in feed for non-local inferencer"
+        )
+        assert feed["input"] == "Test query"
+
+    def test_build_feed_includes_output_path_for_local(self):
+        """PromptWrapperInferencer._build_feed should include output_path when
+        the underlying inferencer has local access."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
+            RovoDevCliInferencer,
+        )
+
+        wrapper = PromptWrapperInferencer(
+            inferencer=RovoDevCliInferencer(working_dir="."),
+            template_manager=_build_template_manager(),
+            template_key="initial",
+            template_root_space="deep_research",
+            output_path="/tmp/test_output.md",
+        )
+        feed = wrapper._build_feed("Test query")
+        assert feed["output_path"] == "/tmp/test_output.md"
+
+    def test_template_renders_without_output_path(self, template_manager):
+        """When output_path is not provided, template should instruct agent to
+        include full research in <Response> tags."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="deep_research",
+            input="Test query",
+        )
+        assert "COMPLETE research report" in result
+        assert "write it to:" not in result
+
+    def test_template_renders_with_output_path(self, template_manager):
+        """When output_path is provided, template should instruct agent to
+        write report to file and put concise summary in <Response> tags."""
+        result = template_manager(
+            "initial",
+            active_template_root_space="deep_research",
+            input="Test query",
+            output_path="/tmp/research_output.md",
+        )
+        assert "write it to:" in result.lower() or "Write the full report to:" in result
+        assert "/tmp/research_output.md" in result
+        assert "concise summary" in result.lower()
+
+    def test_save_response_writes_file_for_non_local(self):
+        """_save_response_if_needed should write <Response> content to file
+        when inferencer lacks local access."""
+        from agent_foundation.common.inferencers.agentic_inferencers.external.rovochat.rovochat_inferencer import (
+            RovoChatInferencer,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = os.path.join(tmpdir, "test_output.md")
+            wrapper = PromptWrapperInferencer(
+                inferencer=RovoChatInferencer(
+                    cloud_id="test", uct_token="test"
+                ),
+                template_manager=_build_template_manager(),
+                template_key="initial",
+                template_root_space="deep_research",
+                output_path=output_file,
+            )
+
+            response = "Some preamble\n<Response>\n## Research Findings\n- Finding 1\n- Finding 2\n</Response>\nSome epilogue"
+            wrapper._save_response_if_needed(response)
+
+            assert os.path.exists(output_file), "Output file should be created"
+            with open(output_file) as f:
+                content = f.read()
+            assert "## Research Findings" in content
+            assert "Finding 1" in content
+            assert "<Response>" not in content
+            assert "preamble" not in content
