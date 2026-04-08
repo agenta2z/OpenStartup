@@ -9,7 +9,7 @@
  * - Add as Primary button
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -22,6 +22,7 @@ import Select from '@mui/material/Select';
 import Divider from '@mui/material/Divider';
 import ListSubheader from '@mui/material/ListSubheader';
 import AddIcon from '@mui/icons-material/Add';
+import { useTheme } from '@mui/material/styles';
 
 const CUSTOM_SKILL_VALUE = '__custom__';
 
@@ -39,6 +40,7 @@ export default function AddSkillPopover({
   const [selectedSkill, setSelectedSkill] = useState('');
   const [customSkill, setCustomSkill] = useState('');
   const [details, setDetails] = useState('');
+  const theme = useTheme();
 
   const handleClose = () => {
     setSelectedSkill('');
@@ -107,7 +109,7 @@ export default function AddSkillPopover({
         sx: {
           width: 380,
           backgroundColor: 'background.paper',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: '1px solid', borderColor: 'divider',
           borderRadius: 2,
           p: 2.5,
         },
@@ -151,7 +153,7 @@ export default function AddSkillPopover({
         size="small"
         sx={{ mb: 1.5, fontSize: '0.85rem' }}
         renderValue={(val) => {
-          if (!val) return <span style={{ color: '#666' }}>Pick from {includeOutOfRole ? 'all' : 'role'} skills...</span>;
+          if (!val) return <span style={{ color: theme.palette.text.secondary }}>Pick from {includeOutOfRole ? 'all' : 'role'} skills...</span>;
           if (val === CUSTOM_SKILL_VALUE) return 'Custom skill';
           return val;
         }}
@@ -181,7 +183,7 @@ export default function AddSkillPopover({
             );
           }
           if (item.type === 'divider') {
-            return <Divider key={`div-${i}`} sx={{ my: 0.5, borderColor: 'rgba(255,255,255,0.08)' }} />;
+            return <Divider key={`div-${i}`} sx={{ my: 0.5, borderColor: 'divider' }} />;
           }
           return (
             <MenuItem key={item.value} value={item.value} sx={{ fontSize: '0.85rem' }}>

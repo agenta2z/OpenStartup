@@ -45,12 +45,12 @@ export function ProjectHeader({ name, status, blockers = 0, tasks = [] }) {
               size="small"
               onClick={(e) => setPendingAnchor(e.currentTarget)}
               sx={{
-                backgroundColor: 'rgba(240, 98, 146, 0.15)',
-                color: '#f06292',
+                backgroundColor: 'action.hover',
+                color: 'secondary.main',
                 fontWeight: 600,
                 fontSize: '0.7rem',
                 cursor: 'pointer',
-                '&:hover': { backgroundColor: 'rgba(240, 98, 146, 0.25)' },
+                '&:hover': { backgroundColor: 'action.selected' },
               }}
             />
             <PendingReasonPopover

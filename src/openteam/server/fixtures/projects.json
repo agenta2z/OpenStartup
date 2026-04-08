@@ -28,7 +28,7 @@
         "avg_pr_merge_time_hours": 3.4
       },
       "highlights": [
-        "OAuth2 token refresh logic 90% complete (Agent-Alpha)",
+        "OAuth2 token refresh logic 90% complete (AI-Alpha)",
         "Integration test suite covers 14 of 16 identified edge cases",
         "Legacy session migration script validated on staging environment",
         "Zero critical bugs in current sprint"
@@ -43,7 +43,7 @@
         "id": "rec-001",
         "type": "optimization",
         "severity": "info",
-        "message": "Agent-Alpha's token refresh implementation can be parallelized with Agent-Beta's integration tests to save ~1 day on the sprint timeline.",
+        "message": "AI-Alpha's token refresh implementation can be parallelized with AI-Beta's integration tests to save ~1 day on the sprint timeline.",
         "suggested_action": "Approve parallel execution of task-002 and task-004"
       }
     ],
@@ -75,7 +75,7 @@
     "blockers": [
       {
         "id": "blocker-001",
-        "description": "Agent-Delta is blocked waiting for OpenAPI schema approval from Dylan Park, who is currently away.",
+        "description": "AI-Delta is blocked waiting for OpenAPI schema approval from Dylan Park, who is currently away.",
         "severity": "high",
         "blocked_task_id": "task-007",
         "blocked_since": "2026-03-24T10:15:00Z",
@@ -84,7 +84,7 @@
     ],
     "ai_report": {
       "generated_at": "2026-03-26T08:00:00Z",
-      "summary": "API Redesign is at 60% completion but has a critical blocker. Agent-Delta has been blocked for 2 days awaiting schema approval from Dylan Park (currently away). The frontend components being built by Emma Nguyen are progressing well but will soon depend on the finalized API schema.",
+      "summary": "API Redesign is at 60% completion but has a critical blocker. AI-Delta has been blocked for 2 days awaiting schema approval from Dylan Park (currently away). The frontend components being built by Emma Nguyen are progressing well but will soon depend on the finalized API schema.",
       "risk_level": "medium",
       "key_metrics": {
         "code_coverage": 74.8,
@@ -98,7 +98,7 @@
         "Emma Nguyen's UI components are 70% complete"
       ],
       "concerns": [
-        "Agent-Delta blocked for 48+ hours on schema approval",
+        "AI-Delta blocked for 48+ hours on schema approval",
         "Dylan Park's away status has no confirmed return date",
         "API versioning strategy still under review"
       ]
@@ -108,7 +108,7 @@
         "id": "rec-002",
         "type": "escalation",
         "severity": "warning",
-        "message": "Agent-Delta has been blocked for 48 hours awaiting schema approval from Dylan Park (away). Recommend escalating to Sarah Chen for interim approval or assigning a temporary reviewer.",
+        "message": "AI-Delta has been blocked for 48 hours awaiting schema approval from Dylan Park (away). Recommend escalating to Sarah Chen for interim approval or assigning a temporary reviewer.",
         "suggested_action": "Escalate schema review to Sarah Chen or another senior engineer"
       }
     ],
@@ -181,14 +181,14 @@
     "blockers": [],
     "ai_report": {
       "generated_at": "2026-03-27T08:00:00Z",
-      "summary": "Model post-training pipeline is in early stages. Base model fine-tuning is 55% complete with promising initial results. Evaluation pipeline being built in parallel by Agent-Epsilon.",
+      "summary": "Model post-training pipeline is in early stages. Base model fine-tuning is 55% complete with promising initial results. Evaluation pipeline being built in parallel by AI-Epsilon.",
       "risk_level": "medium",
       "key_metrics": {"code_coverage": 68.5, "open_bugs": 1, "resolved_bugs_this_sprint": 2, "avg_pr_merge_time_hours": 2.8},
       "highlights": ["Base model fine-tuning showing 12% improvement on domain tasks", "Evaluation pipeline framework established", "RLHF reward model architecture selected"],
       "concerns": ["RLHF training requires significant GPU resources — need to confirm cluster availability", "Human eval benchmark requires external annotators not yet contracted"]
     },
     "ai_recommendations": [
-      {"id": "rec-004", "type": "optimization", "severity": "info", "message": "Fine-tuning and evaluation pipeline can run in parallel. Agent-Alpha and Agent-Epsilon are already on separate tracks — consider adding a sync checkpoint at 70% fine-tuning completion.", "suggested_action": "Schedule sync checkpoint"}
+      {"id": "rec-004", "type": "optimization", "severity": "info", "message": "Fine-tuning and evaluation pipeline can run in parallel. AI-Alpha and AI-Epsilon are already on separate tracks — consider adding a sync checkpoint at 70% fine-tuning completion.", "suggested_action": "Schedule sync checkpoint"}
     ],
     "quick_links": [
       {"label": "JIRA Board", "url": "https://company.atlassian.net/browse/MLT", "icon": "jira"},

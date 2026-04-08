@@ -1,10 +1,9 @@
 /**
- * AgentStatsRow — time-windowed AI agent stats with period selector.
+ * AgentStatsRow — time-windowed AI agent stats with clickable drill-downs.
  *
- * Shows: Work/Uptime ratio, Crashes/Healed, AI-AI msgs/threads, AI-Human msgs/threads
- * Work time turns red if below 8h/day average for the period.
- * Crashes/Healed turns red if heal rate < 80%.
- * Entire row clickable to change period.
+ * Shows: Tasks/Queued, Work/Uptime, Crashes/Healed, Issues/Resolved, AI-AI Chats, AI-Human Chats
+ * Each stat box is clickable — opens a contextual drill-down popover.
+ * Period selector is in the header label area (not on the stat boxes).
  */
 
 import React, { useState } from 'react';
@@ -15,6 +14,8 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import CheckIcon from '@mui/icons-material/Check';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useTheme, alpha } from '@mui/material/styles';
+import StatDrilldownPopover from './stat-drilldowns/StatDrilldownPopover';
 
 const PERIODS = [
   { key: '24h', label: 'Past 24 hours', days: 1 },
@@ -25,9 +26,27 @@ const PERIODS = [
   { key: 'all', label: 'All time', days: 365 },
 ];
 
-function StatBox({ value, sublabel, label, color }) {
+function StatBox({ value, sublabel, label, color, onClick, active, statType }) {
+  const theme = useTheme();
   return (
-    <Box sx={{ textAlign: 'center', flex: 1, minWidth: 55 }}>
+    <Box
+      onClick={onClick}
+      sx={{
+        textAlign: 'center',
+        flex: 1,
+        minWidth: 55,
+        cursor: 'pointer',
+        borderRadius: 1,
+        py: 0.5,
+        px: 0.25,
+        transition: 'background-color 0.15s',
+        backgroundColor: active ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+        borderBottom: active ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
+        '&:hover': {
+          backgroundColor: alpha(theme.palette.primary.main, 0.05),
+        },
+      }}
+    >
       <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '0.85rem', lineHeight: 1.2, color: color || 'text.primary' }}>
         {value}
       </Typography>
@@ -46,7 +65,7 @@ function StatBox({ value, sublabel, label, color }) {
 function getWorkRateColor(workHours, periodDays) {
   if (!periodDays || !workHours) return 'text.primary';
   const avgPerDay = workHours / periodDays;
-  if (avgPerDay < 8) return '#f44336'; // below 8h/day → red
+  if (avgPerDay < 8) return 'error.main';
   return 'text.primary';
 }
 
@@ -54,26 +73,28 @@ function getCrashHealColor(crashes, healed, periodDays) {
   if (crashes === 0) return 'text.primary';
   const rate = healed / crashes;
   const crashesPerDay = periodDays > 0 ? crashes / periodDays : 0;
-  if (rate < 0.8) return '#f44336'; // low heal rate → red
-  if (crashesPerDay > 2) return '#ff9800'; // >2 crashes/day → yellow
+  if (rate < 0.8) return 'error.main';
+  if (crashesPerDay > 2) return 'warning.main';
   return 'text.primary';
 }
 
-export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId }) {
+export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId, employeeId, allEmployees = [] }) {
   const [selectedPeriod, setSelectedPeriod] = useState('7d');
-  const [anchorEl, setAnchorEl] = useState(null);
+  const [periodAnchorEl, setPeriodAnchorEl] = useState(null);
+  const [drilldownType, setDrilldownType] = useState(null);
+  const [drilldownAnchorEl, setDrilldownAnchorEl] = useState(null);
 
   const timeSeries = metrics?.time_series || {};
   const periodData = timeSeries[selectedPeriod] || {};
+  const periodInfo = PERIODS.find(p => p.key === selectedPeriod) || PERIODS[1];
 
-  // Tasks: active (has current task) + queued count
+  // Tasks
   const activeTasks = currentTaskId ? 1 : 0;
   const queuedTasks = taskQueue?.length || 0;
   const totalQueuedHours = (taskQueue || []).reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
-  // Yellow if queued estimated time > 8 hours (1 work day)
-  const taskQueueColor = totalQueuedHours > 8 ? '#ff9800' : 'text.primary';
-  const periodInfo = PERIODS.find(p => p.key === selectedPeriod) || PERIODS[1];
+  const taskQueueColor = totalQueuedHours > 8 ? 'warning.main' : 'text.primary';
 
+  // Metrics
   const uptime = periodData.uptime_hours ?? 0;
   const work = periodData.work_hours ?? 0;
   const crashes = periodData.crashes ?? 0;
@@ -87,31 +108,61 @@ export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId }
 
   const workColor = getWorkRateColor(work, periodInfo.days);
   const crashColor = getCrashHealColor(crashes, healed, periodInfo.days);
-  const issueColor = issues > 0 && resolved / issues < 0.8 ? '#f44336' : 'text.primary';
+  const issueColor = issues > 0 && resolved / issues < 0.8 ? 'error.main' : 'text.primary';
 
   if (!timeSeries || Object.keys(timeSeries).length === 0) {
     return null;
   }
 
+  const handleStatClick = (statType) => (e) => {
+    e.stopPropagation();
+    if (drilldownType === statType) {
+      // Toggle off if same stat clicked
+      setDrilldownType(null);
+      setDrilldownAnchorEl(null);
+    } else {
+      setDrilldownType(statType);
+      setDrilldownAnchorEl(e.currentTarget);
+    }
+  };
+
+  const handlePeriodClick = (e) => {
+    e.stopPropagation();
+    setPeriodAnchorEl(e.currentTarget);
+  };
+
+  const handlePeriodSelect = (periodKey) => {
+    setSelectedPeriod(periodKey);
+    setPeriodAnchorEl(null);
+    // Close drill-down on period change
+    setDrilldownType(null);
+    setDrilldownAnchorEl(null);
+  };
+
+  const handleDrilldownClose = () => {
+    setDrilldownType(null);
+    setDrilldownAnchorEl(null);
+  };
+
   return (
     <>
       <Box
-        onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{
-          cursor: 'pointer',
           borderRadius: 1.5,
           p: 1,
-          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.04)',
-          transition: 'background-color 0.15s, border-color 0.15s',
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-          },
+          backgroundColor: 'action.hover',
+          border: '1px solid', borderColor: 'divider',
         }}
       >
-        {/* Period label */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75 }}>
+        {/* Period label — only this area opens the period selector */}
+        <Box
+          onClick={handlePeriodClick}
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75,
+            cursor: 'pointer',
+            '&:hover': { opacity: 0.8 },
+          }}
+        >
           <Typography
             variant="caption"
             sx={{
@@ -127,54 +178,72 @@ export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId }
           <ExpandMoreIcon sx={{ fontSize: 12, color: 'primary.light', opacity: 0.7 }} />
         </Box>
 
-        {/* Stats row */}
+        {/* Stats row — each box individually clickable */}
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <StatBox
             value={`${activeTasks}/${queuedTasks}`}
             sublabel={totalQueuedHours > 0 ? `~${totalQueuedHours}h queued` : 'no queue'}
             label="Tasks / Queued"
             color={taskQueueColor}
+            statType="tasks"
+            active={drilldownType === 'tasks'}
+            onClick={handleStatClick('tasks')}
           />
           <StatBox
             value={`${work}h/${uptime}h`}
             sublabel={`${periodInfo.days > 0 ? (work / periodInfo.days).toFixed(1) : 0}h/day`}
             label="Work / Uptime"
             color={workColor}
+            statType="work"
+            active={drilldownType === 'work'}
+            onClick={handleStatClick('work')}
           />
           <StatBox
             value={`${crashes}/${healed}`}
             sublabel={crashes > 0 ? `${Math.round((healed / crashes) * 100)}% healed` : 'no crashes'}
             label="Crashes / Healed"
             color={crashColor}
+            statType="crashes"
+            active={drilldownType === 'crashes'}
+            onClick={handleStatClick('crashes')}
           />
           <StatBox
             value={`${issues}/${resolved}`}
             sublabel={issues > 0 ? `${Math.round((resolved / issues) * 100)}% resolved` : 'no issues'}
             label="Issues / Resolved"
             color={issueColor}
+            statType="issues"
+            active={drilldownType === 'issues'}
+            onClick={handleStatClick('issues')}
           />
           <StatBox
             value={`${aiAiMsgs}`}
             sublabel={aiAiThreads > 0 ? `${aiAiThreads} threads` : ''}
             label="AI-AI Chats"
+            statType="ai-ai"
+            active={drilldownType === 'ai-ai'}
+            onClick={handleStatClick('ai-ai')}
           />
           <StatBox
             value={`${aiHumanMsgs}`}
             sublabel={aiHumanThreads > 0 ? `${aiHumanThreads} threads` : ''}
             label="AI-Human"
+            statType="ai-human"
+            active={drilldownType === 'ai-human'}
+            onClick={handleStatClick('ai-human')}
           />
         </Box>
       </Box>
 
       {/* Period selector menu */}
       <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
+        anchorEl={periodAnchorEl}
+        open={Boolean(periodAnchorEl)}
+        onClose={() => setPeriodAnchorEl(null)}
         PaperProps={{
           sx: {
             backgroundColor: 'background.paper',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid', borderColor: 'divider',
             minWidth: 180,
           },
         }}
@@ -182,7 +251,7 @@ export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId }
         {PERIODS.map((period) => (
           <MenuItem
             key={period.key}
-            onClick={() => { setSelectedPeriod(period.key); setAnchorEl(null); }}
+            onClick={() => handlePeriodSelect(period.key)}
             selected={period.key === selectedPeriod}
             sx={{ fontSize: '0.85rem' }}
           >
@@ -196,6 +265,21 @@ export default function AgentStatsRow({ metrics, taskQueue = [], currentTaskId }
           </MenuItem>
         ))}
       </Menu>
+
+      {/* Stat drill-down popover */}
+      <StatDrilldownPopover
+        anchorEl={drilldownAnchorEl}
+        open={Boolean(drilldownType)}
+        onClose={handleDrilldownClose}
+        statType={drilldownType}
+        employeeId={employeeId}
+        allEmployees={allEmployees}
+        metrics={metrics}
+        periodData={periodData}
+        periodInfo={periodInfo}
+        taskQueue={taskQueue}
+        currentTaskId={currentTaskId}
+      />
     </>
   );
 }

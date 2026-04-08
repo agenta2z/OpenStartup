@@ -69,7 +69,7 @@ export function ProjectCard({ project }) {
       elevation={0}
       sx={{
         backgroundColor: 'background.paper',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid', borderColor: 'divider',
         borderRadius: 3,
         p: 2.5,
         display: 'flex',

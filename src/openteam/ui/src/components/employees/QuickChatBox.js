@@ -72,7 +72,7 @@ export default function QuickChatBox({ agentName, onClose, onFormalize }) {
           justifyContent: 'space-between',
           px: 1.5,
           py: 0.75,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid', borderBottomColor: 'divider',
         }}
       >
         <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
@@ -120,7 +120,7 @@ export default function QuickChatBox({ agentName, onClose, onFormalize }) {
                   px: 1,
                   py: 0.5,
                   borderRadius: 1.5,
-                  backgroundColor: isManager ? 'rgba(74,144,217,0.25)' : 'rgba(255,255,255,0.06)',
+                  backgroundColor: isManager ? 'action.selected' : 'action.hover',
                 }}
               >
                 {!isManager && (
@@ -145,7 +145,7 @@ export default function QuickChatBox({ agentName, onClose, onFormalize }) {
           gap: 0.5,
           px: 1.5,
           py: 0.75,
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderTop: '1px solid', borderTopColor: 'divider',
         }}
       >
         <TextField
@@ -168,7 +168,7 @@ export default function QuickChatBox({ agentName, onClose, onFormalize }) {
       </Box>
 
       {/* Formalize button */}
-      <Box sx={{ px: 1.5, py: 0.75, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+      <Box sx={{ px: 1.5, py: 0.75, borderTop: '1px solid', borderTopColor: 'divider', textAlign: 'center' }}>
         {promoted ? (
           <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, fontSize: '0.75rem' }}>
             Promoted!
@@ -182,7 +182,7 @@ export default function QuickChatBox({ agentName, onClose, onFormalize }) {
               textTransform: 'none',
               fontSize: '0.7rem',
               color: 'text.secondary',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.06)' },
+              '&:hover': { backgroundColor: 'action.hover' },
             }}
           >
             Make this a formal conversation

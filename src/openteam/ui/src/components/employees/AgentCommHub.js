@@ -28,7 +28,7 @@ const buttonSx = {
   gap: 0.4,
 };
 
-export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
+export default function AgentCommHub({ agentName, agentId, onFormalizeChat, hideHistory = false }) {
   const [chatAnchor, setChatAnchor] = useState(null);
   const [emailAnchor, setEmailAnchor] = useState(null);
   const [historyAnchor, setHistoryAnchor] = useState(null);
@@ -49,8 +49,8 @@ export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
           sx={{
             ...buttonSx,
             color: chatAnchor ? 'primary.light' : 'text.secondary',
-            backgroundColor: chatAnchor ? 'rgba(74,144,217,0.1)' : 'transparent',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+            backgroundColor: chatAnchor ? 'action.hover' : 'transparent',
+            '&:hover': { backgroundColor: 'action.selected' },
           }}
         >
           Send Message
@@ -66,30 +66,32 @@ export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
           sx={{
             ...buttonSx,
             color: emailAnchor ? 'primary.light' : 'text.secondary',
-            backgroundColor: emailAnchor ? 'rgba(74,144,217,0.1)' : 'transparent',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+            backgroundColor: emailAnchor ? 'action.hover' : 'transparent',
+            '&:hover': { backgroundColor: 'action.selected' },
           }}
         >
           Send Email
         </Button>
       </Tooltip>
 
-      {/* View History */}
-      <Tooltip title="View past conversations with this agent" arrow placement="top">
-        <Button
-          size="small"
-          startIcon={<HistoryIcon sx={{ fontSize: '12px !important' }} />}
-          onClick={(e) => setHistoryAnchor(historyAnchor ? null : e.currentTarget)}
-          sx={{
-            ...buttonSx,
-            color: historyAnchor ? 'primary.light' : 'text.secondary',
-            backgroundColor: historyAnchor ? 'rgba(74,144,217,0.1)' : 'transparent',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
-          }}
-        >
-          View History
-        </Button>
-      </Tooltip>
+      {/* View History — hidden when rendered separately in EmployeeCard */}
+      {!hideHistory && (
+        <Tooltip title="View past conversations with this agent" arrow placement="top">
+          <Button
+            size="small"
+            startIcon={<HistoryIcon sx={{ fontSize: '12px !important' }} />}
+            onClick={(e) => setHistoryAnchor(historyAnchor ? null : e.currentTarget)}
+            sx={{
+              ...buttonSx,
+              color: historyAnchor ? 'primary.light' : 'text.secondary',
+              backgroundColor: historyAnchor ? 'action.hover' : 'transparent',
+              '&:hover': { backgroundColor: 'action.selected' },
+            }}
+          >
+            View History
+          </Button>
+        </Tooltip>
+      )}
 
       {/* Chat Popover */}
       <Popover
@@ -102,7 +104,7 @@ export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
           sx: {
             width: 380,
             backgroundColor: 'background.paper',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid', borderColor: 'divider',
             borderRadius: 2,
             overflow: 'hidden',
           },
@@ -126,7 +128,7 @@ export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
           sx: {
             width: 380,
             backgroundColor: 'background.paper',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid', borderColor: 'divider',
             borderRadius: 2,
             overflow: 'hidden',
           },
@@ -152,7 +154,7 @@ export default function AgentCommHub({ agentName, agentId, onFormalizeChat }) {
           sx: {
             width: 320,
             backgroundColor: 'background.paper',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid', borderColor: 'divider',
             borderRadius: 2,
             p: 2.5,
           },

@@ -9,7 +9,7 @@
  *   onBack     - callback to return to previous view
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -17,7 +17,13 @@ import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import BadgeIcon from '@mui/icons-material/Badge';
+import DnsIcon from '@mui/icons-material/Dns';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -29,6 +35,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { useTheme, alpha } from '@mui/material/styles';
 import { useApiData } from '../../hooks/useApiData';
 import { StatusBadge, ProgressBar, SectionCard, LoadingIndicator, EmptyState } from '../../shared';
 
@@ -36,23 +43,87 @@ import { StatusBadge, ProgressBar, SectionCard, LoadingIndicator, EmptyState } f
 /*  Priority color helper                                              */
 /* ------------------------------------------------------------------ */
 
-const PRIORITY_COLORS = {
-  critical: '#f44336',
-  high: '#ff9800',
-  medium: '#4a90d9',
-  low: '#90a4ae',
-};
+const PRIORITY_PALETTE = { critical: 'error', high: 'warning', medium: 'primary', low: 'neutral' };
+
+function computeTenure(joinedAt) {
+  if (!joinedAt) return null;
+  const joined = new Date(joinedAt);
+  const now = new Date();
+  const diffMs = now - joined;
+  const totalDays = Math.floor(diffMs / 86400000);
+  const months = Math.floor(totalDays / 30);
+  const days = totalDays % 30;
+  if (months > 0) return `${months} month${months !== 1 ? 's' : ''}, ${days} day${days !== 1 ? 's' : ''}`;
+  return `${days} day${days !== 1 ? 's' : ''}`;
+}
+
+function relativeTime(isoString) {
+  if (!isoString) return '—';
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const hours = Math.floor(diffMs / 3600000);
+  if (hours < 1) return 'just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function CopyableField({ label, value, icon }) {
+  const theme = useTheme();
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+      {icon}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', display: 'block', lineHeight: 1 }}>
+          {label}
+        </Typography>
+        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
+          {value || '—'}
+        </Typography>
+      </Box>
+      {value && (
+        <Tooltip title={copied ? 'Copied!' : 'Copy'}>
+          <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
+            {copied
+              ? <CheckIcon sx={{ fontSize: 14, color: theme.palette.success.main }} />
+              : <ContentCopyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+            }
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
+function ProfileField({ label, value }) {
+  return (
+    <Box sx={{ py: 0.5 }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', display: 'block', lineHeight: 1 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+        {value || '—'}
+      </Typography>
+    </Box>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Decision status icon                                               */
 /* ------------------------------------------------------------------ */
 
 function DecisionIcon({ status }) {
+  const theme = useTheme();
   switch (status?.toLowerCase()) {
-    case 'approved': return <CheckCircleIcon sx={{ fontSize: 16, color: '#4caf50' }} />;
-    case 'pending': return <PendingIcon sx={{ fontSize: 16, color: '#ff9800' }} />;
-    case 'rejected': return <CancelIcon sx={{ fontSize: 16, color: '#f44336' }} />;
-    default: return <PendingIcon sx={{ fontSize: 16, color: '#90a4ae' }} />;
+    case 'approved': return <CheckCircleIcon sx={{ fontSize: 16, color: theme.palette.success.main }} />;
+    case 'pending': return <PendingIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />;
+    case 'rejected': return <CancelIcon sx={{ fontSize: 16, color: theme.palette.error.main }} />;
+    default: return <PendingIcon sx={{ fontSize: 16, color: theme.palette.neutral.main }} />;
   }
 }
 
@@ -61,6 +132,7 @@ function DecisionIcon({ status }) {
 /* ------------------------------------------------------------------ */
 
 export default function EmployeeDetailView({ employeeId, onBack }) {
+  const theme = useTheme();
   const { data: employee, loading, error } = useApiData(
     employeeId ? `/employees/${employeeId}` : null
   );
@@ -127,8 +199,8 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
           gap: 2.5,
           p: 3,
           mb: 3,
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: theme.custom.surfaces.cardBg,
+          border: `1px solid ${theme.custom.surfaces.cardBorder}`,
           borderRadius: 2,
         }}
       >
@@ -137,7 +209,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
           sx={{
             width: 72,
             height: 72,
-            bgcolor: isAI ? '#1e3a5f' : '#4caf50',
+            bgcolor: isAI ? alpha(theme.palette.primary.main, 0.3) : theme.palette.success.main,
             fontSize: 32,
           }}
         >
@@ -154,8 +226,8 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
               size="small"
               icon={isAI ? <SmartToyIcon sx={{ fontSize: 14 }} /> : <PersonIcon sx={{ fontSize: 14 }} />}
               sx={{
-                backgroundColor: isAI ? 'rgba(74, 144, 217, 0.15)' : 'rgba(76, 175, 80, 0.15)',
-                color: isAI ? '#4a90d9' : '#4caf50',
+                backgroundColor: isAI ? alpha(theme.palette.primary.main, 0.15) : alpha(theme.palette.success.main, 0.15),
+                color: isAI ? theme.palette.primary.main : theme.palette.success.main,
                 '& .MuiChip-icon': { color: 'inherit' },
               }}
             />
@@ -171,13 +243,99 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                   label={typeof skill === 'string' ? skill : skill.name}
                   size="small"
                   variant="outlined"
-                  sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary', fontSize: '0.7rem' }}
+                  sx={{ borderColor: theme.custom.surfaces.inputBorder, color: 'text.secondary', fontSize: '0.7rem' }}
                 />
               ))}
             </Box>
           )}
         </Box>
       </Paper>
+
+      {/* Profile & Identity Card */}
+      {isAI && (
+        <SectionCard title="Profile & Identity" icon={<BadgeIcon sx={{ fontSize: 18 }} />}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+            {/* Left column — Identity */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.6rem', color: 'text.secondary', display: 'block', mb: 1 }}>
+                Identity
+              </Typography>
+              <ProfileField label="Employee ID" value={employee.employee_id_display || employee.id} />
+              <ProfileField label="Role" value={employee.role} />
+              <ProfileField label="Cost Center" value={employee.cost_center} />
+              <ProfileField
+                label="Tenure"
+                value={computeTenure(employee.joined_at)}
+              />
+              <ProfileField
+                label="Joined"
+                value={employee.joined_at ? new Date(employee.joined_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null}
+              />
+              <Box sx={{ mt: 1 }}>
+                <Chip
+                  label={employee.onboarding_completed ? 'Onboarded' : 'Onboarding'}
+                  size="small"
+                  sx={{
+                    height: 20, fontSize: '0.6rem',
+                    backgroundColor: employee.onboarding_completed
+                      ? alpha(theme.palette.success.main, 0.12)
+                      : alpha(theme.palette.warning.main, 0.12),
+                    color: employee.onboarding_completed
+                      ? theme.palette.success.main
+                      : theme.palette.warning.main,
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Right column — System & Integrations */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.6rem', color: 'text.secondary', display: 'block', mb: 1 }}>
+                System & Integrations
+              </Typography>
+              <CopyableField
+                label="Email"
+                value={employee.email}
+                icon={<Box component="span" sx={{ fontSize: '0.8rem', width: 16, textAlign: 'center' }}>@</Box>}
+              />
+              <CopyableField
+                label="Slack ID"
+                value={employee.slack_id}
+                icon={<Box component="span" sx={{ fontSize: '0.8rem', width: 16, textAlign: 'center' }}>#</Box>}
+              />
+              <CopyableField
+                label="Workspace ID"
+                value={employee.workspace_id}
+                icon={<DnsIcon sx={{ fontSize: 14, color: 'text.secondary' }} />}
+              />
+              <ProfileField label="Model Version" value={employee.model_version} />
+              <ProfileField label="Runtime" value={employee.runtime_env} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+                <Box sx={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  backgroundColor: theme.palette.success.main,
+                  flexShrink: 0,
+                }} />
+                <Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', display: 'block', lineHeight: 1 }}>
+                    Last Health Check
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    {relativeTime(employee.last_health_check)}
+                  </Typography>
+                </Box>
+              </Box>
+              <ProfileField
+                label="Uptime Since"
+                value={employee.uptime_since
+                  ? `${new Date(employee.uptime_since).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (${Math.floor((Date.now() - new Date(employee.uptime_since).getTime()) / 86400000)} days)`
+                  : null
+                }
+              />
+            </Box>
+          </Box>
+        </SectionCard>
+      )}
 
       {/* Main content grid */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -189,14 +347,14 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
               elevation={0}
               sx={{
                 p: 2,
-                backgroundColor: 'rgba(74, 144, 217, 0.06)',
-                border: '1px solid rgba(74, 144, 217, 0.15)',
+                backgroundColor: theme.custom.surfaces.highlight,
+                border: `1px solid ${theme.custom.surfaces.highlightBorder}`,
                 borderRadius: 2,
                 fontStyle: 'italic',
               }}
             >
               <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.6 }}>
-                "{thinking.thought || thinking.text || thinking}"
+                "{thinking.current_focus || thinking.current_thought || thinking.thought || thinking.text || (typeof thinking === 'string' ? thinking : 'Processing...')}"
               </Typography>
             </Paper>
           </SectionCard>
@@ -212,7 +370,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 {currentTask.project && (
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    Project: {currentTask.project}
+                    Project: {typeof currentTask.project === 'string' ? currentTask.project : currentTask.project.name || currentTask.project.id}
                   </Typography>
                 )}
                 {currentTask.due_date && (
@@ -248,8 +406,8 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                     gap: 1.5,
                     p: 1.5,
                     borderRadius: 1.5,
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+                    backgroundColor: theme.custom.surfaces.overlayLight,
+                    '&:hover': { backgroundColor: theme.custom.surfaces.overlayMedium },
                     transition: 'background-color 0.15s',
                   }}
                 >
@@ -271,8 +429,8 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                           sx={{
                             height: 18,
                             fontSize: '0.65rem',
-                            backgroundColor: PRIORITY_COLORS[item.priority?.toLowerCase()] || '#90a4ae',
-                            color: '#fff',
+                            backgroundColor: theme.palette[PRIORITY_PALETTE[item.priority?.toLowerCase()] || 'neutral']?.main,
+                            color: theme.palette.getContrastText?.(theme.palette[PRIORITY_PALETTE[item.priority?.toLowerCase()] || 'neutral']?.main || theme.palette.neutral.main) || theme.palette.background.default,
                           }}
                         />
                       )}
@@ -326,7 +484,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                   Level {autonomy.level ?? '?'}
                 </Typography>
                 {autonomy.label && (
-                  <Chip label={autonomy.label} size="small" sx={{ backgroundColor: 'rgba(74,144,217,0.15)', color: '#4a90d9' }} />
+                  <Chip label={autonomy.label} size="small" sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.15), color: theme.palette.primary.main }} />
                 )}
                 {autonomy.description && (
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -358,7 +516,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                   </Typography>
                   {autonomy.pending_approvals.map((a, idx) => (
                     <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-                      <PendingIcon sx={{ fontSize: 16, color: '#ff9800' }} />
+                      <PendingIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />
                       <Typography variant="body2">{a.title || a.description}</Typography>
                     </Box>
                   ))}
@@ -381,7 +539,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                     gap: 1.5,
                     p: 1,
                     borderRadius: 1,
-                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    backgroundColor: theme.custom.surfaces.overlayLight,
                   }}
                 >
                   <DecisionIcon status={d.status} />
@@ -403,13 +561,13 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                         height: 20,
                         fontSize: '0.65rem',
                         backgroundColor:
-                          d.status === 'approved' ? 'rgba(76,175,80,0.15)' :
-                          d.status === 'rejected' ? 'rgba(244,67,54,0.15)' :
-                          'rgba(255,152,0,0.15)',
+                          d.status === 'approved' ? alpha(theme.palette.success.main, 0.15) :
+                          d.status === 'rejected' ? alpha(theme.palette.error.main, 0.15) :
+                          alpha(theme.palette.warning.main, 0.15),
                         color:
-                          d.status === 'approved' ? '#4caf50' :
-                          d.status === 'rejected' ? '#f44336' :
-                          '#ff9800',
+                          d.status === 'approved' ? theme.palette.success.main :
+                          d.status === 'rejected' ? theme.palette.error.main :
+                          theme.palette.warning.main,
                       }}
                     />
                   )}
@@ -463,7 +621,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                     alignItems: 'flex-start',
                     gap: 1.5,
                     py: 1,
-                    borderBottom: idx < activities.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    borderBottom: idx < activities.length - 1 ? `1px solid ${theme.custom.surfaces.overlayLight}` : 'none',
                   }}
                 >
                   <Box
@@ -471,7 +629,7 @@ export default function EmployeeDetailView({ employeeId, onBack }) {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      backgroundColor: '#4a90d9',
+                      backgroundColor: theme.palette.primary.main,
                       mt: 0.75,
                       flexShrink: 0,
                     }}

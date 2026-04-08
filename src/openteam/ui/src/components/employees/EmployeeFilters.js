@@ -32,7 +32,7 @@ export function EmployeeFilters({ filters, onFilterChange, teams = [] }) {
       fontSize: '0.8rem',
     },
     '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: 'rgba(255, 255, 255, 0.12)',
+      borderColor: 'divider',
     },
   };
 
@@ -46,8 +46,8 @@ export function EmployeeFilters({ filters, onFilterChange, teams = [] }) {
         mb: 3,
         p: 1.5,
         borderRadius: 2,
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        backgroundColor: 'action.hover',
+        border: '1px solid', borderColor: 'divider',
       }}
     >
       {/* Type toggle */}
@@ -62,14 +62,14 @@ export function EmployeeFilters({ filters, onFilterChange, teams = [] }) {
             fontSize: '0.75rem',
             px: 1.5,
             py: 0.5,
-            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderColor: 'divider',
             color: 'text.secondary',
             '&.Mui-selected': {
-              backgroundColor: 'rgba(74, 144, 217, 0.15)',
+              backgroundColor: 'action.selected',
               color: 'primary.light',
-              borderColor: 'rgba(74, 144, 217, 0.3)',
+              borderColor: 'primary.main',
               '&:hover': {
-                backgroundColor: 'rgba(74, 144, 217, 0.2)',
+                backgroundColor: 'action.selected',
               },
             },
           },

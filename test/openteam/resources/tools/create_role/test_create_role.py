@@ -167,13 +167,11 @@ def main(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     workspace = (Path(output_dir) / timestamp).resolve()
 
-    deliverables_dir = workspace / "deliverables"
-    artifacts_dir = workspace / "artifacts"
-    checkpoints_dir = workspace / "checkpoints"
-    deliverables_dir.mkdir(parents=True, exist_ok=True)
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-    checkpoints_dir.mkdir(parents=True, exist_ok=True)
-    (workspace / "logs").mkdir(exist_ok=True)
+    from agent_foundation.common.inferencers.inferencer_workspace import InferencerWorkspace
+
+    ws = InferencerWorkspace(root=str(workspace))
+    ws.ensure_dirs("_runtime")  # outputs/, artifacts/, checkpoints/, logs/ + _runtime/
+    (workspace / "deliverables").mkdir(parents=True, exist_ok=True)
     (workspace / "_runtime" / "inferencer_cache").mkdir(parents=True, exist_ok=True)
     (workspace / "_runtime" / "tmp_output_files").mkdir(parents=True, exist_ok=True)
 
@@ -215,7 +213,6 @@ def main(
         base_url=base_url,
         agent_named_id=agent_named_id,
         max_facets=max_facets,
-        checkpoint_dir=str(checkpoints_dir),
         templates_dir=templates_dir,
         aggregator_type=aggregator_type,
         aggregator_working_dir=aggregator_working_dir or str(workspace),

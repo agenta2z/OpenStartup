@@ -12,9 +12,10 @@ async def list_employees(
     type: str | None = Query(default=None, alias="type"),
     team_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    org_id: str | None = Query(default=None),
 ):
     svc = request.app.state.data_service
-    return {"data": svc.get_employees(type_filter=type, team_id=team_id, status=status)}
+    return {"data": svc.get_employees(type_filter=type, team_id=team_id, status=status, org_id=org_id)}
 
 
 @router.get("/{employee_id}")

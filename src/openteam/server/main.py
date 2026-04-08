@@ -34,6 +34,7 @@ from openteam.server.routes.intelligence_routes import router as intelligence_ro
 from openteam.server.routes.session_routes import router as session_router
 from openteam.server.routes.role_skill_routes import router as role_skill_router
 from openteam.server.routes.manager_websocket_routes import router as manager_ws_router
+from openteam.server.routes.org_routes import router as org_router, employee_org_router
 from openteam.server.services.data_service import MockDataService
 from openteam.server.services.intelligence_service import MockIntelligenceService
 
@@ -148,6 +149,7 @@ app.include_router(health_router, prefix="/api", tags=["system"])
 app.include_router(team_router, prefix="/api/teams", tags=["teams"])
 app.include_router(project_router, prefix="/api/projects", tags=["projects"])
 app.include_router(task_router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(employee_org_router, prefix="/api/employees", tags=["employee-org"])
 app.include_router(employee_router, prefix="/api/employees", tags=["employees"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
@@ -155,6 +157,7 @@ app.include_router(intelligence_router, prefix="/api/intelligence", tags=["intel
 app.include_router(session_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(role_skill_router, prefix="/api/role-skills", tags=["role-skills"])
 app.include_router(manager_ws_router, prefix="/ws", tags=["websocket"])
+app.include_router(org_router, prefix="/api/orgs", tags=["organizations"])
 
 
 # SPA fallback — only enabled when the build directory exists (production).

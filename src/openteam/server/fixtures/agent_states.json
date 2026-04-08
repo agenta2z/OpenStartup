@@ -14,14 +14,22 @@
       "next_steps": [
         "Complete Redis unavailability fallback path",
         "Submit PR for review by Sarah Chen",
-        "Provide test fixture data to Agent-Beta for edge case tests"
+        "Provide test fixture data to AI-Beta for edge case tests"
       ],
       "last_updated": "2026-03-26T06:00:00Z"
     },
     "autonomy": {
       "level": "supervised",
-      "can_auto_approve": ["code_changes", "test_execution", "dependency_updates"],
-      "requires_approval": ["architecture_decisions", "schema_changes", "deployment"],
+      "can_auto_approve": [
+        "code_changes",
+        "test_execution",
+        "dependency_updates"
+      ],
+      "requires_approval": [
+        "architecture_decisions",
+        "schema_changes",
+        "deployment"
+      ],
       "escalation_threshold": 0.7,
       "max_hours_without_checkin": 8,
       "approved_by": "emp-005",
@@ -35,11 +43,22 @@
         "best_case": "2026-03-27T10:00:00Z",
         "worst_case": "2026-03-28T18:00:00Z",
         "risk_factors": [
-          {"factor": "Redis fallback complexity", "impact_hours": 4, "probability": 0.3},
-          {"factor": "Review feedback requiring rework", "impact_hours": 6, "probability": 0.2}
+          {
+            "factor": "Redis fallback complexity",
+            "impact_hours": 4,
+            "probability": 0.3
+          },
+          {
+            "factor": "Review feedback requiring rework",
+            "impact_hours": 6,
+            "probability": 0.2
+          }
         ],
         "dependencies_status": {
-          "task-001": {"status": "in-review", "blocks_completion": false}
+          "task-001": {
+            "status": "in-review",
+            "blocks_completion": false
+          }
         },
         "updated_at": "2026-03-26T06:00:00Z"
       },
@@ -50,15 +69,48 @@
         "best_case": "2026-03-29T16:00:00Z",
         "worst_case": "2026-04-02T12:00:00Z",
         "risk_factors": [
-          {"factor": "Dependency on task-002 completion", "impact_hours": 8, "probability": 0.15},
-          {"factor": "Large session volume migration complexity", "impact_hours": 12, "probability": 0.25}
+          {
+            "factor": "Dependency on task-002 completion",
+            "impact_hours": 8,
+            "probability": 0.15
+          },
+          {
+            "factor": "Large session volume migration complexity",
+            "impact_hours": 12,
+            "probability": 0.25
+          }
         ],
         "dependencies_status": {
-          "task-002": {"status": "in-progress", "blocks_completion": true}
+          "task-002": {
+            "status": "in-progress",
+            "blocks_completion": true
+          }
         },
         "updated_at": "2026-03-26T06:00:00Z"
       }
-    }
+    },
+    "work_sessions": [
+      {
+        "type": "coding",
+        "hours": 95,
+        "percent": 75.4
+      },
+      {
+        "type": "reviewing",
+        "hours": 18,
+        "percent": 14.3
+      },
+      {
+        "type": "communicating",
+        "hours": 10,
+        "percent": 7.9
+      },
+      {
+        "type": "idle",
+        "hours": 3,
+        "percent": 2.4
+      }
+    ]
   },
   "emp-002": {
     "thinking": {
@@ -67,12 +119,12 @@
         "Identified 16 edge cases from the auth migration spec",
         "Completed tests for 14 of 16 cases",
         "Remaining: expired refresh token + concurrent rotation",
-        "Waiting on Agent-Alpha for specific test fixture payloads",
+        "Waiting on AI-Alpha for specific test fixture payloads",
         "Planning Redis lock cleanup assertion per Alpha's suggestion"
       ],
       "confidence": 0.82,
       "blockers": [
-        "Awaiting test fixture data from Agent-Alpha for 2 remaining edge cases"
+        "Awaiting test fixture data from AI-Alpha for 2 remaining edge cases"
       ],
       "next_steps": [
         "Implement expired refresh token test once fixture data arrives",
@@ -84,8 +136,16 @@
     },
     "autonomy": {
       "level": "supervised",
-      "can_auto_approve": ["test_creation", "test_execution", "ci_config_changes"],
-      "requires_approval": ["test_infrastructure_changes", "flaky_test_deletion", "coverage_threshold_changes"],
+      "can_auto_approve": [
+        "test_creation",
+        "test_execution",
+        "ci_config_changes"
+      ],
+      "requires_approval": [
+        "test_infrastructure_changes",
+        "flaky_test_deletion",
+        "coverage_threshold_changes"
+      ],
       "escalation_threshold": 0.7,
       "max_hours_without_checkin": 8,
       "approved_by": "emp-005",
@@ -99,24 +159,57 @@
         "best_case": "2026-03-27T16:00:00Z",
         "worst_case": "2026-03-29T18:00:00Z",
         "risk_factors": [
-          {"factor": "Waiting on Agent-Alpha for fixture data", "impact_hours": 6, "probability": 0.3},
-          {"factor": "Concurrent test flakiness", "impact_hours": 4, "probability": 0.2}
+          {
+            "factor": "Waiting on AI-Alpha for fixture data",
+            "impact_hours": 6,
+            "probability": 0.3
+          },
+          {
+            "factor": "Concurrent test flakiness",
+            "impact_hours": 4,
+            "probability": 0.2
+          }
         ],
         "dependencies_status": {
-          "task-002": {"status": "in-progress", "blocks_completion": true}
+          "task-002": {
+            "status": "in-progress",
+            "blocks_completion": true
+          }
         },
         "updated_at": "2026-03-26T05:30:00Z"
       }
-    }
+    },
+    "work_sessions": [
+      {
+        "type": "coding",
+        "hours": 55,
+        "percent": 56.1
+      },
+      {
+        "type": "reviewing",
+        "hours": 28,
+        "percent": 28.6
+      },
+      {
+        "type": "communicating",
+        "hours": 12,
+        "percent": 12.2
+      },
+      {
+        "type": "idle",
+        "hours": 3,
+        "percent": 3.1
+      }
+    ]
   },
   "emp-003": {
     "thinking": {
-      "current_focus": "Queued — preparing documentation structure while waiting for auth implementation",
+      "current_focus": "Queued \u00e2\u20ac\u201d preparing documentation structure while waiting for auth implementation",
       "reasoning_chain": [
         "Primary task (task-009) blocked on task-002 completion",
         "Evaluating whether to pre-write documentation skeleton using current schema draft",
         "Submitted decision (dec-008) for approval to start early",
-        "Secondary task (task-011) has no blocking dependencies — could start immediately"
+        "Secondary task (task-011) has no blocking dependencies \u00e2\u20ac\u201d could start immediately"
       ],
       "confidence": 0.65,
       "blockers": [
@@ -132,8 +225,17 @@
     },
     "autonomy": {
       "level": "semi-autonomous",
-      "can_auto_approve": ["documentation_changes", "formatting", "link_updates", "typo_fixes"],
-      "requires_approval": ["new_documentation_sections", "api_contract_documentation", "architecture_diagrams"],
+      "can_auto_approve": [
+        "documentation_changes",
+        "formatting",
+        "link_updates",
+        "typo_fixes"
+      ],
+      "requires_approval": [
+        "new_documentation_sections",
+        "api_contract_documentation",
+        "architecture_diagrams"
+      ],
       "escalation_threshold": 0.6,
       "max_hours_without_checkin": 12,
       "approved_by": "emp-005",
@@ -143,44 +245,77 @@
       "task-009": {
         "task_id": "task-009",
         "predicted_completion": "2026-04-02T16:00:00Z",
-        "confidence": 0.60,
+        "confidence": 0.6,
         "best_case": "2026-03-31T12:00:00Z",
         "worst_case": "2026-04-07T18:00:00Z",
         "risk_factors": [
-          {"factor": "Dependency on task-002 completion", "impact_hours": 24, "probability": 0.15},
-          {"factor": "API contract changes during implementation", "impact_hours": 8, "probability": 0.3}
+          {
+            "factor": "Dependency on task-002 completion",
+            "impact_hours": 24,
+            "probability": 0.15
+          },
+          {
+            "factor": "API contract changes during implementation",
+            "impact_hours": 8,
+            "probability": 0.3
+          }
         ],
         "dependencies_status": {
-          "task-002": {"status": "in-progress", "blocks_completion": true}
+          "task-002": {
+            "status": "in-progress",
+            "blocks_completion": true
+          }
         },
         "updated_at": "2026-03-26T07:00:00Z"
       },
       "task-011": {
         "task_id": "task-011",
         "predicted_completion": "2026-03-28T12:00:00Z",
-        "confidence": 0.90,
+        "confidence": 0.9,
         "best_case": "2026-03-27T16:00:00Z",
         "worst_case": "2026-03-29T12:00:00Z",
         "risk_factors": [],
         "dependencies_status": {},
         "updated_at": "2026-03-26T07:00:00Z"
       }
-    }
+    },
+    "work_sessions": [
+      {
+        "type": "coding",
+        "hours": 10,
+        "percent": 12.5
+      },
+      {
+        "type": "reviewing",
+        "hours": 8,
+        "percent": 10.0
+      },
+      {
+        "type": "communicating",
+        "hours": 52,
+        "percent": 65.0
+      },
+      {
+        "type": "idle",
+        "hours": 10,
+        "percent": 12.5
+      }
+    ]
   },
   "emp-004": {
     "thinking": {
-      "current_focus": "Blocked — awaiting schema approval from Dylan Park",
+      "current_focus": "Blocked \u00e2\u20ac\u201d awaiting schema approval from Dylan Park",
       "reasoning_chain": [
         "Completed OpenAPI 3.1 schema draft for v2 endpoints",
         "Key decisions: cursor-based pagination, Accept header versioning, RFC 7807 errors",
         "Submitted for review to Dylan Park on March 23",
         "Dylan Park status changed to away on March 24",
         "Sent follow-up message in conv-003 requesting delegation",
-        "No response received — blocked for 48+ hours"
+        "No response received \u00e2\u20ac\u201d blocked for 48+ hours"
       ],
       "confidence": 0.35,
       "blockers": [
-        "Dylan Park is away — no confirmed return date",
+        "Dylan Park is away \u00e2\u20ac\u201d no confirmed return date",
         "Schema approval required before proceeding",
         "Accept header versioning decision (dec-011) pending approval"
       ],
@@ -194,8 +329,16 @@
     },
     "autonomy": {
       "level": "restricted",
-      "can_auto_approve": ["documentation_formatting", "example_updates"],
-      "requires_approval": ["schema_changes", "api_versioning_strategy", "breaking_changes", "new_endpoints"],
+      "can_auto_approve": [
+        "documentation_formatting",
+        "example_updates"
+      ],
+      "requires_approval": [
+        "schema_changes",
+        "api_versioning_strategy",
+        "breaking_changes",
+        "new_endpoints"
+      ],
       "escalation_threshold": 0.5,
       "max_hours_without_checkin": 4,
       "approved_by": "emp-007",
@@ -205,18 +348,52 @@
       "task-007": {
         "task_id": "task-007",
         "predicted_completion": "2026-04-01T18:00:00Z",
-        "confidence": 0.40,
+        "confidence": 0.4,
         "best_case": "2026-03-28T12:00:00Z",
         "worst_case": "2026-04-08T18:00:00Z",
         "risk_factors": [
-          {"factor": "Dylan Park unavailability", "impact_hours": 48, "probability": 0.6},
-          {"factor": "Schema rework after review", "impact_hours": 16, "probability": 0.35},
-          {"factor": "Versioning strategy rejection requiring redesign", "impact_hours": 24, "probability": 0.15}
+          {
+            "factor": "Dylan Park unavailability",
+            "impact_hours": 48,
+            "probability": 0.6
+          },
+          {
+            "factor": "Schema rework after review",
+            "impact_hours": 16,
+            "probability": 0.35
+          },
+          {
+            "factor": "Versioning strategy rejection requiring redesign",
+            "impact_hours": 24,
+            "probability": 0.15
+          }
         ],
         "dependencies_status": {},
         "updated_at": "2026-03-26T08:00:00Z"
       }
-    }
+    },
+    "work_sessions": [
+      {
+        "type": "coding",
+        "hours": 25,
+        "percent": 20.8
+      },
+      {
+        "type": "reviewing",
+        "hours": 15,
+        "percent": 12.5
+      },
+      {
+        "type": "communicating",
+        "hours": 60,
+        "percent": 50.0
+      },
+      {
+        "type": "idle",
+        "hours": 20,
+        "percent": 16.7
+      }
+    ]
   },
   "emp-010": {
     "thinking": {
@@ -243,7 +420,7 @@
     },
     "workload": {
       "employee_id": "emp-010",
-      "employee_name": "Agent-Epsilon",
+      "employee_name": "AI-Epsilon",
       "utilization_percent": 78,
       "status": "healthy",
       "current_task": "Architecture review implementation",
@@ -258,6 +435,28 @@
         "risk_factors": [],
         "margin_hours": 2
       }
-    }
+    },
+    "work_sessions": [
+      {
+        "type": "coding",
+        "hours": 82,
+        "percent": 73.2
+      },
+      {
+        "type": "reviewing",
+        "hours": 15,
+        "percent": 13.4
+      },
+      {
+        "type": "communicating",
+        "hours": 12,
+        "percent": 10.7
+      },
+      {
+        "type": "idle",
+        "hours": 3,
+        "percent": 2.7
+      }
+    ]
   }
 }

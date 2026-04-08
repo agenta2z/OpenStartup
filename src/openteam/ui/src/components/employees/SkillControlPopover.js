@@ -24,12 +24,13 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import TuneIcon from '@mui/icons-material/Tune';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useTheme } from '@mui/material/styles';
 
 const MULTIPLIER_OPTIONS = [0.1, 0.25, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0];
 
 const sectionSx = {
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.06)',
+  backgroundColor: 'action.hover',
+  border: '1px solid', borderColor: 'divider',
   borderRadius: 1.5,
   p: 1.5,
   mb: 1.5,
@@ -62,6 +63,7 @@ export default function SkillControlPopover({
   allKnownSkills = [],
 }) {
   // Local state for all controls
+  const theme = useTheme();
   const [multipliers, setMultipliers] = useState(() => {
     const m = {};
     primarySkills.forEach(s => { m[s] = 1.0; });
@@ -136,7 +138,7 @@ export default function SkillControlPopover({
           width: 420,
           maxHeight: '80vh',
           backgroundColor: 'background.paper',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: '1px solid', borderColor: 'divider',
           borderRadius: 2,
           p: 2.5,
           overflow: 'auto',
@@ -199,7 +201,7 @@ export default function SkillControlPopover({
             displayEmpty
             size="small"
             sx={{ flexGrow: 1, fontSize: '0.8rem' }}
-            renderValue={(v) => v || <span style={{ color: '#666' }}>+ Add skill multiplier...</span>}
+            renderValue={(v) => v || <span style={{ color: theme.palette.text.secondary }}>+ Add skill multiplier...</span>}
           >
             {availableForMultiplier.map(s => (
               <MenuItem key={s} value={s} sx={{ fontSize: '0.8rem' }}>{s}</MenuItem>
@@ -232,9 +234,9 @@ export default function SkillControlPopover({
                 sx={{
                   height: 22,
                   fontSize: '0.65rem',
-                  backgroundColor: 'rgba(244, 67, 54, 0.12)',
-                  color: '#ef9a9a',
-                  '& .MuiChip-deleteIcon': { fontSize: 14, color: '#ef9a9a' },
+                  backgroundColor: 'action.hover',
+                  color: 'error.light',
+                  '& .MuiChip-deleteIcon': { fontSize: 14, color: 'error.light' },
                 }}
               />
             ))}
@@ -252,7 +254,7 @@ export default function SkillControlPopover({
             displayEmpty
             size="small"
             sx={{ flexGrow: 1, fontSize: '0.8rem' }}
-            renderValue={(v) => v || <span style={{ color: '#666' }}>Add to block list...</span>}
+            renderValue={(v) => v || <span style={{ color: theme.palette.text.secondary }}>Add to block list...</span>}
           >
             {availableForBlock.map(s => (
               <MenuItem key={s} value={s} sx={{ fontSize: '0.8rem' }}>{s}</MenuItem>
@@ -305,9 +307,9 @@ export default function SkillControlPopover({
                 sx={{
                   height: 22,
                   fontSize: '0.65rem',
-                  backgroundColor: 'rgba(76, 175, 80, 0.12)',
-                  color: '#81c784',
-                  '& .MuiChip-deleteIcon': { fontSize: 14, color: '#81c784' },
+                  backgroundColor: 'action.hover',
+                  color: 'success.light',
+                  '& .MuiChip-deleteIcon': { fontSize: 14, color: 'success.light' },
                 }}
               />
             ))}
@@ -321,7 +323,7 @@ export default function SkillControlPopover({
             displayEmpty
             size="small"
             sx={{ flexGrow: 1, fontSize: '0.8rem' }}
-            renderValue={(v) => v || <span style={{ color: '#666' }}>Add to allow list...</span>}
+            renderValue={(v) => v || <span style={{ color: theme.palette.text.secondary }}>Add to allow list...</span>}
           >
             {availableForAllow.map(s => (
               <MenuItem key={s} value={s} sx={{ fontSize: '0.8rem' }}>{s}</MenuItem>
@@ -333,7 +335,7 @@ export default function SkillControlPopover({
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)', mb: 1.5 }} />
+      <Divider sx={{ borderColor: 'divider', mb: 1.5 }} />
 
       {/* Actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

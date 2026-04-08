@@ -8,6 +8,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 
 import SprintProgressWidget from './SprintProgressWidget';
 import WorkloadChartWidget from './WorkloadChartWidget';
@@ -28,11 +29,12 @@ const WIDGET_MAP = {
 };
 
 function UnknownWidget({ data, type }) {
+  const theme = useTheme();
   return (
     <Box
       sx={{
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        backgroundColor: theme.custom.surfaces.overlayLight,
+        border: `1px solid ${theme.custom.surfaces.cardBorder}`,
         borderRadius: 2,
         p: 2,
         mt: 1.5,

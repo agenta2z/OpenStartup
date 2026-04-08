@@ -24,8 +24,8 @@ function StatChip({ label, value, color = 'text.primary' }) {
         px: 1.5,
         py: 0.75,
         borderRadius: 1.5,
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        backgroundColor: 'action.hover',
+        border: '1px solid', borderColor: 'divider',
       }}
     >
       <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
@@ -72,7 +72,7 @@ export function TeamCard({ team }) {
       elevation={0}
       sx={{
         backgroundColor: 'background.paper',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid', borderColor: 'divider',
         borderRadius: 3,
         p: 2.5,
         display: 'flex',
@@ -90,7 +90,7 @@ export function TeamCard({ team }) {
           label={`${members.length} member${members.length !== 1 ? 's' : ''}`}
           size="small"
           sx={{
-            backgroundColor: 'rgba(74, 144, 217, 0.12)',
+            backgroundColor: 'action.selected',
             color: 'primary.light',
             fontWeight: 500,
           }}
@@ -130,13 +130,13 @@ export function TeamCard({ team }) {
           <StatChip
             label="Active Projects"
             value={active_projects_count ?? projects.filter((p) => p.status !== 'completed').length}
-            color="#ff9800"
+            color="warning.main"
           />
           {completion_rate != null && (
             <StatChip
               label="Completion Rate"
               value={`${Math.round(completion_rate)}%`}
-              color="#4caf50"
+              color="success.main"
             />
           )}
         </Box>
@@ -188,7 +188,7 @@ export function TeamCard({ team }) {
                   gap: 1.5,
                   p: 1,
                   borderRadius: 1.5,
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  backgroundColor: 'action.hover',
                 }}
               >
                 <PersonChip name={agent.name} role={agent.role} type="ai" size="small" />
@@ -223,7 +223,7 @@ export function TeamCard({ team }) {
             textTransform: 'none',
             color: 'primary.light',
             fontSize: '0.8rem',
-            '&:hover': { backgroundColor: 'rgba(74, 144, 217, 0.08)' },
+            '&:hover': { backgroundColor: 'action.hover' },
           }}
         >
           View Team Details

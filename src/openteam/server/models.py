@@ -266,3 +266,55 @@ class WorkloadEntry(BaseModel):
 class WorkloadBalance(BaseModel):
     entries: list[WorkloadEntry] = []
     suggestions: list[dict[str, Any]] = []
+
+
+# ---------------------------------------------------------------------------
+# Organization & Permissions models
+# ---------------------------------------------------------------------------
+
+class CollaborationScope(str, Enum):
+    full = "full"
+    read_only = "read_only"
+    request = "request"
+    blocked = "blocked"
+
+
+class Organization(BaseModel):
+    id: str
+    name: str
+    description: str
+    head_id: str
+    member_ids: list[str] = []
+    parent_org_id: str | None = None
+
+
+class OrgMembership(BaseModel):
+    employee_id: str
+    org_id: str
+    reports_to: str | None = None
+    org_role: str = "member"
+
+
+class CollaborationRule(BaseModel):
+    target_type: str  # "org" or "employee"
+    target_id: str
+    scope: CollaborationScope
+    note: str = ""
+
+
+class CollaborationConfig(BaseModel):
+    employee_id: str
+    default_cross_org: CollaborationScope = CollaborationScope.request
+    rules: list[CollaborationRule] = []
+
+
+class ACLEntry(BaseModel):
+    category: str
+    permission: str
+    granted: bool = False
+
+
+class EmployeeACL(BaseModel):
+    employee_id: str
+    inherited_from_org: bool = True
+    entries: list[ACLEntry] = []

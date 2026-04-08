@@ -34,6 +34,7 @@ Usage::
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, List, Optional
@@ -271,31 +272,39 @@ class PromptWrapperInferencer(InferencerBase):
     output_path: Optional[str] = attrib(default=None)
 
     def _build_feed(self, inference_input: str) -> dict:
-        """Build the template feed dict, conditionally including output_path."""
+        """Build the template feed dict, conditionally including output_path.
+
+        Uses ``resolve_output_path()`` to get the workspace-resolved absolute
+        path.  Only includes it in the feed when the underlying inferencer
+        has local file access (so the agent can write to disk).
+        """
         feed: dict = {"input": inference_input}
-        if self.output_path and getattr(self.inferencer, "has_local_access", False):
-            feed["output_path"] = self.output_path
+        resolved = self.resolve_output_path()
+        if resolved and os.path.isabs(resolved) and getattr(
+            self.inferencer, "has_local_access", False
+        ):
+            feed["output_path"] = resolved
         return feed
 
     def _save_response_if_needed(self, response: str) -> str:
-        """If output_path is set and inferencer lacks local access, extract
-        <Response> content, write it to output_path, and return the cleaned
-        text (without tags).
+        """If output_path resolves to an absolute path and inferencer lacks
+        local access, extract ``<Response>`` content, write it, and return
+        the cleaned text (without tags).
 
-        This ensures the WorkGraph propagates clean text to downstream nodes
-        (matching the ResearchProposeBridge pattern where workers return
-        extracted content, not raw tagged responses).
+        Uses ``resolve_output_path()`` for workspace-aware path resolution.
+        Skips writing if the resolved path is relative (no workspace set) to
+        avoid writing to the current working directory.
         """
-        if not self.output_path:
+        resolved = self.resolve_output_path()
+        if not resolved or not os.path.isabs(resolved):
             return response
         if getattr(self.inferencer, "has_local_access", False):
             # Local-access inferencer writes the file itself; return as-is
             return response
         # Non-local inferencer: extract <Response> content and save to file
         cleaned = extract_delimited(str(response))
-        import os
-        os.makedirs(os.path.dirname(self.output_path) or ".", exist_ok=True)
-        with open(self.output_path, "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(resolved) or ".", exist_ok=True)
+        with open(resolved, "w", encoding="utf-8") as f:
             f.write(cleaned)
         # Return cleaned text so downstream nodes receive tag-free content
         return cleaned
@@ -457,18 +466,15 @@ def build_create_role_inferencer(
     #    Creates a fresh RovoChat per sub-query for conversation isolation
     def worker_factory(sub_query: str, index: int) -> PromptWrapperInferencer:
         _logger.info("Creating worker %d for sub-query: %.80s...", index, sub_query)
-        worker_output_path = None
-        if checkpoint_dir:
-            import os
-            worker_dir = os.path.join(checkpoint_dir, "bta", f"worker_{index}", "outputs")
-            os.makedirs(worker_dir, exist_ok=True)
-            worker_output_path = os.path.join(worker_dir, f"facet_{index}.md")
+        # output_path is relative — BTA assigns child workspace in
+        # _build_diamond_graph, then resolve_output_path() resolves to
+        # workspace_root/children/worker_N/outputs/facet_N.md
         return PromptWrapperInferencer(
             inferencer=_make_rovochat(**rovo_kwargs),
             template_manager=tm,
             template_key="initial",
             template_root_space="deep_research",
-            output_path=worker_output_path,
+            output_path=f"facet_{index}.md",
         )
 
     # 3. Aggregator inferencer (no wrapper — prompt injected via builder)
@@ -490,25 +496,31 @@ def build_create_role_inferencer(
     #      aggregator node closure)
     #    - original_query is a keyword arg (from _original_query=inference_input)
     def agg_prompt_builder(
-        worker_results: tuple, *, original_query: str = ""
+        worker_results: tuple,
+        *,
+        original_query: str = "",
+        worker_output_paths: list = None,
     ) -> str:
         agg_has_local = getattr(aggregator_inf, "has_local_access", False)
         parts = []
         for idx, res in enumerate(worker_results):
             cleaned = extract_delimited(str(res))
-            if checkpoint_dir and agg_has_local:
+            facet_path = (
+                worker_output_paths[idx]
+                if worker_output_paths and idx < len(worker_output_paths)
+                else None
+            )
+            if facet_path and agg_has_local:
                 # Local-access aggregator: pass file paths only.
                 # The aggregator can read the full research from disk.
-                import os
-                facet_path = os.path.join(
-                    checkpoint_dir, "bta", f"worker_{idx}", "outputs", f"facet_{idx}.md"
-                )
+                # worker_output_paths is the single source of truth —
+                # same paths workers write to (captured by BTA's closure).
                 parts.append(
                     f"### Research Facet {idx + 1}\n"
                     f"Read the full research report from: `{facet_path}`"
                 )
             else:
-                # Non-local aggregator: include full text inline.
+                # Non-local aggregator or no workspace: include full text inline.
                 parts.append(f"### Research Facet {idx + 1}\n{cleaned}")
         joined = "\n\n".join(parts)
         agg_input = (
@@ -533,5 +545,5 @@ def build_create_role_inferencer(
         aggregator_prompt_builder=agg_prompt_builder,
         max_breakdown=max_facets,
         max_concurrency=None,
-        checkpoint_dir=checkpoint_dir,
+        workspace_root=workspace_root,
     )

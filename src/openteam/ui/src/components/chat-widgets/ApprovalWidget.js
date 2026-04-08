@@ -15,16 +15,10 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-
-const WIDGET_BOX_SX = {
-  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: 2,
-  p: 2,
-  mt: 1.5,
-};
+import { useTheme } from '@mui/material/styles';
 
 export default function ApprovalWidget({ data }) {
+  const theme = useTheme();
   const { question, context, approve_label = 'Approve', reject_label = 'Reject' } = data || {};
   const [decision, setDecision] = useState(null); // 'approved' | 'rejected' | null
 
@@ -38,12 +32,20 @@ export default function ApprovalWidget({ data }) {
     setDecision('rejected');
   };
 
+  const widgetBoxSx = {
+    backgroundColor: theme.custom.surfaces.overlayLight,
+    border: `1px solid ${theme.custom.surfaces.cardBorder}`,
+    borderRadius: 2,
+    p: 2,
+    mt: 1.5,
+  };
+
   return (
-    <Box sx={WIDGET_BOX_SX}>
+    <Box sx={widgetBoxSx}>
       {/* Header */}
       <Typography
         variant="subtitle2"
-        sx={{ color: '#ffb74d', fontWeight: 600, mb: 1 }}
+        sx={{ color: 'warning.light', fontWeight: 600, mb: 1 }}
       >
         {'\u26A1'} Decision Required
       </Typography>
@@ -57,7 +59,7 @@ export default function ApprovalWidget({ data }) {
       {context && (
         <Typography
           variant="body2"
-          sx={{ color: 'text.secondary', mb: 1.5, pl: 1.5, borderLeft: '2px solid rgba(255, 255, 255, 0.1)' }}
+          sx={{ color: 'text.secondary', mb: 1.5, pl: 1.5, borderLeft: `2px solid ${theme.custom.surfaces.cardBorder}` }}
         >
           {context}
         </Typography>
@@ -68,7 +70,7 @@ export default function ApprovalWidget({ data }) {
         <Typography
           variant="body2"
           sx={{
-            color: decision === 'approved' ? '#4caf50' : '#f44336',
+            color: decision === 'approved' ? 'success.main' : 'error.main',
             fontWeight: 500,
             mt: 0.5,
           }}
@@ -82,10 +84,10 @@ export default function ApprovalWidget({ data }) {
             size="small"
             onClick={handleApprove}
             sx={{
-              backgroundColor: '#2e7d32',
-              color: '#fff',
+              backgroundColor: 'success.dark',
+              color: 'common.white',
               textTransform: 'none',
-              '&:hover': { backgroundColor: '#388e3c' },
+              '&:hover': { backgroundColor: 'success.main' },
             }}
           >
             {approve_label}
@@ -95,10 +97,10 @@ export default function ApprovalWidget({ data }) {
             size="small"
             onClick={handleReject}
             sx={{
-              borderColor: 'rgba(255, 255, 255, 0.2)',
+              borderColor: theme.custom.surfaces.cardBorder,
               color: 'text.secondary',
               textTransform: 'none',
-              '&:hover': { borderColor: 'rgba(255, 255, 255, 0.4)', backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+              '&:hover': { borderColor: 'primary.main', backgroundColor: theme.custom.surfaces.hoverBg },
             }}
           >
             {reject_label}

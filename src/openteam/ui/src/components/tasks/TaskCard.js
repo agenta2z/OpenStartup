@@ -28,40 +28,26 @@ import CommentIcon from '@mui/icons-material/Comment';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { useTheme } from '@mui/material/styles';
 import { StatusBadge, ProgressBar, PersonChip } from '../../shared';
 
 /* ------------------------------------------------------------------ */
 /*  Priority helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-const PRIORITY_CONFIG = {
-  critical: { color: '#f44336', label: 'Critical' },
-  high: { color: '#f44336', label: 'High' },
-  medium: { color: '#ff9800', label: 'Medium' },
-  low: { color: '#4caf50', label: 'Low' },
-};
-
-function getPriorityConfig(priority) {
-  const key = priority?.toLowerCase() || '';
-  return PRIORITY_CONFIG[key] || { color: '#90a4ae', label: priority || 'None' };
-}
+const PRIORITY_PALETTE = { critical: 'error', high: 'error', medium: 'warning', low: 'success' };
+const PRIORITY_LABELS = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
 
 function PriorityIndicator({ priority }) {
-  const config = getPriorityConfig(priority);
+  const theme = useTheme();
+  const key = priority?.toLowerCase() || '';
+  const paletteKey = PRIORITY_PALETTE[key] || 'neutral';
+  const color = theme.palette[paletteKey]?.main || theme.palette.neutral.main;
+  const label = PRIORITY_LABELS[key] || priority || 'None';
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          backgroundColor: config.color,
-          flexShrink: 0,
-        }}
-      />
-      <Typography variant="caption" sx={{ color: config.color, fontWeight: 500 }}>
-        {config.label}
-      </Typography>
+      <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+      <Typography variant="caption" sx={{ color, fontWeight: 500 }}>{label}</Typography>
     </Box>
   );
 }
@@ -149,11 +135,11 @@ export function TaskCard({ task }) {
         p: 0,
         borderRadius: 2,
         border: '1px solid',
-        borderColor: expanded ? 'rgba(74, 144, 217, 0.3)' : 'divider',
+        borderColor: expanded ? 'primary.main' : 'divider',
         backgroundColor: 'background.paper',
         transition: 'border-color 0.2s',
         '&:hover': {
-          borderColor: 'rgba(74, 144, 217, 0.25)',
+          borderColor: 'primary.dark',
         },
       }}
     >
@@ -252,7 +238,7 @@ export function TaskCard({ task }) {
                   sx={{
                     fontSize: '0.65rem',
                     height: 22,
-                    borderColor: 'rgba(255, 255, 255, 0.12)',
+                    borderColor: 'divider',
                     color: 'text.secondary',
                   }}
                 />
@@ -307,7 +293,7 @@ export function TaskCard({ task }) {
                       gap: 1,
                       p: 0.75,
                       borderRadius: 1,
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      backgroundColor: 'action.hover',
                     }}
                   >
                     <LinkIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
@@ -365,7 +351,7 @@ export function TaskCard({ task }) {
                       gap: 1,
                       p: 0.75,
                       borderRadius: 1,
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      backgroundColor: 'action.hover',
                     }}
                   >
                     <Box sx={{ color: 'text.secondary', mt: 0.1, flexShrink: 0 }}>

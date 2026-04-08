@@ -18,6 +18,7 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FlagIcon from '@mui/icons-material/Flag';
+import { useTheme } from '@mui/material/styles';
 import { useApiData } from '../../hooks/useApiData';
 import { StatusBadge, ProgressBar, PersonChip, LoadingIndicator, EmptyState } from '../../shared';
 
@@ -25,15 +26,12 @@ import { StatusBadge, ProgressBar, PersonChip, LoadingIndicator, EmptyState } fr
 /*  Priority dot color helper                                          */
 /* ------------------------------------------------------------------ */
 
-const PRIORITY_COLORS = {
-  critical: '#f44336',
-  high: '#ff9800',
-  medium: '#4a90d9',
-  low: '#90a4ae',
-};
+const PRIORITY_PALETTE = { critical: 'error', high: 'warning', medium: 'primary', low: 'neutral' };
 
 function PriorityDot({ priority }) {
-  const color = PRIORITY_COLORS[priority?.toLowerCase()] || PRIORITY_COLORS.medium;
+  const theme = useTheme();
+  const paletteKey = PRIORITY_PALETTE[priority?.toLowerCase()] || 'primary';
+  const color = theme.palette[paletteKey]?.main || theme.palette.primary.main;
   return (
     <Box
       sx={{
@@ -53,15 +51,16 @@ function PriorityDot({ priority }) {
 /* ------------------------------------------------------------------ */
 
 function TaskCard({ task }) {
+  const theme = useTheme();
   return (
     <Paper
       elevation={0}
       sx={{
         p: 1.5,
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        backgroundColor: theme.custom.surfaces.overlayLight,
+        border: `1px solid ${theme.custom.surfaces.cardBorder}`,
         borderRadius: 1.5,
-        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+        '&:hover': { backgroundColor: theme.custom.surfaces.hoverBg },
         transition: 'background-color 0.15s',
       }}
     >
@@ -99,13 +98,14 @@ function TaskCard({ task }) {
 /* ------------------------------------------------------------------ */
 
 const COLUMN_DEFS = [
-  { key: 'backlog', label: 'Backlog', color: '#90a4ae' },
-  { key: 'in-progress', label: 'In Progress', color: '#4a90d9' },
-  { key: 'in-review', label: 'In Review', color: '#ce93d8' },
-  { key: 'done', label: 'Done', color: '#4caf50' },
+  { key: 'backlog', label: 'Backlog', paletteKey: 'neutral' },
+  { key: 'in-progress', label: 'In Progress', paletteKey: 'primary' },
+  { key: 'in-review', label: 'In Review', paletteKey: 'info' },
+  { key: 'done', label: 'Done', paletteKey: 'success' },
 ];
 
 function KanbanColumn({ label, color, tasks }) {
+  const theme = useTheme();
   return (
     <Paper
       elevation={0}
@@ -114,8 +114,8 @@ function KanbanColumn({ label, color, tasks }) {
         minWidth: 220,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        backgroundColor: theme.custom.surfaces.overlayLight,
+        border: `1px solid ${theme.custom.surfaces.cardBorder}`,
         borderRadius: 2,
         overflow: 'hidden',
       }}
@@ -128,14 +128,14 @@ function KanbanColumn({ label, color, tasks }) {
           gap: 1,
           px: 2,
           py: 1.25,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: `1px solid ${theme.custom.surfaces.cardBorder}`,
         }}
       >
         <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color }} />
         <Typography variant="body2" sx={{ fontWeight: 600, flexGrow: 1 }}>
           {label}
         </Typography>
-        <Chip label={tasks.length} size="small" sx={{ height: 20, fontSize: '0.7rem', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <Chip label={tasks.length} size="small" sx={{ height: 20, fontSize: '0.7rem', backgroundColor: theme.custom.surfaces.overlayMedium }} />
       </Box>
 
       {/* Task cards */}
@@ -157,6 +157,7 @@ function KanbanColumn({ label, color, tasks }) {
 /* ------------------------------------------------------------------ */
 
 export default function SprintBoardView({ projectId, onBack }) {
+  const theme = useTheme();
   const { data: sprint, loading, error } = useApiData(
     projectId ? `/projects/${projectId}/sprint` : null
   );
@@ -232,7 +233,7 @@ export default function SprintBoardView({ projectId, onBack }) {
           <KanbanColumn
             key={col.key}
             label={col.label}
-            color={col.color}
+            color={theme.palette[col.paletteKey]?.main || theme.palette.neutral.main}
             tasks={buckets[col.key]}
           />
         ))}
@@ -248,8 +249,8 @@ export default function SprintBoardView({ projectId, onBack }) {
           px: 2,
           py: 1.5,
           borderRadius: 2,
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: theme.custom.surfaces.cardBg,
+          border: `1px solid ${theme.custom.surfaces.cardBorder}`,
         }}
       >
         <Box>
@@ -258,7 +259,7 @@ export default function SprintBoardView({ projectId, onBack }) {
         </Box>
         {COLUMN_DEFS.map((col) => (
           <Box key={col.key}>
-            <Typography variant="caption" sx={{ color: col.color, display: 'block' }}>{col.label}</Typography>
+            <Typography variant="caption" sx={{ color: theme.palette[col.paletteKey]?.main, display: 'block' }}>{col.label}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>{buckets[col.key].length}</Typography>
           </Box>
         ))}

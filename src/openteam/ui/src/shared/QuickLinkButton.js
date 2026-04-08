@@ -1,17 +1,11 @@
 /**
  * QuickLinkButton — icon + label link button for external resources.
- *
- * Renders as a compact outlined button with an MUI icon and label.
- * Opens the URL in a new tab.
- *
- * Props:
- *   label - string (e.g. "JIRA Board")
- *   url   - string URL
- *   icon  - string icon name (mapped to MUI icons) or React node
+ * Uses theme tokens for border and hover colors.
  */
 
 import React from 'react';
 import Button from '@mui/material/Button';
+import { useTheme } from '@mui/material/styles';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ArticleIcon from '@mui/icons-material/Article';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -20,15 +14,9 @@ import LinkIcon from '@mui/icons-material/Link';
 import LaunchIcon from '@mui/icons-material/Launch';
 
 const ICON_MAP = {
-  assignment: AssignmentIcon,
-  article: ArticleIcon,
-  chat: ChatIcon,
-  description: DescriptionIcon,
-  doc: DescriptionIcon,
-  link: LinkIcon,
-  jira: AssignmentIcon,
-  confluence: ArticleIcon,
-  slack: ChatIcon,
+  assignment: AssignmentIcon, article: ArticleIcon, chat: ChatIcon,
+  description: DescriptionIcon, doc: DescriptionIcon, link: LinkIcon,
+  jira: AssignmentIcon, confluence: ArticleIcon, slack: ChatIcon,
 };
 
 function resolveIcon(icon) {
@@ -38,27 +26,12 @@ function resolveIcon(icon) {
 }
 
 export function QuickLinkButton({ label, url, icon }) {
+  const theme = useTheme();
   return (
-    <Button
-      variant="outlined"
-      size="small"
-      startIcon={resolveIcon(icon)}
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      sx={{
-        borderColor: 'rgba(255, 255, 255, 0.15)',
-        color: 'text.secondary',
-        fontSize: '0.75rem',
-        px: 1.5,
-        py: 0.5,
-        '&:hover': {
-          borderColor: 'primary.main',
-          color: 'primary.light',
-          backgroundColor: 'rgba(74, 144, 217, 0.08)',
-        },
-      }}
-    >
+    <Button variant="outlined" size="small" startIcon={resolveIcon(icon)} href={url} target="_blank" rel="noopener noreferrer" sx={{
+      borderColor: theme.custom.surfaces.inputBorder, color: 'text.secondary', fontSize: '0.75rem', px: 1.5, py: 0.5,
+      '&:hover': { borderColor: 'primary.main', color: 'primary.light', backgroundColor: theme.custom.surfaces.highlightSubtle },
+    }}>
       {label}
     </Button>
   );

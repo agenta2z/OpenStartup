@@ -79,7 +79,7 @@ export function TaskFilters({ filters, onFilterChange, projects, employees }) {
         gap: 1.5,
         p: 2,
         borderRadius: 2,
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+        backgroundColor: 'action.hover',
         border: '1px solid',
         borderColor: 'divider',
       }}
@@ -105,13 +105,13 @@ export function TaskFilters({ filters, onFilterChange, projects, employees }) {
               onClick={() => onFilterChange('status', opt.value)}
               sx={{
                 fontWeight: isActive ? 600 : 400,
-                backgroundColor: isActive ? 'rgba(74, 144, 217, 0.15)' : 'transparent',
-                borderColor: isActive ? 'primary.main' : 'rgba(255, 255, 255, 0.15)',
+                backgroundColor: isActive ? 'action.selected' : 'transparent',
+                borderColor: isActive ? 'primary.main' : 'divider',
                 color: isActive ? 'primary.light' : 'text.secondary',
                 '&:hover': {
                   backgroundColor: isActive
-                    ? 'rgba(74, 144, 217, 0.2)'
-                    : 'rgba(255, 255, 255, 0.06)',
+                    ? 'action.selected'
+                    : 'action.hover',
                 },
                 cursor: 'pointer',
                 transition: 'all 0.15s',

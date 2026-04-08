@@ -13,16 +13,9 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 
 import { StatusBadge, ProgressBar } from '../../shared';
-
-const WIDGET_BOX_SX = {
-  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: 2,
-  p: 2,
-  mt: 1.5,
-};
 
 function AssigneeLabel({ name, type }) {
   const icon = type === 'ai' ? '\u{1F916}' : '\u{1F464}';
@@ -34,10 +27,19 @@ function AssigneeLabel({ name, type }) {
 }
 
 export default function SprintProgressWidget({ data }) {
+  const theme = useTheme();
   const { sprint, overall_percent = 0, tasks = [] } = data || {};
 
+  const widgetBoxSx = {
+    backgroundColor: theme.custom.surfaces.overlayLight,
+    border: `1px solid ${theme.custom.surfaces.cardBorder}`,
+    borderRadius: 2,
+    p: 2,
+    mt: 1.5,
+  };
+
   return (
-    <Box sx={WIDGET_BOX_SX}>
+    <Box sx={widgetBoxSx}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
         <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -58,7 +60,7 @@ export default function SprintProgressWidget({ data }) {
               alignItems: 'center',
               gap: 1.5,
               py: 0.75,
-              borderTop: i > 0 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+              borderTop: i > 0 ? `1px solid ${theme.custom.surfaces.cardBorder}` : 'none',
             }}
           >
             <Typography

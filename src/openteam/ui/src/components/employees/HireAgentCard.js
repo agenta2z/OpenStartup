@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
 import AddIcon from '@mui/icons-material/Add';
+import ScienceIcon from '@mui/icons-material/Science';
+import SchoolIcon from '@mui/icons-material/School';
 import HireAgentPopover from './HireAgentPopover';
 
 const GREEK = ['Alpha','Beta','Gamma','Delta','Epsilon','Zeta','Eta','Theta','Iota','Kappa','Lambda','Mu'];
@@ -19,6 +25,7 @@ const ROLES = [
 export default function HireAgentCard({ roleSkillsMap, teams, existingAgentCount }) {
   const [selectedRole, setSelectedRole] = useState(null);
   const [popoverAnchor, setPopoverAnchor] = useState(null);
+  const [onboarding, setOnboarding] = useState(['ai-lab']);
 
   const suggestedName = `Agent-${GREEK[existingAgentCount] || 'New'}`;
 
@@ -36,40 +43,68 @@ export default function HireAgentCard({ roleSkillsMap, teams, existingAgentCount
     <Paper
       elevation={0}
       sx={{
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        border: '1px dashed rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'action.hover',
+        border: '1px dashed', borderColor: 'divider',
         borderRadius: 3,
         p: 2,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         gap: 1.5,
         height: '100%',
       }}
     >
-      {/* Dashed circle with + icon */}
-      <Box
-        sx={{
-          width: 56,
-          height: 56,
-          border: '2px dashed rgba(255, 255, 255, 0.25)',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <AddIcon sx={{ fontSize: 28, color: 'text.secondary' }} />
+      {/* Header row: icon + title/subtitle */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            border: '2px dashed', borderColor: 'divider',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <AddIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+            Hire New AI Employee
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            Expand your team with a new AI employee
+          </Typography>
+        </Box>
       </Box>
 
-      {/* Title and subtitle */}
-      <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center' }}>
-        Hire New AI Employee
-      </Typography>
-      <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-        Expand your team with a new AI employee
-      </Typography>
+      {/* Onboarding procedure multi-select dropdown */}
+      <Box sx={{ width: '100%', mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+          Onboarding Procedures
+        </Typography>
+        <Select
+          multiple
+          value={onboarding}
+          onChange={(e) => setOnboarding(e.target.value)}
+          size="small"
+          fullWidth
+          renderValue={(selected) => selected.map(v => v === 'ai-lab' ? 'AI-Lab Onboarding' : 'General Onboarding').join(', ')}
+          sx={{ fontSize: '0.8rem' }}
+        >
+          <MenuItem value="ai-lab" sx={{ fontSize: '0.8rem' }}>
+            <Checkbox size="small" checked={onboarding.includes('ai-lab')} sx={{ py: 0 }} />
+            <ScienceIcon sx={{ fontSize: 14, color: 'primary.main', mr: 0.75 }} />
+            <ListItemText primary="AI-Lab Onboarding" primaryTypographyProps={{ fontSize: '0.8rem' }} />
+          </MenuItem>
+          <MenuItem value="general" sx={{ fontSize: '0.8rem' }}>
+            <Checkbox size="small" checked={onboarding.includes('general')} sx={{ py: 0 }} />
+            <SchoolIcon sx={{ fontSize: 14, color: 'success.main', mr: 0.75 }} />
+            <ListItemText primary="General Onboarding" primaryTypographyProps={{ fontSize: '0.8rem' }} />
+          </MenuItem>
+        </Select>
+      </Box>
 
       {/* 2x3 role button grid */}
       <Box
@@ -93,13 +128,13 @@ export default function HireAgentCard({ roleSkillsMap, teams, existingAgentCount
               px: 1.25,
               py: 0.75,
               borderRadius: 1.5,
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
+              backgroundColor: 'action.hover',
+              border: '1px solid', borderColor: 'divider',
               cursor: 'pointer',
               transition: 'background-color 0.15s, border-color 0.15s',
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderColor: 'rgba(255, 255, 255, 0.2)',
+                backgroundColor: 'action.selected',
+                borderColor: 'divider',
               },
             }}
           >

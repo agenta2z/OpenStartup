@@ -1,12 +1,14 @@
 /**
  * RoleControlPopover — advanced role configuration panel.
  *
- * Five sections:
+ * Four sections (internal agent configuration):
  * 1. Role Description
  * 2. Mindset Presets
  * 3. SOPs (Standard Operating Procedures)
- * 4. Communication Rules
- * 5. Guardrails
+ * 4. Guardrails
+ *
+ * Communication/collaboration rules have moved to OrgCollaborationPopover,
+ * which manages all external interaction scope (org, role, and employee level).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,22 +29,12 @@ import Tab from '@mui/material/Tab';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import ForumIcon from '@mui/icons-material/Forum';
 import SecurityIcon from '@mui/icons-material/Security';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
-
-const ALL_KNOWN_ROLES = [
-  'Software Engineer',
-  'Machine Learning Engineer',
-  'QA / Testing Engineer',
-  'Program Manager',
-  'UX Designer',
-  'Tech Lead',
-  'Engineering Manager',
-];
+import { useTheme } from '@mui/material/styles';
 
 const AUTONOMY_OPTIONS = ['low', 'medium', 'high', 'full'];
 const ESCALATION_OPTIONS = ['30min', '1h', '2h', '4h', '8h'];
@@ -67,8 +59,8 @@ const APPROVAL_ITEMS = [
 ];
 
 const sectionSx = {
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.06)',
+  backgroundColor: 'action.hover',
+  border: '1px solid', borderColor: 'divider',
   borderRadius: 1.5,
   p: 1.5,
   mb: 1.5,
@@ -96,7 +88,6 @@ const DEFAULT_CONFIG = {
   description: '',
   mindsets: [],
   sops: [],
-  communication: { allow_all: true, allowed_roles: [...ALL_KNOWN_ROLES], blocked_roles: [] },
   guardrails: {
     max_concurrent_tasks: 3,
     max_autonomy: 'medium',
@@ -119,6 +110,7 @@ export default function RoleControlPopover({
   roleConfig,
 }) {
   const config = roleConfig || DEFAULT_CONFIG;
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
 
   // ── State ──
@@ -133,11 +125,6 @@ export default function RoleControlPopover({
   const [editingSopIdx, setEditingSopIdx] = useState(null);
   const [showAddSop, setShowAddSop] = useState(false);
   const [newSop, setNewSop] = useState({ title: '', trigger: '', steps: '' });
-
-  const [allowAll, setAllowAll] = useState(config.communication?.allow_all ?? true);
-  const [allowedRoles, setAllowedRoles] = useState(config.communication?.allowed_roles || []);
-  const [blockedRoles, setBlockedRoles] = useState(config.communication?.blocked_roles || []);
-  const [newBlockedRole, setNewBlockedRole] = useState('');
 
   const [maxConcurrent, setMaxConcurrent] = useState(config.guardrails?.max_concurrent_tasks ?? 3);
   const [maxAutonomy, setMaxAutonomy] = useState(config.guardrails?.max_autonomy || 'medium');
@@ -156,10 +143,6 @@ export default function RoleControlPopover({
     setEditingSopIdx(null);
     setShowAddSop(false);
     setNewSop({ title: '', trigger: '', steps: '' });
-    setAllowAll(config.communication?.allow_all ?? true);
-    setAllowedRoles(config.communication?.allowed_roles || []);
-    setBlockedRoles(config.communication?.blocked_roles || []);
-    setNewBlockedRole('');
     setMaxConcurrent(config.guardrails?.max_concurrent_tasks ?? 3);
     setMaxAutonomy(config.guardrails?.max_autonomy || 'medium');
     setEscalation(config.guardrails?.escalation_threshold || '2h');
@@ -205,20 +188,6 @@ export default function RoleControlPopover({
     }
   };
 
-  // ── Communication handlers ──
-  const toggleAllowedRole = (r) => {
-    setAllowedRoles(prev =>
-      prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]
-    );
-  };
-
-  const addBlockedRole = () => {
-    if (newBlockedRole && !blockedRoles.includes(newBlockedRole)) {
-      setBlockedRoles(prev => [...prev, newBlockedRole]);
-      setNewBlockedRole('');
-    }
-  };
-
   // ── Approval handlers ──
   const toggleApproval = (item) => {
     setApprovalRequired(prev =>
@@ -238,7 +207,7 @@ export default function RoleControlPopover({
           width: 480,
           maxHeight: '80vh',
           backgroundColor: 'background.paper',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: '1px solid', borderColor: 'divider',
           borderRadius: 2,
           p: 2.5,
           overflow: 'auto',
@@ -262,7 +231,7 @@ export default function RoleControlPopover({
         sx={{
           minHeight: 36,
           mb: 1.5,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: '1px solid', borderBottomColor: 'divider',
           '& .MuiTab-root': {
             textTransform: 'none',
             minHeight: 36,
@@ -277,7 +246,6 @@ export default function RoleControlPopover({
         <Tab icon={<DescriptionIcon sx={{ fontSize: 14 }} />} iconPosition="start" label="Description" />
         <Tab icon={<PsychologyIcon sx={{ fontSize: 14 }} />} iconPosition="start" label="Mindsets" />
         <Tab icon={<AssignmentIcon sx={{ fontSize: 14 }} />} iconPosition="start" label="SOPs" />
-        <Tab icon={<ForumIcon sx={{ fontSize: 14 }} />} iconPosition="start" label="Communication" />
         <Tab icon={<SecurityIcon sx={{ fontSize: 14 }} />} iconPosition="start" label="Guardrails" />
       </Tabs>
 
@@ -380,8 +348,8 @@ export default function RoleControlPopover({
               mb: 1.5,
               p: 1,
               borderRadius: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.04)',
+              backgroundColor: 'action.hover',
+              border: '1px solid', borderColor: 'divider',
             }}
           >
             {editingSopIdx === idx ? (
@@ -447,7 +415,7 @@ export default function RoleControlPopover({
         ))}
 
         {showAddSop ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, p: 1, borderRadius: 1, border: '1px dashed rgba(255,255,255,0.1)' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, p: 1, borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
             <TextField
               label="Title"
               value={newSop.title}
@@ -496,102 +464,8 @@ export default function RoleControlPopover({
       </Box>
       )}
 
-      {/* ── Tab 3: Communication Rules ── */}
+      {/* ── Tab 3: Guardrails ── */}
       {activeTab === 3 && (
-      <Box sx={sectionSx}>
-        <SectionTitle
-          icon={<ForumIcon sx={{ fontSize: 14, color: 'primary.light' }} />}
-          title="Communication Rules"
-        />
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={allowAll}
-              onChange={(e) => setAllowAll(e.target.checked)}
-              size="small"
-              sx={{ py: 0.25 }}
-            />
-          }
-          label={
-            <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-              Allow communication with all roles
-            </Typography>
-          }
-          sx={{ display: 'flex', ml: -0.5, mb: 1 }}
-        />
-
-        {!allowAll && (
-          <Box sx={{ mb: 1.5 }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.75, fontSize: '0.65rem', fontWeight: 600 }}>
-              ALLOWED ROLES
-            </Typography>
-            {ALL_KNOWN_ROLES.map((r) => (
-              <FormControlLabel
-                key={r}
-                control={
-                  <Checkbox
-                    checked={allowedRoles.includes(r)}
-                    onChange={() => toggleAllowedRole(r)}
-                    size="small"
-                    sx={{ py: 0.15 }}
-                  />
-                }
-                label={
-                  <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    {r}
-                  </Typography>
-                }
-                sx={{ display: 'flex', ml: -0.5, mb: 0 }}
-              />
-            ))}
-          </Box>
-        )}
-
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.75, fontSize: '0.65rem', fontWeight: 600 }}>
-          BLOCKED ROLES
-        </Typography>
-        {blockedRoles.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-            {blockedRoles.map((r) => (
-              <Chip
-                key={r}
-                label={r}
-                size="small"
-                onDelete={() => setBlockedRoles(prev => prev.filter(x => x !== r))}
-                sx={{
-                  height: 22,
-                  fontSize: '0.65rem',
-                  backgroundColor: 'rgba(244, 67, 54, 0.12)',
-                  color: '#ef9a9a',
-                  '& .MuiChip-deleteIcon': { fontSize: 14, color: '#ef9a9a' },
-                }}
-              />
-            ))}
-          </Box>
-        )}
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          <Select
-            value={newBlockedRole}
-            onChange={(e) => setNewBlockedRole(e.target.value)}
-            displayEmpty
-            size="small"
-            sx={{ flexGrow: 1, fontSize: '0.8rem' }}
-            renderValue={(v) => v || <span style={{ color: '#666' }}>Add to block list...</span>}
-          >
-            {ALL_KNOWN_ROLES.filter(r => !blockedRoles.includes(r)).map((r) => (
-              <MenuItem key={r} value={r} sx={{ fontSize: '0.8rem' }}>{r}</MenuItem>
-            ))}
-          </Select>
-          <Button size="small" onClick={addBlockedRole} disabled={!newBlockedRole} sx={{ textTransform: 'none', fontSize: '0.75rem', minWidth: 50 }}>
-            Block
-          </Button>
-        </Box>
-      </Box>
-      )}
-
-      {/* ── Tab 4: Guardrails ── */}
-      {activeTab === 4 && (
       <Box sx={sectionSx}>
         <SectionTitle
           icon={<SecurityIcon sx={{ fontSize: 14, color: 'primary.light' }} />}
@@ -718,7 +592,7 @@ export default function RoleControlPopover({
       </Box>
       )}
 
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)', mb: 1.5 }} />
+      <Divider sx={{ borderColor: 'divider', mb: 1.5 }} />
 
       {/* Actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

@@ -76,6 +76,7 @@ class DataService(ABC):
         type_filter: str | None = None,
         team_id: str | None = None,
         status: str | None = None,
+        org_id: str | None = None,
     ) -> list[dict]: ...
 
     @abstractmethod
@@ -118,6 +119,41 @@ class DataService(ABC):
     @abstractmethod
     def get_dashboard_summary(self) -> dict: ...
 
+    # ── Organizations ────────────────────────────────────────────
+    @abstractmethod
+    def get_organizations(self) -> list[dict]: ...
+
+    @abstractmethod
+    def get_organization(self, org_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def get_org_tree(self, org_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def get_employee_org(self, employee_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def get_collaboration_config(self, employee_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def update_collaboration_config(self, employee_id: str, config: dict) -> dict: ...
+
+    @abstractmethod
+    def get_employee_acl(self, employee_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def update_employee_acl(self, employee_id: str, acl: dict) -> dict: ...
+
+    @abstractmethod
+    def get_org_default_acl(self, org_id: str) -> dict | None: ...
+
+    # ── Stat Drilldown Events ────────────────────────────────────
+    @abstractmethod
+    def get_crash_events(self, employee_id: str) -> list[dict]: ...
+
+    @abstractmethod
+    def get_issue_events(self, employee_id: str) -> list[dict]: ...
+
     # ── Resolution helpers ───────────────────────────────────────
     @abstractmethod
     def resolve_employee_summary(self, employee_id: str) -> dict | None: ...
@@ -141,6 +177,13 @@ class MockDataService(DataService):
         self._sessions = self._load("manager_sessions.json")
         self._role_skills = self._load_dict("role_skills.json")
         self._role_configs = self._load_dict("role_configs.json")
+        self._organizations = self._load("organizations.json")
+        self._org_memberships = self._load("org_memberships.json")
+        self._collaboration_configs = self._load_dict("collaboration_configs.json")
+        self._employee_acls = self._load_dict("employee_acls.json")
+        self._org_default_acls = self._load_dict("org_default_acls.json")
+        self._crash_events = self._load_dict("crash_events.json")
+        self._issue_events = self._load_dict("issue_events.json")
 
         # Build O(1) lookup indices
         self._team_idx: dict[str, dict] = {t["id"]: t for t in self._teams}
@@ -152,11 +195,16 @@ class MockDataService(DataService):
         for s in self._sprints:
             self._sprint_idx[(s["project_id"], s["number"])] = s
         self._session_idx: dict[str, dict] = {s["id"]: s for s in self._sessions}
+        self._org_idx: dict[str, dict] = {o["id"]: o for o in self._organizations}
+        self._membership_by_employee: dict[str, dict] = {
+            m["employee_id"]: m for m in self._org_memberships
+        }
 
         logger.info(
-            "MockDataService loaded: %d teams, %d projects, %d tasks, %d employees, %d conversations, %d sprints",
+            "MockDataService loaded: %d teams, %d projects, %d tasks, %d employees, %d conversations, %d sprints, %d orgs",
             len(self._teams), len(self._projects), len(self._tasks),
             len(self._employees), len(self._conversations), len(self._sprints),
+            len(self._organizations),
         )
 
     def _load(self, filename: str) -> list[dict]:
@@ -295,8 +343,12 @@ class MockDataService(DataService):
         type_filter: str | None = None,
         team_id: str | None = None,
         status: str | None = None,
+        org_id: str | None = None,
     ) -> list[dict]:
         result = self._employees
+        if org_id:
+            member_ids = {m["employee_id"] for m in self._org_memberships if m["org_id"] == org_id}
+            result = [e for e in result if e["id"] in member_ids]
         if type_filter:
             result = [e for e in result if e.get("type") == type_filter]
         if team_id:
@@ -435,6 +487,96 @@ class MockDataService(DataService):
             ],
             "active_conversations": len(self._conversations),
         }
+
+    # ── Organizations ────────────────────────────────────────────
+
+    def get_organizations(self) -> list[dict]:
+        return self._organizations
+
+    def get_organization(self, org_id: str) -> dict | None:
+        org = self._org_idx.get(org_id)
+        if not org:
+            return None
+        result = {**org}
+        result["members"] = [
+            self.resolve_employee_summary(eid)
+            for eid in org.get("member_ids", [])
+            if self.resolve_employee_summary(eid)
+        ]
+        result["head"] = self.resolve_employee_summary(org["head_id"])
+        return result
+
+    def get_org_tree(self, org_id: str) -> dict | None:
+        org = self._org_idx.get(org_id)
+        if not org:
+            return None
+        # Build tree from memberships
+        members = [
+            m for m in self._org_memberships if m["org_id"] == org_id
+        ]
+        nodes = []
+        for m in members:
+            emp = self.resolve_employee_summary(m["employee_id"])
+            if emp:
+                nodes.append({
+                    **emp,
+                    "reports_to": m.get("reports_to"),
+                    "org_role": m.get("org_role", "member"),
+                })
+        return {
+            "org_id": org_id,
+            "org_name": org["name"],
+            "head_id": org["head_id"],
+            "nodes": nodes,
+        }
+
+    def get_employee_org(self, employee_id: str) -> dict | None:
+        membership = self._membership_by_employee.get(employee_id)
+        if not membership:
+            return None
+        org = self._org_idx.get(membership["org_id"])
+        return {
+            **membership,
+            "org_name": org["name"] if org else None,
+            "org_description": org["description"] if org else None,
+        }
+
+    def get_collaboration_config(self, employee_id: str) -> dict | None:
+        return self._collaboration_configs.get(employee_id)
+
+    def update_collaboration_config(self, employee_id: str, config: dict) -> dict:
+        self._collaboration_configs[employee_id] = config
+        return config
+
+    def get_employee_acl(self, employee_id: str) -> dict | None:
+        acl = self._employee_acls.get(employee_id)
+        if acl and acl.get("inherited_from_org") and not acl.get("entries"):
+            # Resolve from org defaults
+            membership = self._membership_by_employee.get(employee_id)
+            if membership:
+                org_acl = self._org_default_acls.get(membership["org_id"])
+                if org_acl:
+                    return {
+                        "employee_id": employee_id,
+                        "inherited_from_org": True,
+                        "entries": org_acl.get("entries", []),
+                    }
+        return acl
+
+    def update_employee_acl(self, employee_id: str, acl: dict) -> dict:
+        self._employee_acls[employee_id] = acl
+        return acl
+
+    def get_org_default_acl(self, org_id: str) -> dict | None:
+        return self._org_default_acls.get(org_id)
+
+    # ── Stat Drilldown Events ────────────────────────────────────
+
+    def get_crash_events(self, employee_id: str) -> list[dict]:
+        return self._crash_events.get(employee_id, [])
+
+    def get_issue_events(self, employee_id: str) -> list[dict]:
+        return self._issue_events.get(employee_id, [])
 
     # ── Resolution helpers ───────────────────────────────────────
 

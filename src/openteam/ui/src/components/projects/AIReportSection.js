@@ -66,7 +66,7 @@ export function AIReportSection({ report }) {
           <Box>
             <Typography
               variant="caption"
-              sx={{ fontWeight: 600, color: '#f44336', display: 'block', mb: 0.5 }}
+              sx={{ fontWeight: 600, color: 'error.main', display: 'block', mb: 0.5 }}
             >
               Blockers:
             </Typography>
@@ -76,7 +76,7 @@ export function AIReportSection({ report }) {
                   key={idx}
                   component="li"
                   variant="caption"
-                  sx={{ color: '#ef9a9a', lineHeight: 1.6 }}
+                  sx={{ color: 'error.light', lineHeight: 1.6 }}
                 >
                   {item}
                 </Typography>
@@ -99,7 +99,7 @@ export function AIReportSection({ report }) {
             alignItems: 'center',
             justifyContent: 'space-between',
             pt: 1,
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            borderTop: '1px solid', borderTopColor: 'divider',
           }}
         >
           <Typography variant="caption" sx={{ color: 'text.secondary', opacity: 0.7 }}>

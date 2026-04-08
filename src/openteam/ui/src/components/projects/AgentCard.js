@@ -1,13 +1,10 @@
 import React from 'react';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { StatusBadge, ProgressBar } from '../../shared';
 
-const STATUS_BORDER_COLORS = {
-  active: '#4caf50',
-  queued: '#ff9800',
-  pending: '#f06292',
-};
+const STATUS_BORDER_PALETTE = { active: 'success', queued: 'warning', pending: 'secondary' };
 
 function formatSyncTime(lastSync) {
   if (!lastSync) return null;
@@ -20,17 +17,18 @@ function formatSyncTime(lastSync) {
 }
 
 export function AgentCard({ agent, currentTask, correspondence }) {
+  const theme = useTheme();
   if (!agent) return null;
 
   const status = agent.status?.toLowerCase() || 'active';
-  const borderColor = STATUS_BORDER_COLORS[status] || '#90a4ae';
+  // borderColor resolved in sx below
 
   return (
     <Box
       sx={{
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
-        borderLeft: `3px solid ${borderColor}`,
+        backgroundColor: 'action.hover',
+        border: '1px solid', borderColor: 'divider',
+        borderLeft: `3px solid ${theme.palette[STATUS_BORDER_PALETTE[status] || 'neutral']?.main || theme.palette.neutral.main}`,
         borderRadius: 2,
         p: 1.5,
         display: 'flex',

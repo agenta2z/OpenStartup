@@ -15,7 +15,7 @@
     "estimated_hours": 10,
     "tags": ["architecture", "review", "auth"],
     "activity": [
-      {"timestamp": "2026-03-25T17:00:00Z", "type": "comment", "message": "Final review comments added. Waiting for Agent-Alpha to address two minor concerns.", "actor_id": "emp-005"},
+      {"timestamp": "2026-03-25T17:00:00Z", "type": "comment", "message": "Final review comments added. Waiting for AI-Alpha to address two minor concerns.", "actor_id": "emp-005"},
       {"timestamp": "2026-03-24T11:00:00Z", "type": "status_change", "message": "Status changed from in-progress to in-review", "actor_id": "emp-005"},
       {"timestamp": "2026-03-20T09:30:00Z", "type": "assignment", "message": "Sarah Chen self-assigned this task", "actor_id": "emp-005"}
     ]
@@ -77,8 +77,8 @@
     "estimated_hours": 4,
     "tags": ["testing", "integration", "auth", "automation"],
     "activity": [
-      {"timestamp": "2026-03-26T05:30:00Z", "type": "progress", "message": "14 of 16 edge cases now covered. Awaiting test data spec from Agent-Alpha for remaining 2.", "actor_id": "emp-002"},
-      {"timestamp": "2026-03-25T14:45:00Z", "type": "comment", "message": "Discussed test data requirements with Agent-Alpha in conv-002.", "actor_id": "emp-002"},
+      {"timestamp": "2026-03-26T05:30:00Z", "type": "progress", "message": "14 of 16 edge cases now covered. Awaiting test data spec from AI-Alpha for remaining 2.", "actor_id": "emp-002"},
+      {"timestamp": "2026-03-25T14:45:00Z", "type": "comment", "message": "Discussed test data requirements with AI-Alpha in conv-002.", "actor_id": "emp-002"},
       {"timestamp": "2026-03-20T09:00:00Z", "type": "status_change", "message": "Status changed from backlog to in-progress", "actor_id": "emp-002"}
     ]
   },
@@ -98,7 +98,7 @@
     "estimated_hours": 3,
     "tags": ["backend", "migration", "auth"],
     "activity": [
-      {"timestamp": "2026-03-10T09:00:00Z", "type": "created", "message": "Task created and assigned to Agent-Alpha", "actor_id": "emp-005"}
+      {"timestamp": "2026-03-10T09:00:00Z", "type": "created", "message": "Task created and assigned to AI-Alpha", "actor_id": "emp-005"}
     ]
   },
   {
@@ -393,14 +393,14 @@
     "pending_reason": {
       "type": "review_needed",
       "icon": "\ud83d\udc41",
-      "summary": "UX design review pending from Agent-Delta",
-      "details": "The offline-first data layer architecture needs UX review to ensure the sync UI patterns work well. Agent-Delta (UX Designer) is currently pending on another task.",
+      "summary": "UX design review pending from AI-Delta",
+      "details": "The offline-first data layer architecture needs UX review to ensure the sync UI patterns work well. AI-Delta (UX Designer) is currently pending on another task.",
       "pending_since": "2026-03-26T09:00:00Z",
       "resolution": {
         "prompt": "How would you like to resolve this?",
         "options": [
-          {"id": "expedite", "label": "Request expedited review from Agent-Delta", "description": "Send priority review request to Agent-Delta", "action_type": "expedite", "requires_input": false},
-          {"id": "reassign", "label": "Assign to different reviewer", "description": "Pick another team member for the UX review", "action_type": "reassign", "requires_input": true, "input_type": "select", "input_label": "Select reviewer", "input_options": ["Agent-Gamma", "Emma Nguyen", "Sarah Chen"]},
+          {"id": "expedite", "label": "Request expedited review from AI-Delta", "description": "Send priority review request to AI-Delta", "action_type": "expedite", "requires_input": false},
+          {"id": "reassign", "label": "Assign to different reviewer", "description": "Pick another team member for the UX review", "action_type": "reassign", "requires_input": true, "input_type": "select", "input_label": "Select reviewer", "input_options": ["AI-Gamma", "Emma Nguyen", "Sarah Chen"]},
           {"id": "skip", "label": "Skip review — proceed without", "description": "Proceed without UX review (requires justification)", "action_type": "skip", "requires_input": true, "input_type": "text", "input_label": "Justification", "input_placeholder": "Explain why UX review can be skipped..."},
           {"id": "dismiss", "label": "Keep waiting", "description": "No action needed right now", "action_type": "dismiss", "requires_input": false}
         ]

@@ -21,6 +21,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import LinkIcon from '@mui/icons-material/Link';
+import { useTheme } from '@mui/material/styles';
 import { useApiData } from '../../hooks/useApiData';
 import { LoadingIndicator, EmptyState } from '../../shared';
 
@@ -28,14 +29,13 @@ import { LoadingIndicator, EmptyState } from '../../shared';
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const AVATAR_COLORS = ['#4a90d9', '#7c4dff', '#00bcd4', '#ff7043', '#4caf50', '#e91e63'];
-
-function getSenderColor(name) {
+function getSenderColor(name, theme) {
+  const colors = theme.custom.categorical;
   let hash = 0;
   for (let i = 0; i < (name || '').length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  return colors[Math.abs(hash) % colors.length];
 }
 
 /**
@@ -59,8 +59,9 @@ function MessageContent({ content }) {
               sx={{
                 p: 1.5,
                 borderRadius: 1,
-                backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                backgroundColor: 'action.hover',
+                border: '1px solid',
+                borderColor: 'divider',
                 overflow: 'auto',
                 fontSize: '0.8rem',
                 fontFamily: '"Fira Code", "Consolas", monospace',
@@ -88,8 +89,9 @@ function MessageContent({ content }) {
 /* ------------------------------------------------------------------ */
 
 function MessageBubble({ message }) {
+  const theme = useTheme();
   const isAI = message.sender_type === 'ai';
-  const senderColor = getSenderColor(message.sender_name || message.sender);
+  const senderColor = getSenderColor(message.sender_name || message.sender, theme);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 1.5 }}>
@@ -128,6 +130,7 @@ function MessageBubble({ message }) {
 /* ------------------------------------------------------------------ */
 
 export default function ConversationView({ conversationId, onBack }) {
+  const theme = useTheme();
   const { data: conversation, loading, error } = useApiData(
     conversationId ? `/conversations/${conversationId}` : null
   );
@@ -191,7 +194,7 @@ export default function ConversationView({ conversationId, onBack }) {
             label={`Project: ${conversation.project_name || conversation.project}`}
             size="small"
             variant="outlined"
-            sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary' }}
+            sx={{ borderColor: theme.custom.surfaces.inputBorder, color: 'text.secondary' }}
           />
         )}
         {conversation.related_task && (
@@ -200,7 +203,7 @@ export default function ConversationView({ conversationId, onBack }) {
             label={`Task: ${conversation.related_task_name || conversation.related_task}`}
             size="small"
             variant="outlined"
-            sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary' }}
+            sx={{ borderColor: theme.custom.surfaces.inputBorder, color: 'text.secondary' }}
           />
         )}
       </Box>
@@ -209,8 +212,8 @@ export default function ConversationView({ conversationId, onBack }) {
       <Paper
         elevation={0}
         sx={{
-          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: theme.custom.surfaces.overlayLight,
+          border: `1px solid ${theme.custom.surfaces.cardBorder}`,
           borderRadius: 2,
           px: 3,
           py: 1,
@@ -239,8 +242,8 @@ export default function ConversationView({ conversationId, onBack }) {
           gap: 4,
           flexWrap: 'wrap',
           p: 2,
-          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: theme.custom.surfaces.overlayLight,
+          border: `1px solid ${theme.custom.surfaces.cardBorder}`,
           borderRadius: 2,
         }}
       >

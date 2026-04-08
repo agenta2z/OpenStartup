@@ -13,16 +13,10 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-
-const WIDGET_BOX_SX = {
-  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: 2,
-  p: 2,
-  mt: 1.5,
-};
+import { useTheme } from '@mui/material/styles';
 
 export default function ChoiceWidget({ data }) {
+  const theme = useTheme();
   const { prompt, options = [] } = data || {};
   const [selectedId, setSelectedId] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -35,15 +29,23 @@ export default function ChoiceWidget({ data }) {
 
   const selectedLabel = options.find((o) => o.id === selectedId)?.label;
 
+  const widgetBoxSx = {
+    backgroundColor: theme.custom.surfaces.overlayLight,
+    border: `1px solid ${theme.custom.surfaces.cardBorder}`,
+    borderRadius: 2,
+    p: 2,
+    mt: 1.5,
+  };
+
   return (
-    <Box sx={WIDGET_BOX_SX}>
+    <Box sx={widgetBoxSx}>
       {/* Header */}
       <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600, mb: 1.5 }}>
         {prompt || 'Choose an option'}
       </Typography>
 
       {confirmed ? (
-        <Typography variant="body2" sx={{ color: '#4a90d9', fontWeight: 500 }}>
+        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>
           Selected: {selectedLabel}
         </Typography>
       ) : (
@@ -59,21 +61,14 @@ export default function ChoiceWidget({ data }) {
                   sx={{
                     p: 1.5,
                     borderRadius: 1.5,
-                    border: isSelected
-                      ? '1px solid #4a90d9'
-                      : '1px solid rgba(255, 255, 255, 0.08)',
-                    backgroundColor: isSelected
-                      ? 'rgba(74, 144, 217, 0.08)'
-                      : 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid',
+                    borderColor: isSelected ? 'primary.main' : theme.custom.surfaces.cardBorder,
+                    backgroundColor: isSelected ? theme.custom.surfaces.overlayMedium : theme.custom.surfaces.overlayLight,
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                     '&:hover': {
-                      backgroundColor: isSelected
-                        ? 'rgba(74, 144, 217, 0.12)'
-                        : 'rgba(255, 255, 255, 0.06)',
-                      borderColor: isSelected
-                        ? '#4a90d9'
-                        : 'rgba(255, 255, 255, 0.15)',
+                      backgroundColor: isSelected ? theme.custom.surfaces.overlayActive : theme.custom.surfaces.hoverBg,
+                      borderColor: isSelected ? 'primary.main' : theme.custom.surfaces.cardBorder,
                     },
                   }}
                 >
@@ -97,11 +92,11 @@ export default function ChoiceWidget({ data }) {
             disabled={selectedId == null}
             onClick={handleConfirm}
             sx={{
-              backgroundColor: '#4a90d9',
-              color: '#fff',
+              backgroundColor: 'primary.main',
+              color: 'common.white',
               textTransform: 'none',
-              '&:hover': { backgroundColor: '#5a9fe0' },
-              '&.Mui-disabled': { backgroundColor: 'rgba(255, 255, 255, 0.08)', color: 'rgba(255, 255, 255, 0.3)' },
+              '&:hover': { backgroundColor: 'primary.light' },
+              '&.Mui-disabled': { backgroundColor: theme.custom.surfaces.overlayMedium, color: 'text.secondary' },
             }}
           >
             Confirm Selection

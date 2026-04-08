@@ -44,7 +44,7 @@ export default function EmailComposeBox({ agentName, onClose, onSend }) {
           justifyContent: 'space-between',
           px: 1.5,
           py: 0.75,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid', borderBottomColor: 'divider',
         }}
       >
         <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>

@@ -11,7 +11,7 @@
           "id": "task-005",
           "title": "Session migration script",
           "priority": "medium",
-          "assignees": [{"id": "emp-001", "name": "Agent-Alpha", "type": "ai"}],
+          "assignees": [{"id": "emp-001", "name": "AI-Alpha", "type": "ai"}],
           "progress_percent": 0
         },
         {
@@ -25,7 +25,7 @@
           "id": "task-009",
           "title": "Update API documentation for auth endpoints",
           "priority": "medium",
-          "assignees": [{"id": "emp-003", "name": "Agent-Gamma", "type": "ai"}],
+          "assignees": [{"id": "emp-003", "name": "AI-Gamma", "type": "ai"}],
           "progress_percent": 0
         },
         {
@@ -33,7 +33,7 @@
           "title": "Load testing suite for auth endpoints",
           "priority": "medium",
           "assignees": [
-            {"id": "emp-002", "name": "Agent-Beta", "type": "ai"},
+            {"id": "emp-002", "name": "AI-Beta", "type": "ai"},
             {"id": "emp-006", "name": "Marcus Rivera", "type": "human"}
           ],
           "progress_percent": 0
@@ -42,7 +42,7 @@
           "id": "task-011",
           "title": "Update migration runbook",
           "priority": "low",
-          "assignees": [{"id": "emp-003", "name": "Agent-Gamma", "type": "ai"}],
+          "assignees": [{"id": "emp-003", "name": "AI-Gamma", "type": "ai"}],
           "progress_percent": 0
         }
       ],
@@ -51,7 +51,7 @@
           "id": "task-002",
           "title": "Implement OAuth2 token refresh logic",
           "priority": "high",
-          "assignees": [{"id": "emp-001", "name": "Agent-Alpha", "type": "ai"}],
+          "assignees": [{"id": "emp-001", "name": "AI-Alpha", "type": "ai"}],
           "progress_percent": 75
         },
         {
@@ -65,7 +65,7 @@
           "id": "task-004",
           "title": "Write integration tests for auth migration",
           "priority": "high",
-          "assignees": [{"id": "emp-002", "name": "Agent-Beta", "type": "ai"}],
+          "assignees": [{"id": "emp-002", "name": "AI-Beta", "type": "ai"}],
           "progress_percent": 60
         }
       ],
@@ -171,14 +171,14 @@
     "end_date": "2026-04-12",
     "columns": {
       "backlog": [
-        {"id": "task-015", "title": "Set up RLHF reward model", "priority": "high", "assignees": [{"id": "emp-001", "name": "Agent-Alpha", "type": "ai"}], "progress_percent": 0},
-        {"id": "task-016", "title": "Implement DPO training loop", "priority": "medium", "assignees": [{"id": "emp-001", "name": "Agent-Alpha", "type": "ai"}], "progress_percent": 0},
-        {"id": "task-017", "title": "Deploy model serving infrastructure", "priority": "medium", "assignees": [{"id": "emp-010", "name": "Agent-Epsilon", "type": "ai"}], "progress_percent": 0},
+        {"id": "task-015", "title": "Set up RLHF reward model", "priority": "high", "assignees": [{"id": "emp-001", "name": "AI-Alpha", "type": "ai"}], "progress_percent": 0},
+        {"id": "task-016", "title": "Implement DPO training loop", "priority": "medium", "assignees": [{"id": "emp-001", "name": "AI-Alpha", "type": "ai"}], "progress_percent": 0},
+        {"id": "task-017", "title": "Deploy model serving infrastructure", "priority": "medium", "assignees": [{"id": "emp-010", "name": "AI-Epsilon", "type": "ai"}], "progress_percent": 0},
         {"id": "task-018", "title": "Run human evaluation benchmark", "priority": "low", "assignees": [{"id": "emp-006", "name": "Marcus Rivera", "type": "human"}], "progress_percent": 0}
       ],
       "in_progress": [
-        {"id": "task-013", "title": "Fine-tune base model on domain data", "priority": "high", "assignees": [{"id": "emp-001", "name": "Agent-Alpha", "type": "ai"}], "progress_percent": 55},
-        {"id": "task-014", "title": "Build evaluation pipeline", "priority": "medium", "assignees": [{"id": "emp-010", "name": "Agent-Epsilon", "type": "ai"}], "progress_percent": 35}
+        {"id": "task-013", "title": "Fine-tune base model on domain data", "priority": "high", "assignees": [{"id": "emp-001", "name": "AI-Alpha", "type": "ai"}], "progress_percent": 55},
+        {"id": "task-014", "title": "Build evaluation pipeline", "priority": "medium", "assignees": [{"id": "emp-010", "name": "AI-Epsilon", "type": "ai"}], "progress_percent": 35}
       ],
       "in_review": [],
       "done": []

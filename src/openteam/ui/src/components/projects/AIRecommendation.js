@@ -4,23 +4,27 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import BoltIcon from '@mui/icons-material/Bolt';
 
-const PRIORITY_COLORS = {
-  high: '#f44336',
-  medium: '#ff9800',
-  low: '#4a90d9',
+import { useTheme, alpha } from '@mui/material/styles';
+
+const PRIORITY_PALETTE = {
+  high: 'error',
+  medium: 'warning',
+  low: 'primary',
 };
 
 export function AIRecommendation({ recommendation }) {
+  const theme = useTheme();
   if (!recommendation) return null;
 
   const { type, message, priority, action } = recommendation;
-  const borderColor = PRIORITY_COLORS[priority?.toLowerCase()] || PRIORITY_COLORS.low;
+  const paletteKey = PRIORITY_PALETTE[priority?.toLowerCase()] || 'primary';
+  const borderColor = theme.palette[paletteKey]?.main || theme.palette.primary.main;
 
   return (
     <Box
       sx={{
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        backgroundColor: 'action.hover',
+        border: '1px solid', borderColor: 'divider',
         borderLeft: `3px solid ${borderColor}`,
         borderRadius: 2,
         p: 1.5,
@@ -64,7 +68,7 @@ export function AIRecommendation({ recommendation }) {
                 textTransform: 'none',
                 '&:hover': {
                   borderColor: borderColor,
-                  backgroundColor: `${borderColor}15`,
+                  backgroundColor: alpha(borderColor, 0.08),
                 },
               }}
             >
@@ -83,7 +87,7 @@ export function AIRecommendation({ recommendation }) {
                   textTransform: 'none',
                   '&:hover': {
                     borderColor: borderColor,
-                    backgroundColor: `${borderColor}15`,
+                    backgroundColor: alpha(borderColor, 0.08),
                   },
                 }}
               >
@@ -102,7 +106,7 @@ export function AIRecommendation({ recommendation }) {
                 textTransform: 'none',
                 '&:hover': {
                   borderColor: borderColor,
-                  backgroundColor: `${borderColor}15`,
+                  backgroundColor: alpha(borderColor, 0.08),
                 },
               }}
             >

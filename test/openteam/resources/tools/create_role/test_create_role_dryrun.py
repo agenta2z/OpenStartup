@@ -247,20 +247,30 @@ class TestAggregatorPromptBuilder:
     def test_agg_prompt_file_paths_for_local_aggregator(
         self, sample_worker_results
     ):
-        """When checkpoint_dir is set AND aggregator has local access,
+        """When workspace is set AND aggregator has local access,
         prompt should include only file path references (no inline text)."""
         with tempfile.TemporaryDirectory() as tmpdir:
+            from agent_foundation.common.inferencers.inferencer_workspace import (
+                InferencerWorkspace,
+            )
+
             inferencer = build_create_role_inferencer(
                 cloud_id="test-cloud-id",
                 uct_token="test-token",
-                checkpoint_dir=tmpdir,
                 aggregator_type="rovodev",
                 aggregator_working_dir=tmpdir,
                 workspace_root=tmpdir,
             )
+            # Simulate workspace paths that BTA's closure would capture
+            ws = InferencerWorkspace(root=tmpdir)
+            mock_paths = [
+                ws.child(f"worker_{i}").output_path(f"facet_{i}.md")
+                for i in range(len(sample_worker_results))
+            ]
             prompt = inferencer.aggregator_prompt_builder(
                 sample_worker_results,
                 original_query="Test",
+                worker_output_paths=mock_paths,
             )
             assert "Read the full research report from:" in prompt
             assert "facet_0.md" in prompt
@@ -278,7 +288,6 @@ class TestAggregatorPromptBuilder:
             inferencer = build_create_role_inferencer(
                 cloud_id="test-cloud-id",
                 uct_token="test-token",
-                checkpoint_dir=tmpdir,
                 aggregator_type="rovochat",
                 workspace_root=tmpdir,
             )
@@ -547,42 +556,39 @@ class TestWorkerSubQueryInjection:
 class TestOutputPathHandling:
     """Verify output_path passdown and has_local_access gating."""
 
-    def test_worker_gets_output_path_with_checkpoint_dir(self):
-        """When checkpoint_dir is set, each worker must get a unique output_path
-        under checkpoint_dir/worker_{index}/outputs/."""
+    def test_worker_gets_relative_output_path(self):
+        """Each worker must get a unique relative output_path filename.
+
+        The path is relative (e.g., ``"facet_0.md"``) — it resolves to an
+        absolute path only after BTA assigns a child workspace via
+        ``_build_diamond_graph``.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             inferencer = build_create_role_inferencer(
                 cloud_id="test-cloud-id",
                 uct_token="test-token",
                 max_facets=3,
-                checkpoint_dir=tmpdir,
                 workspace_root=tmpdir,
             )
             w0 = inferencer.worker_factory(sub_query="Q0", index=0)
             w1 = inferencer.worker_factory(sub_query="Q1", index=1)
             w2 = inferencer.worker_factory(sub_query="Q2", index=2)
 
-            assert w0.output_path is not None
-            assert w1.output_path is not None
-            assert w2.output_path is not None
+            assert w0.output_path == "facet_0.md"
+            assert w1.output_path == "facet_1.md"
+            assert w2.output_path == "facet_2.md"
             # Each must be unique
             assert w0.output_path != w1.output_path
             assert w1.output_path != w2.output_path
-            # Must follow workspace pattern: checkpoint_dir/worker_N/outputs/facet_N.md
-            assert w0.output_path.startswith(tmpdir)
-            assert os.path.join("bta", "worker_0", "outputs") in w0.output_path
-            assert "facet_0" in w0.output_path
-            assert os.path.join("bta", "worker_2", "outputs") in w2.output_path
-            assert "facet_2" in w2.output_path
 
-    def test_worker_no_output_path_without_checkpoint_dir(self):
-        """When checkpoint_dir is not set, workers should have no output_path."""
+    def test_worker_always_has_output_path(self):
+        """Workers always get a relative output_path regardless of workspace_root."""
         inferencer = build_create_role_inferencer(
             cloud_id="test-cloud-id",
             uct_token="test-token",
         )
         w = inferencer.worker_factory(sub_query="Q", index=0)
-        assert w.output_path is None
+        assert w.output_path == "facet_0.md"
 
     def test_rovochat_has_no_local_access(self):
         """RovoChatInferencer should have has_local_access=False."""

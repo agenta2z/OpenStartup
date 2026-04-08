@@ -35,8 +35,8 @@ function SuggestedActionsBanner({ actions, loading }) {
           p: 1.5,
           mb: 2,
           borderRadius: 2,
-          backgroundColor: 'rgba(74, 144, 217, 0.06)',
-          border: '1px solid rgba(74, 144, 217, 0.15)',
+          backgroundColor: 'action.hover',
+          border: '1px solid', borderColor: 'primary.dark',
         }}
       >
         <CircularProgress size={14} sx={{ color: 'primary.light' }} />
@@ -55,8 +55,8 @@ function SuggestedActionsBanner({ actions, loading }) {
         p: 2,
         mb: 3,
         borderRadius: 2,
-        backgroundColor: 'rgba(74, 144, 217, 0.06)',
-        border: '1px solid rgba(74, 144, 217, 0.15)',
+        backgroundColor: 'action.hover',
+        border: '1px solid', borderColor: 'primary.dark',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
@@ -83,8 +83,8 @@ function SuggestedActionsBanner({ actions, loading }) {
               gap: 1,
               p: 1,
               borderRadius: 1,
-              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+              backgroundColor: 'action.hover',
+              '&:hover': { backgroundColor: 'action.selected' },
               transition: 'background-color 0.15s',
             }}
           >
@@ -106,7 +106,7 @@ function SuggestedActionsBanner({ actions, loading }) {
                 sx={{
                   fontSize: '0.65rem',
                   flexShrink: 0,
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                  borderColor: 'divider',
                   color: 'text.secondary',
                   textTransform: 'none',
                   whiteSpace: 'nowrap',
@@ -138,9 +138,9 @@ function SummaryStats({ tasks }) {
 
   const stats = [
     { value: total, label: 'total' },
-    { value: inProgress, label: 'in progress', color: '#4a90d9' },
-    { value: pending, label: 'pending', color: '#f06292' },
-    { value: completed, label: 'completed', color: '#4caf50' },
+    { value: inProgress, label: 'in progress', paletteKey: 'primary' },
+    { value: pending, label: 'pending', paletteKey: 'secondary' },
+    { value: completed, label: 'completed', paletteKey: 'success' },
   ];
 
   return (
@@ -152,7 +152,7 @@ function SummaryStats({ tasks }) {
               {'\u00b7'}
             </Box>
           )}
-          <Box component="span" sx={{ color: s.color || 'text.secondary', fontWeight: 600 }}>
+          <Box component="span" sx={{ color: s.paletteKey ? `${s.paletteKey}.main` : 'text.secondary', fontWeight: 600 }}>
             {s.value}
           </Box>{' '}
           {s.label}

@@ -24,7 +24,7 @@ function SectionHeader({ icon, title, count }) {
         variant="caption"
         sx={{
           color: 'text.secondary',
-          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+          backgroundColor: 'action.hover',
           px: 1,
           py: 0.25,
           borderRadius: 1,
@@ -55,8 +55,14 @@ const cardGridSx = {
 /*  EmployeesView — main view component                                */
 /* ------------------------------------------------------------------ */
 
-export default function EmployeesView() {
-  const { data: employees, loading: employeesLoading, error: employeesError } = useApiData('/employees');
+const DEFAULT_ORG_ID = 'org-001'; // AI Lab Team
+
+export default function EmployeesView({ onEmployeeClick }) {
+  const { data: orgs } = useApiData('/orgs');
+  const activeOrg = orgs?.find(o => o.id === DEFAULT_ORG_ID);
+  const orgName = activeOrg?.name || 'AI Lab';
+
+  const { data: employees, loading: employeesLoading, error: employeesError } = useApiData(`/employees?org_id=${DEFAULT_ORG_ID}`);
   const { data: teams } = useApiData('/teams');
   const { data: roleSkillsMap } = useApiData('/role-skills');
   const { data: roleConfigs } = useApiData('/role-skills/configs');
@@ -133,7 +139,7 @@ export default function EmployeesView() {
     <Box>
       {/* Page header */}
       <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 600 }}>
-        Team Members
+        Team Members ({orgName})
       </Typography>
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
         {employees.length} total — {totalAI} AI employee{totalAI !== 1 ? 's' : ''}, {totalHuman} human{totalHuman !== 1 ? 's' : ''}
@@ -155,13 +161,13 @@ export default function EmployeesView() {
       {aiEmployees.length > 0 && (
         <>
           <SectionHeader
-            icon={<SmartToyIcon sx={{ fontSize: 20, color: '#4a90d9' }} />}
+            icon={<SmartToyIcon sx={{ fontSize: 20, color: 'primary.main' }} />}
             title="AI Employees"
             count={aiEmployees.length}
           />
           <Box sx={cardGridSx}>
             {aiEmployees.map((emp) => (
-              <EmployeeCard key={emp.id} employee={emp} roleSkillsMap={roleSkillsMap || {}} roleConfigs={roleConfigs || {}} />
+              <EmployeeCard key={emp.id} employee={emp} roleSkillsMap={roleSkillsMap || {}} roleConfigs={roleConfigs || {}} orgs={orgs || []} allEmployees={employees || []} onEmployeeClick={onEmployeeClick} />
             ))}
             <HireAgentCard
               roleSkillsMap={roleSkillsMap || {}}
@@ -176,13 +182,13 @@ export default function EmployeesView() {
       {humanEmployees.length > 0 && (
         <>
           <SectionHeader
-            icon={<PersonIcon sx={{ fontSize: 20, color: '#4caf50' }} />}
+            icon={<PersonIcon sx={{ fontSize: 20, color: 'success.main' }} />}
             title="Humans"
             count={humanEmployees.length}
           />
           <Box sx={cardGridSx}>
             {humanEmployees.map((emp) => (
-              <EmployeeCard key={emp.id} employee={emp} roleSkillsMap={roleSkillsMap || {}} roleConfigs={roleConfigs || {}} />
+              <EmployeeCard key={emp.id} employee={emp} roleSkillsMap={roleSkillsMap || {}} roleConfigs={roleConfigs || {}} orgs={orgs || []} allEmployees={employees || []} onEmployeeClick={onEmployeeClick} />
             ))}
           </Box>
         </>

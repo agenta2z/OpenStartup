@@ -67,7 +67,7 @@ export default function SkillChips({
             size="small"
             startIcon={<AddIcon sx={{ fontSize: '12px !important' }} />}
             onClick={(e) => setAddAnchorEl(e.currentTarget)}
-            sx={{ ...buttonSx, color: 'primary.light', '&:hover': { backgroundColor: 'rgba(74, 144, 217, 0.08)' } }}
+            sx={{ ...buttonSx, color: 'primary.light', '&:hover': { backgroundColor: 'action.hover' } }}
           >
             Add Primary Skill
           </Button>
@@ -84,11 +84,11 @@ export default function SkillChips({
           sx={{
             height: 22,
             fontSize: '0.6rem',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: 'action.hover',
             color: 'text.secondary',
             '& .MuiChip-deleteIcon': {
               fontSize: 14,
-              color: 'rgba(255, 255, 255, 0.3)',
+              color: 'text.secondary',
               '&:hover': { color: 'error.main' },
             },
           }}
@@ -103,7 +103,7 @@ export default function SkillChips({
               size="small"
               startIcon={<TuneIcon sx={{ fontSize: '12px !important' }} />}
               onClick={(e) => setControlAnchorEl(e.currentTarget)}
-              sx={{ ...buttonSx, color: 'text.secondary', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.06)' } }}
+              sx={{ ...buttonSx, color: 'text.secondary', '&:hover': { backgroundColor: 'action.selected' } }}
             >
               Skill Control
             </Button>

@@ -15,16 +15,9 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import { useTheme } from '@mui/material/styles';
 
 import { PersonChip, ProgressBar } from '../../shared';
-
-const WIDGET_BOX_SX = {
-  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: 2,
-  p: 2,
-  mt: 1.5,
-};
 
 function PersonRow({ label, person }) {
   return (
@@ -41,6 +34,7 @@ function PersonRow({ label, person }) {
 }
 
 export default function TaskAssignmentWidget({ data }) {
+  const theme = useTheme();
   const { task_title, from, to, reason } = data || {};
   const [confirmed, setConfirmed] = useState(null); // 'confirmed' | 'cancelled' | null
 
@@ -54,8 +48,16 @@ export default function TaskAssignmentWidget({ data }) {
     setConfirmed('cancelled');
   };
 
+  const widgetBoxSx = {
+    backgroundColor: theme.custom.surfaces.overlayLight,
+    border: `1px solid ${theme.custom.surfaces.cardBorder}`,
+    borderRadius: 2,
+    p: 2,
+    mt: 1.5,
+  };
+
   return (
-    <Box sx={WIDGET_BOX_SX}>
+    <Box sx={widgetBoxSx}>
       {/* Header */}
       <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600, mb: 1.5 }}>
         {'\u2696\uFE0F'} Reassign Task
@@ -76,7 +78,7 @@ export default function TaskAssignmentWidget({ data }) {
       {reason && (
         <Typography
           variant="body2"
-          sx={{ color: 'text.secondary', mb: 1.5, pl: 1.5, borderLeft: '2px solid rgba(255, 255, 255, 0.1)' }}
+          sx={{ color: 'text.secondary', mb: 1.5, pl: 1.5, borderLeft: `2px solid ${theme.custom.surfaces.cardBorder}` }}
         >
           {reason}
         </Typography>
@@ -87,7 +89,7 @@ export default function TaskAssignmentWidget({ data }) {
         <Typography
           variant="body2"
           sx={{
-            color: confirmed === 'confirmed' ? '#4caf50' : 'text.secondary',
+            color: confirmed === 'confirmed' ? 'success.main' : 'text.secondary',
             fontWeight: 500,
           }}
         >
@@ -100,10 +102,10 @@ export default function TaskAssignmentWidget({ data }) {
             size="small"
             onClick={handleConfirm}
             sx={{
-              backgroundColor: '#4a90d9',
-              color: '#fff',
+              backgroundColor: 'primary.main',
+              color: 'common.white',
               textTransform: 'none',
-              '&:hover': { backgroundColor: '#5a9fe0' },
+              '&:hover': { backgroundColor: 'primary.light' },
             }}
           >
             Confirm
@@ -113,10 +115,10 @@ export default function TaskAssignmentWidget({ data }) {
             size="small"
             onClick={handleCancel}
             sx={{
-              borderColor: 'rgba(255, 255, 255, 0.2)',
+              borderColor: theme.custom.surfaces.cardBorder,
               color: 'text.secondary',
               textTransform: 'none',
-              '&:hover': { borderColor: 'rgba(255, 255, 255, 0.4)', backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+              '&:hover': { borderColor: 'primary.main', backgroundColor: theme.custom.surfaces.hoverBg },
             }}
           >
             Cancel

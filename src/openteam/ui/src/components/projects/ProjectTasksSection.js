@@ -15,6 +15,7 @@ import Collapse from '@mui/material/Collapse';
 import Chip from '@mui/material/Chip';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { useTheme, alpha } from '@mui/material/styles';
 import { StatusBadge, ProgressBar, SectionCard } from '../../shared';
 
 const ACTIVE_STATUSES = ['in-progress', 'in_progress', 'in-review', 'in_review', 'pending'];
@@ -22,12 +23,7 @@ const QUEUED_STATUSES = ['backlog', 'todo', 'not-started'];
 const DONE_STATUSES = ['done', 'completed'];
 const QUEUED_PAGE_SIZE = 3;
 
-const PRIORITY_COLORS = {
-  critical: '#f44336',
-  high: '#ff5722',
-  medium: '#ff9800',
-  low: '#4caf50',
-};
+const PRIORITY_PALETTE = { critical: 'error', high: 'warning', medium: 'warning', low: 'success' };
 
 function getAssigneeName(task) {
   // Try resolved assignees first, then fall back to IDs
@@ -42,10 +38,11 @@ function getAssigneeType(task) {
 }
 
 function ActiveTaskRow({ task }) {
+  const theme = useTheme();
   return (
     <Box sx={{ mb: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-        <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#4a90d9', flexShrink: 0 }} />
+        <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: theme.palette.primary.main, flexShrink: 0 }} />
         <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </Typography>
@@ -62,10 +59,12 @@ function ActiveTaskRow({ task }) {
 }
 
 function QueuedTaskRow({ task }) {
-  const priorityColor = PRIORITY_COLORS[task.priority] || '#90a4ae';
+  const theme = useTheme();
+  const paletteKey = PRIORITY_PALETTE[task.priority] || 'neutral';
+  const priorityColor = theme.palette[paletteKey]?.main || theme.palette.neutral.main;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-      <Box sx={{ width: 6, height: 6, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.3)', flexShrink: 0 }} />
+      <Box sx={{ width: 6, height: 6, borderRadius: '50%', border: '1.5px solid', borderColor: 'divider', flexShrink: 0 }} />
       <Typography variant="body2" sx={{ flexGrow: 1, fontSize: '0.8rem', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </Typography>
@@ -75,7 +74,7 @@ function QueuedTaskRow({ task }) {
       <Chip
         label={task.priority}
         size="small"
-        sx={{ height: 18, fontSize: '0.55rem', backgroundColor: `${priorityColor}20`, color: priorityColor }}
+        sx={{ height: 18, fontSize: '0.55rem', backgroundColor: alpha(priorityColor, 0.12), color: priorityColor }}
       />
       {task.estimated_hours && (
         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', flexShrink: 0 }}>
@@ -89,7 +88,7 @@ function QueuedTaskRow({ task }) {
 function CompletedTaskRow({ task }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.4 }}>
-      <CheckCircleIcon sx={{ fontSize: 14, color: '#4caf50' }} />
+      <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
       <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'line-through', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </Typography>
@@ -125,7 +124,7 @@ export default function ProjectTasksSection({ tasks = [] }) {
       {active.length > 0 && (
         <SectionCard
           title={`Active Tasks (${active.length})`}
-          icon={<Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4a90d9' }} />}
+          icon={<Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'primary.main' }} />}
         >
           {active.map(task => (
             <ActiveTaskRow key={task.id} task={task} />
@@ -137,7 +136,7 @@ export default function ProjectTasksSection({ tasks = [] }) {
       {queued.length > 0 && (
         <SectionCard
           title={`Queued Tasks (${queued.length})`}
-          icon={<Box sx={{ width: 8, height: 8, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.4)' }} />}
+          icon={<Box sx={{ width: 8, height: 8, borderRadius: '50%', border: '1.5px solid', borderColor: 'divider' }} />}
         >
           {queuedShown.map(task => (
             <QueuedTaskRow key={task.id} task={task} />
@@ -152,7 +151,7 @@ export default function ProjectTasksSection({ tasks = [] }) {
                 color: 'primary.light',
                 fontSize: '0.7rem',
                 mt: 0.5,
-                '&:hover': { backgroundColor: 'rgba(74, 144, 217, 0.08)' },
+                '&:hover': { backgroundColor: 'action.hover' },
               }}
             >
               Show {Math.min(queuedRemaining, QUEUED_PAGE_SIZE)} more queued task{queuedRemaining > 1 ? 's' : ''}...
@@ -180,7 +179,7 @@ export default function ProjectTasksSection({ tasks = [] }) {
               textTransform: 'none',
               color: 'text.secondary',
               fontSize: '0.7rem',
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+              '&:hover': { backgroundColor: 'action.hover' },
             }}
           >
             Completed ({completed.length})

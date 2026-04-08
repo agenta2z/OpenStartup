@@ -12,16 +12,9 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 
 import { ProgressBar, PersonChip } from '../../shared';
-
-const WIDGET_BOX_SX = {
-  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-  borderRadius: 2,
-  p: 2,
-  mt: 1.5,
-};
 
 function getStatusIndicator(status, utilization) {
   if (status === 'pending') return '\u{23F3}';
@@ -31,10 +24,19 @@ function getStatusIndicator(status, utilization) {
 }
 
 export default function WorkloadChartWidget({ data }) {
+  const theme = useTheme();
   const { employees = [], suggestion } = data || {};
 
+  const widgetBoxSx = {
+    backgroundColor: theme.custom.surfaces.overlayLight,
+    border: `1px solid ${theme.custom.surfaces.cardBorder}`,
+    borderRadius: 2,
+    p: 2,
+    mt: 1.5,
+  };
+
   return (
-    <Box sx={WIDGET_BOX_SX}>
+    <Box sx={widgetBoxSx}>
       {/* Header */}
       <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600, mb: 1.5 }}>
         Workload Balance
@@ -71,7 +73,7 @@ export default function WorkloadChartWidget({ data }) {
             fontStyle: 'italic',
             mt: 1.5,
             pt: 1.5,
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            borderTop: `1px solid ${theme.custom.surfaces.cardBorder}`,
           }}
         >
           {suggestion}
