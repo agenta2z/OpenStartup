@@ -53,7 +53,32 @@ class _SimplePromptRenderer:
 
     @property
     def template_config(self) -> dict:
-        return {}
+        """Load .initial.config.yaml sidecar config for the template.
+
+        Resolution order (matching JinjaPromptRenderer):
+          1. .<basename>.config.yaml  (e.g. .initial.config.yaml)
+          2. .config.yaml             (folder-level default)
+        """
+        if hasattr(self, "_cached_template_config"):
+            return self._cached_template_config
+
+        import yaml as _yaml
+
+        template_dir = self._templates_dir / "conversation" / "main"
+        for candidate in (
+            template_dir / ".initial.config.yaml",
+            template_dir / ".config.yaml",
+        ):
+            if candidate.is_file():
+                try:
+                    data = _yaml.safe_load(candidate.read_text(encoding="utf-8"))
+                    self._cached_template_config = data if isinstance(data, dict) else {}
+                    return self._cached_template_config
+                except Exception:
+                    pass
+
+        self._cached_template_config = {}
+        return self._cached_template_config
 
     @property
     def template_variables(self) -> dict:
@@ -220,14 +245,44 @@ class ConversationService:
                 template_path="conversation/main/initial.jinja2",
             )
 
-            # 3. Wrap in ConversationalInferencer
+            # 3. Load tool registry, apply config-based filtering, and build tool executor
+            from agent_foundation.resources.tools.registry import load_all_tools
+            from agent_foundation.integrations.dispatch import build_integration_executor
+
+            tool_registry = load_all_tools()
+
+            # Filter tools based on .initial.config.yaml → tools.enabled_action_tools
+            # If the whitelist is defined and non-empty, only include listed tools.
+            # Conversation tools (clarification, single_choice, etc.) are built-in
+            # to ConversationalInferencer and are NOT affected by this filter.
+            tool_registry = self._filter_tools_by_config(tool_registry, prompt_renderer)
+
+            integration_executor = build_integration_executor()
+
+            async def tool_executor(tool_name, arguments):
+                if integration_executor.handles(tool_name):
+                    return await integration_executor(tool_name, arguments)
+                # Fallback: unknown tool
+                from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+                    ToolExecutionResult,
+                )
+                return ToolExecutionResult(
+                    result=f"Unknown tool: {tool_name}"
+                )
+
+            # 4. Wrap in ConversationalInferencer with tools
             conv_inferencer = ConversationalInferencer(
                 base_inferencer=base,
                 prompt_renderer=prompt_renderer,
+                tool_registry=tool_registry,
+                tool_executor=tool_executor,
                 max_iterations=5,
                 compression_threshold=8000,
             )
-            logger.info("ConversationalInferencer wrapping RovoDevCliInferencer")
+            logger.info(
+                "ConversationalInferencer wrapping RovoDevCliInferencer "
+                "(tools: %d registered)", len(tool_registry),
+            )
 
             return conv_inferencer
 
@@ -240,6 +295,66 @@ class ConversationService:
         except Exception as e:
             logger.error("Failed to create inferencer: %s", e)
             raise
+
+    @staticmethod
+    def _filter_tools_by_config(
+        tool_registry: dict, prompt_renderer: object
+    ) -> dict:
+        """Filter tool_registry based on .initial.config.yaml whitelist.
+
+        Reads ``tools.enabled_action_tools`` from the template's config YAML.
+        If the list is defined and non-empty, only tools whose name appears in
+        the whitelist (or whose aliases include a whitelisted name) are kept.
+
+        If the config key is absent, empty, or the config cannot be loaded,
+        all tools are returned unchanged (safe default).
+
+        Note: This only affects action tools rendered in the prompt. The four
+        built-in conversation tools (clarification, single_choice,
+        multiple_choice, confirmation) are always enabled — they are part of
+        the ConversationalInferencer, not the tool_registry.
+
+        Args:
+            tool_registry: Dict of {name: ToolDefinition} from load_all_tools().
+            prompt_renderer: Prompt renderer with a .template_config property.
+
+        Returns:
+            Filtered dict of {name: ToolDefinition}.
+        """
+        try:
+            config = getattr(prompt_renderer, "template_config", None) or {}
+            tools_config = config.get("tools", {})
+            if not isinstance(tools_config, dict):
+                return tool_registry
+
+            enabled_list = tools_config.get("enabled_action_tools")
+            if not enabled_list or not isinstance(enabled_list, list):
+                return tool_registry
+
+            enabled_set = set(enabled_list)
+
+            filtered = {}
+            for name, tool_def in tool_registry.items():
+                # Match by primary name or any alias
+                aliases = set(getattr(tool_def, "aliases", []))
+                if name in enabled_set or aliases & enabled_set:
+                    filtered[name] = tool_def
+
+            logger.info(
+                "Tool filtering applied: %d/%d tools enabled (whitelist: %s)",
+                len(filtered),
+                len(tool_registry),
+                enabled_list,
+            )
+            return filtered
+
+        except Exception as e:
+            logger.warning(
+                "Failed to apply tool filtering from config: %s — "
+                "returning all tools",
+                e,
+            )
+            return tool_registry
 
     async def astream_response(self, session: dict, user_message: str):
         """Stream response tokens for the user's message.
@@ -277,22 +392,18 @@ class ConversationService:
                 )
             self._inferencer.set_messages(conv_messages)
 
-            # Stream via the base_inferencer's ainfer_streaming
-            # The ConversationalInferencer renders the prompt with full
-            # conversation history, then calls base_inferencer.ainfer_streaming()
-            rendered = self._inferencer._render_prompt(user_message)
-            self._inferencer.base_inferencer.system_prompt = ""
-
+            # Stream via ConversationalInferencer.ainfer_streaming()
+            # This delegates to base_inferencer.ainfer_streaming() which
+            # yields string chunks from the acli subprocess stdout.
             full_response = ""
-            async for chunk in self._inferencer.base_inferencer.ainfer_streaming(
-                rendered
-            ):
-                if chunk:  # Skip empty chunks
-                    full_response += chunk
-                    yield chunk
+            async for chunk in self._inferencer.ainfer_streaming(user_message):
+                # Ensure chunk is a string (not TerminalInferencerResponse)
+                chunk_str = str(chunk) if not isinstance(chunk, str) else chunk
+                if chunk_str:
+                    full_response += chunk_str
+                    yield chunk_str
 
-            # Add the user + assistant messages to the inferencer's history
-            # so future turns include them in the rendered prompt
+            # Update conversation history
             self._inferencer.add_message("user", user_message)
             self._inferencer.add_message("assistant", full_response)
 

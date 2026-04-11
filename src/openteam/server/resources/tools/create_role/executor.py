@@ -8,10 +8,11 @@ with domain-specific context injected via ``_variables/`` (predefined variables)
 or kwargs overrides:
 
 - **Breakdown**: ``task_breakdown/main/initial.jinja2`` — generic decomposition.
-  ``task_preamble`` auto-resolved from ``_variables/task_preamble/default.jinja2``
+  ``task_preamble`` explicitly loaded from ``_variables/task_preamble/create_role.jinja2``
   (create-role-specific context).
 - **Worker**: ``deep_research/main/initial.jinja2`` — generic deep research.
-  ``task_preamble`` auto-resolved with role-specific source guidance.
+  ``task_preamble`` explicitly loaded from ``_variables/task_preamble/create_role.jinja2``
+  (role-specific source guidance).
 - **Aggregation**: ``plan/main/initial.jinja2`` — generic structured document.
   ``task_instructions`` overridden via kwargs with role-specific synthesis
   sections (``ROLE_SYNTHESIS_INSTRUCTIONS``).
@@ -65,6 +66,21 @@ _logger = logging.getLogger(__name__)
 _PROMPT_TEMPLATES_ROOT = (
     Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 )
+
+
+def _load_variable_file(space: str, var_name: str, variant: str = "create_role") -> str:
+    """Read a ``_variables/`` template file by variant name.
+
+    E.g., _load_variable_file("task_breakdown", "task_preamble", "create_role")
+    reads ``task_breakdown/main/_variables/task_preamble/create_role.jinja2``.
+    """
+    path = (
+        _PROMPT_TEMPLATES_ROOT / space / "main" / "_variables"
+        / var_name / f"{variant}.jinja2"
+    )
+    if not path.is_file():
+        raise FileNotFoundError(f"Variable template not found: {path}")
+    return path.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -242,96 +258,10 @@ def _build_template_manager(
 
 
 # ---------------------------------------------------------------------------
-# PromptWrapperInferencer — thin adapter using TemplateManager
+# PromptWrapperInferencer removed — template rendering now built into InferencerBase.
+# Use template_manager, template_key, template_root_space, template_extra_feed
+# directly on any inferencer.
 # ---------------------------------------------------------------------------
-
-
-@attrs(slots=False)
-class PromptWrapperInferencer(InferencerBase):
-    """Wraps an inferencer with a TemplateManager-rendered prompt.
-
-    Needed because ``RovoChatInferencer`` treats its input as the raw user
-    message — there is no separate system prompt mechanism.  This wrapper
-    renders a Jinja2 template (via ``TemplateManager``) with the incoming
-    ``inference_input`` bound to ``{{ input }}``, then delegates the
-    rendered prompt to the underlying inferencer.
-
-    When ``output_path`` is set and the underlying inferencer does NOT have
-    local file access (``has_local_access is False``), the wrapper:
-    - Omits ``output_path`` from the template feed (the template's
-      ``{% if output_path %}`` block is skipped so the agent includes
-      full content in ``<Response>`` tags instead of writing to a file).
-    - After receiving the response, extracts ``<Response>`` content and
-      writes it to ``output_path``.
-    """
-
-    inferencer: InferencerBase = attrib(default=None)
-    template_manager: TemplateManager = attrib(default=None)
-    template_key: str = attrib(default="")
-    template_root_space: Optional[str] = attrib(default=None)
-    output_path: Optional[str] = attrib(default=None)
-
-    def _build_feed(self, inference_input: str) -> dict:
-        """Build the template feed dict, conditionally including output_path.
-
-        Uses ``resolve_output_path()`` to get the workspace-resolved absolute
-        path.  Only includes it in the feed when the underlying inferencer
-        has local file access (so the agent can write to disk).
-        """
-        feed: dict = {"input": inference_input}
-        resolved = self.resolve_output_path()
-        if resolved and os.path.isabs(resolved) and getattr(
-            self.inferencer, "has_local_access", False
-        ):
-            feed["output_path"] = resolved
-        return feed
-
-    def _save_response_if_needed(self, response: str) -> str:
-        """If output_path resolves to an absolute path and inferencer lacks
-        local access, extract ``<Response>`` content, write it, and return
-        the cleaned text (without tags).
-
-        Uses ``resolve_output_path()`` for workspace-aware path resolution.
-        Skips writing if the resolved path is relative (no workspace set) to
-        avoid writing to the current working directory.
-        """
-        resolved = self.resolve_output_path()
-        if not resolved or not os.path.isabs(resolved):
-            return response
-        if getattr(self.inferencer, "has_local_access", False):
-            # Local-access inferencer writes the file itself; return as-is
-            return response
-        # Non-local inferencer: extract <Response> content and save to file
-        cleaned = extract_delimited(str(response))
-        os.makedirs(os.path.dirname(resolved) or ".", exist_ok=True)
-        with open(resolved, "w", encoding="utf-8") as f:
-            f.write(cleaned)
-        # Return cleaned text so downstream nodes receive tag-free content
-        return cleaned
-
-    def _infer(self, inference_input, inference_config=None, **kwargs):
-        feed = self._build_feed(inference_input)
-        rendered = self.template_manager(
-            self.template_key,
-            active_template_root_space=self.template_root_space,
-            **feed,
-        )
-        result = self.inferencer.infer(
-            rendered, inference_config=inference_config, **kwargs
-        )
-        return self._save_response_if_needed(result)
-
-    async def _ainfer(self, inference_input, inference_config=None, **kwargs):
-        feed = self._build_feed(inference_input)
-        rendered = self.template_manager(
-            self.template_key,
-            active_template_root_space=self.template_root_space,
-            **feed,
-        )
-        result = await self.inferencer.ainfer(
-            rendered, inference_config=inference_config, **kwargs
-        )
-        return self._save_response_if_needed(result)
 
 
 # ---------------------------------------------------------------------------
@@ -403,8 +333,8 @@ def build_create_role_inferencer(
        role description into research subtasks. ``task_preamble`` auto-resolved
        with create-role-specific dimensions.
     2. **Workers** — ``deep_research/main/initial.jinja2`` researches one
-       facet each (parallel). ``task_preamble`` auto-resolved with
-       role-specific source guidance.
+       facet each (parallel). ``task_preamble`` explicitly loaded from
+       ``_variables/task_preamble/create_role.jinja2`` (role-specific source guidance).
     3. **Aggregator** — ``plan/main/initial.jinja2`` synthesizes all research
        into a role responsibility document. ``task_instructions`` overridden
        via kwargs with ``ROLE_SYNTHESIS_INSTRUCTIONS``.
@@ -453,29 +383,32 @@ def build_create_role_inferencer(
         rovo_kwargs["cache_folder"] = streaming_cache_dir
 
     # 1. Breakdown inferencer — uses generic task_breakdown template
-    #    task_preamble auto-resolved from _variables/task_preamble/default.jinja2
-    breakdown_inf = PromptWrapperInferencer(
-        inferencer=_make_rovochat(**rovo_kwargs),
-        template_manager=tm,
-        template_key="initial",
-        template_root_space="task_breakdown",
-    )
+    #    task_preamble explicitly loaded from _variables/task_preamble/create_role.jinja2
+    breakdown_preamble = _load_variable_file("task_breakdown", "task_preamble", "create_role")
+    breakdown_inf = _make_rovochat(**rovo_kwargs)
+    breakdown_inf.template_manager = tm
+    breakdown_inf.template_key = "initial"
+    breakdown_inf.template_root_space = "task_breakdown"
+    breakdown_inf.template_extra_feed = {"task_preamble": breakdown_preamble}
+    breakdown_inf.debug_mode = True
 
     # 2. Worker factory — uses generic deep_research template
-    #    task_preamble auto-resolved from _variables/task_preamble/default.jinja2
+    #    task_preamble explicitly loaded from _variables/task_preamble/create_role.jinja2
     #    Creates a fresh RovoChat per sub-query for conversation isolation
-    def worker_factory(sub_query: str, index: int) -> PromptWrapperInferencer:
+    worker_preamble = _load_variable_file("deep_research", "task_preamble", "create_role")
+    def worker_factory(sub_query: str, index: int):
         _logger.info("Creating worker %d for sub-query: %.80s...", index, sub_query)
         # output_path is relative — BTA assigns child workspace in
         # _build_diamond_graph, then resolve_output_path() resolves to
         # workspace_root/children/worker_N/outputs/facet_N.md
-        return PromptWrapperInferencer(
-            inferencer=_make_rovochat(**rovo_kwargs),
-            template_manager=tm,
-            template_key="initial",
-            template_root_space="deep_research",
-            output_path=f"facet_{index}.md",
-        )
+        worker_inf = _make_rovochat(**rovo_kwargs)
+        worker_inf.template_manager = tm
+        worker_inf.template_key = "initial"
+        worker_inf.template_root_space = "deep_research"
+        worker_inf.template_extra_feed = {"task_preamble": worker_preamble}
+        worker_inf.debug_mode = True
+        worker_inf.output_path = f"facet_{index}.md"
+        return worker_inf
 
     # 3. Aggregator inferencer (no wrapper — prompt injected via builder)
     if aggregator_type == "rovodev":
@@ -486,9 +419,10 @@ def build_create_role_inferencer(
         if streaming_cache_dir:
             rovodev_kwargs["cache_folder"] = streaming_cache_dir
         aggregator_inf = RovoDevCliInferencer(**rovodev_kwargs)
+        aggregator_inf.debug_mode = True
     else:
         aggregator_inf = _make_rovochat(**rovo_kwargs)
-
+        aggregator_inf.debug_mode = True
     # 4. Aggregator prompt builder — uses generic plan template
     #    with task_instructions overridden by ROLE_SYNTHESIS_INSTRUCTIONS
     #    BTA calls: prompt_builder(worker_results, original_query=original_query)

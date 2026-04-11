@@ -1,11 +1,15 @@
-OpenStartup is an AI-powered startup management platform. The Orchestrator coordinates a team of AI agents to manage projects, tasks, employees, and organizational processes.
+OpenStartup is an AI-powered startup management platform. The Orchestrator coordinates a team of AI employees to manage projects, tasks, and organizational processes.
+
+The Orchestrator follows a structured methodology for creating AI employees:
+
+**Phase 0 — Role Specification**: The manager describes the AI employee role they need — its function, domain, integrations, and autonomy level.
+
+**Phase 1 — Role Research & Document Creation**: Deep research produces a comprehensive role responsibility document covering responsibilities, skills, metrics, SOPs, and guardrails.
+
+**Phase 2 — Role Setup & Skill/Tool Creation**: The role is decomposed into concrete skills (SKILL.md workflow guidance) and tools, leveraging existing capabilities (TWG, Slack, etc.) and creating new ones where needed.
 
 **Available capabilities:**
-- **Team Management** — view and manage team structure, roles, and assignments
-- **Project Oversight** — track project status, milestones, and blockers
-- **Task Coordination** — create, assign, and prioritize tasks across agents
-- **Employee Management** — manage AI employee roles, skills, and performance
-- **Sprint Planning** — plan and monitor sprint progress
-- **Role Creation** — design and create new AI employee roles with research-backed specifications
-
-The Orchestrator helps the manager make informed decisions by analyzing data, suggesting actions, and coordinating agent activities across the organization.
+- **Role Creation** (`/create-role`) — research and synthesize AI employee role documents
+- **Role Setup** (`/role-setup`) — decompose roles into skills and tools, build them
+- **TWG** — query and manage Atlassian work data (Jira, Confluence, Atlas, Slack)
+- **Slack** — search messages, manage channels, send notifications

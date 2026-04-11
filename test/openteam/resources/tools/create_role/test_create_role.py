@@ -171,7 +171,8 @@ def main(
 
     ws = InferencerWorkspace(root=str(workspace))
     ws.ensure_dirs("_runtime")  # outputs/, artifacts/, checkpoints/, logs/ + _runtime/
-    (workspace / "deliverables").mkdir(parents=True, exist_ok=True)
+    artifacts_dir = Path(ws.artifacts_dir)
+    outputs_dir = Path(ws.outputs_dir)  # InferencerWorkspace standard outputs/
     (workspace / "_runtime" / "inferencer_cache").mkdir(parents=True, exist_ok=True)
     (workspace / "_runtime" / "tmp_output_files").mkdir(parents=True, exist_ok=True)
 
@@ -266,22 +267,22 @@ def main(
 
     # Route deliverable based on aggregator type
     if aggregator_type == "rovodev":
-        # Local agent — check if it created files in deliverables/
-        agent_files = list(deliverables_dir.glob("*.md"))
+        # Local agent — check if it created files in outputs/
+        agent_files = list(outputs_dir.glob("*.md"))
         if agent_files:
             primary = sorted(agent_files)[-1]
             logger.info("Agent created deliverable: %s", primary.name)
         else:
             # Fallback — agent didn't write file, save raw output as deliverable
             logger.warning("Local agent did not create deliverable — using raw output")
-            (deliverables_dir / "role_document.md").write_text(result_text)
+            (outputs_dir / "role_document.md").write_text(result_text)
     else:
         # Cloud API — raw text IS the deliverable
-        (deliverables_dir / "role_document.md").write_text(result_text)
+        (outputs_dir / "role_document.md").write_text(result_text)
 
     # Determine primary deliverable path for summary
-    deliverable_files = list(deliverables_dir.glob("*.md"))
-    primary_deliverable = sorted(deliverable_files)[-1] if deliverable_files else deliverables_dir / "role_document.md"
+    deliverable_files = list(outputs_dir.glob("*.md"))
+    primary_deliverable = sorted(deliverable_files)[-1] if deliverable_files else outputs_dir / "role_document.md"
 
     summary = {
         "role_description": role_description,

@@ -64,11 +64,6 @@ For each subtask, assign a `subtask_id` as an integer starting from 1, and rate 
 
 For each subtask, assign a `priority_reason` to justify the priority rating.
 
-**IMPORTANT: Subtask Type Classification**: each subtask must be classified as either `INTERNAL` or `EXTERNAL`:
-- **EXTERNAL**: A high-level research question answerable through diving deep into external resources (e.g. academic literature, knowledgebase search, domain search, etc.). EXTERNAL subtasks do NOT have access to local resources (e.g. codebase, documentation) — they cannot read files, inspect code. Frame these in terms of concepts, techniques, and approaches — DO NOT reference specific file paths, line numbers, or class names.
-- **INTERNAL**: An investigation that requires direct access to local resources — reading files, analyzing implementations, profiling, or benchmarking. INTERNAL subtasks CAN reference specific files, modules, and code patterns.
-- Choose the type that best matches what the subtask needs to succeed. A good decomposition typically has a mix of both types.
-
 Before producing your final decomposition, verify it against the three criteria above (Comprehensive, Independent, Actionable) and note any tradeoffs in the `reasoning` field.
 
 <Response>
@@ -93,13 +88,13 @@ Your detailed investigation and reasoning is already in the output file above. B
       "priority": "<CRITICAL|HIGH|MEDIUM|LOW>",
       "priority_reason": "<why this subtask is prioritized this way>",
       "priority_score": "<1-5 float: 1.0-1.9 = LOW, 2.0-2.9 = MEDIUM, 3.0-3.9 = HIGH, 4.0-5.0 = CRITICAL>",
-      "type": "INTERNAL|EXTERNAL",
+      "args": {"<subtask-specific arguments defined by the task context; empty {} if none>": "..."},
       "subtask_dependencies": ["<integer subtask_ids this depends on; empty array [] if none>"]
     }
   ],
   "reasoning": "<overall rationale for this decomposition and why it covers the full request>",
   "coverage_complete": <true if the subtasks together fully address the original request>,
-  "gaps": "<any known aspects of the request not covered, or 'none'>"
+  "gaps": "<any known aspects of the request not covered, or other issues or problems, or 'none'>"
 }
 ```
 </Response>
@@ -107,11 +102,12 @@ Your detailed investigation and reasoning is already in the output file above. B
 ---
 
 ## NOTES (on decomposition quality):
-- Each subtask should produce **new information or analysis** — EXTERNAL subtasks through literature and knowledge search, INTERNAL subtasks through code investigation, profiling, or experimentation.
+- Each subtask should produce **new information or analysis** — through research, investigation, implementation, or experimentation as appropriate.
 - If the original request references specific files, modules, or systems, ensure at least one subtask is scoped to each referenced entity.
 - If the request is ambiguous, prefer subtasks that **resolve the ambiguity** (e.g., "Determine whether X uses pattern A or B") over subtasks that assume one interpretation.
 
 ## NOTES (on agent behavior):
+- YOU MUST output <Response> ... </Response> delimited output in the exact format specified above. DO NOT alter the structure or content of the JSON block, except to fill in the required fields based on your analysis.
 - Deep Investigation Requirement: YOU MUST make a careful, deep, thorough and accurate investigation with critical thinking before decomposing.
 - However, stay focused on understanding the request scope. DO NOT explore beyond what is needed.
 - If the request references specific systems or modules, verify they exist at the expected paths before scoping subtasks around them.

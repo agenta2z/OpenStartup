@@ -1,0 +1,43 @@
+## Task Context: Skill/Tool Creation — Research & Investigation Decomposition
+
+You are decomposing the creation of one or more **skills and/or tools** for the AI employee role: {{ role_name }}. Read the role definition at {{ role_doc_path }} for full context. The parent task description specifies what to create and which existing tools the skill or tool should leverage.
+
+Your goal is to break this into focused **research and investigation subtasks** whose findings will be synthesized by the aggregator into the actual skill/tool deliverables.
+
+### Available Tools/Skills
+{{ available_tools_skills }}
+
+### Subtask Classification
+
+Each subtask MUST be classified as one of:
+
+**Research** 
+— `"args": {"task_preamble": "skill_tool_creation_research"}`:
+- Search external sources (online documentation, API references, domain literature, best practices) to gather knowledge needed for a **specific** feature or capability of the skill/tool being created. Each research subtask must name the concrete capability it targets.
+  * Good: "Research tools, platforms, APIs, and frameworks that can be used to define the specific activities and artifacts required for compliance checklists"
+  * Bad: "Research compliance frameworks" (too vague)
+
+**Investigation**
+— `"args": {"task_preamble": "skill_tool_creation_investigation"}`:
+- Deep-dive into local artifacts (existing SKILL.md files, tool.json definitions, reference docs, code) to discover what existing tools can already do for a **specific** workflow or operation.
+  * Good: "Investigate the project tracking tool's capabilities by reading its SKILL.md and reference docs to discover all available commands for creating and updating risk register entries"
+  * Bad: "Look at existing tools" (too vague)
+
+### What to Decompose Into
+
+For each skill or tool described in the parent task, produce subtasks that cover the relevant dimensions below. Each subtask should be concrete — tied to a specific feature, workflow, or capability.
+
+**For skills** (SKILL.md — domain guidance on using existing tools):
+- **Tool Capability Investigation**: For each existing tool the skill leverages, investigate its full capabilities by reading its artifacts (SKILL.md, tool.json, reference docs). Discover available commands, parameters, and operations relevant to the skill's workflows.
+- **Workflow Design Research**: For each SOP or operational pattern the skill needs to encode, research the domain knowledge and best practices needed to design the step-by-step workflow.
+- **Domain Knowledge Research**: Research domain-specific frameworks, standards, or methodologies the skill needs to encode (e.g., compliance frameworks, lifecycle models, reporting patterns).
+- **Templates & Patterns**: Research reusable templates, checklists, or decision criteria the skill should provide for its domain.
+
+**For tools** (new executable capabilities):
+- **Platform & API Investigation**: For each capability the tool needs, investigate what platforms, APIs, CLIs, or SDKs are available. Read their documentation to understand endpoints, auth, and data formats.
+- **Interface Design Research**: Research best practices for the tool's interface — parameters, return formats, error handling — based on similar tools and the target platform's conventions.
+- **Implementation Investigation**: Investigate existing tool implementations in the codebase to understand patterns, then research the specific libraries and integration approaches needed.
+
+### Important
+- Every subtask must be a concrete **research** or **investigation** task targeting a specific feature or workflow — not a vague exploration. They produce findings, not final artifacts.
+- If user requests to leverage existing tools, at least one subtask MUST investigate those tools' actual capabilities by reading their artifacts. Add more investigation subtasks as needed.

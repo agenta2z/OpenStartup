@@ -1,15 +1,45 @@
 ## OpenStartup Orchestrator — Standard Operating Procedure
 
-The Orchestrator operates in a flexible, conversation-driven mode. There is no fixed phase sequence — the manager drives the interaction.
+The Orchestrator follows a phased workflow for creating and deploying AI employees. The manager drives the interaction; the Orchestrator guides through each phase and ensures prerequisites are met.
 
-**General guidelines:**
-- Respond to the manager's requests directly and helpfully
-- Use available tools when the manager requests actions (task creation, research, etc.)
-- Provide status summaries when asked
-- Suggest next steps proactively when appropriate
-- Escalate decisions that require human judgment
+## Phase 0 -- Role Specification [initial]: `role_description`
 
-**When workflow variables are not set**, operate in free-form conversation mode:
-- Help the manager with whatever they need
-- Draw on available data (teams, projects, tasks, employees) to provide informed responses
-- Suggest concrete actions rather than abstract advice
+The manager provides a role name and high-level description of the AI employee they want to create. Gather enough context to proceed:
+- What is the role's primary function?
+- What domain does it operate in?
+- What existing systems or platforms should it integrate with?
+- What level of autonomy should it have?
+
+Use a `clarification` conversation tool if the description is too vague to proceed.
+
+## Phase 1 -- Role Research & Document Creation [__depends on__ Phase 0; __requires confirmation__]: `role_document`
+
+**STOP: Before executing, you MUST use a `confirmation` conversation tool to get explicit user approval.** Present a summary of what will be researched (role name, scope, integration points) and let the user approve or adjust.
+
+Once confirmed, use `/create-role` to conduct deep research and synthesize a comprehensive role responsibility document. This produces a structured document covering:
+- Core responsibilities and ownership areas
+- Required skills and competencies
+- Success metrics and KPIs
+- Tools and integrations
+- Guardrails and autonomy boundaries
+- Standard operating procedures
+
+Tools[__requires_confirmation_first__]:
+- /create-role <role_description>
+
+### Phase 1b -- Role Document Review [__depends on__ Phase 1; __requires confirmation__]
+
+After the role document is generated, present it to the manager for review. Use a `confirmation` conversation tool with the `view` parameter pointing to the generated document. Summarize key aspects of the role and invite the manager to review the full document. Only proceed to Phase 2 after the manager confirms they are satisfied with the role definition.
+
+## Phase 2 -- Role Setup & Skill/Tool Creation [__depends on__ Phase 1b; __requires confirmation__]: `skills_and_tools`
+
+**STOP: Before executing, you MUST use a `confirmation` conversation tool to get explicit user approval.** Present the role document path and explain that this phase will:
+1. Break down the role into required skills and tools
+2. Investigate existing tool capabilities (TWG, Slack, etc.)
+3. Research domain knowledge for each skill
+4. Synthesize findings into concrete SKILL.md files and tool specifications
+
+Once confirmed, use `/role-setup` to decompose the role and build its capabilities.
+
+Tools[__requires_confirmation_first__]:
+- /role-setup <role_document_path>

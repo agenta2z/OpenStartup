@@ -13,3 +13,16 @@ rendering:
     - WorkflowDescription
     - WorkflowStatus
     - WorkflowNextStepGuidance
+
+tools:
+  # enabled_action_tools: Whitelist of action tool names to include in the
+  #   conversation prompt. Only tools listed here will be rendered into the
+  #   {{ action_tools }} template variable and available for the LLM to invoke.
+  #   If omitted or empty, ALL action tools from the registry are included.
+  #
+  #   Conversation tools (clarification, single_choice, multiple_choice,
+  #   confirmation) are always enabled and cannot be disabled — they are
+  #   built-in to the ConversationalInferencer, not part of the tool registry.
+  enabled_action_tools:
+    - create_role
+    - role_setup
