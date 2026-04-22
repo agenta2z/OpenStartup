@@ -5,3 +5,16 @@ __pycache__/
 *.pyc
 .env
 _runtime/
+
+# Generated artifacts — BTA/inferencer working directories
+children/
+outputs/
+logs/
+checkpoints/
+artifacts/
+roles/
+*.jsonl
+*.jsonl.parts/
+
+# Temp files
+tmp_rovodev_*
