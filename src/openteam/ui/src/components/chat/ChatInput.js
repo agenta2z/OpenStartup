@@ -1,60 +1,71 @@
 /**
- * Chat input form component.
- * Copied from rankevolve — adapted for OpenStartup.
+ * Chat input form component with slash command autocomplete.
  */
 
-import React from 'react';
-import { Paper, TextField, IconButton } from '@mui/material';
+import React, { useState, useCallback } from 'react';
+import { Box, Paper, TextField, IconButton } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
+import { CommandAutocomplete } from './CommandAutocomplete';
 
-/**
- * Chat input form with text field and send button
- * @param {object} props
- * @param {string} props.value - Current input value
- * @param {Function} props.onChange - Callback when input changes
- * @param {Function} props.onSubmit - Callback when form is submitted
- * @param {boolean} props.disabled - Whether input is disabled
- */
 export function ChatInput({ value, onChange, onSubmit, disabled }) {
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+
+  const handleChange = useCallback((e) => {
+    const val = e.target.value;
+    onChange(val);
+    setShowAutocomplete(val.startsWith('/') && !val.includes(' '));
+  }, [onChange]);
+
+  const handleSelect = useCallback((cmd) => {
+    onChange(cmd.includes(' ') ? cmd : cmd + ' ');
+    setShowAutocomplete(false);
+  }, [onChange]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    setShowAutocomplete(false);
     onSubmit(e);
   };
 
   return (
-    <Paper
-      component="form"
-      onSubmit={handleSubmit}
-      elevation={0}
-      sx={{
-        p: 1,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        backgroundColor: 'background.paper',
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-      }}
-    >
-      <TextField
-        fullWidth
-        placeholder="Type your message..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        variant="standard"
-        InputProps={{ disableUnderline: true }}
-        sx={{ px: 1 }}
-      />
-      <IconButton
-        type="submit"
-        color="primary"
-        disabled={!value.trim() || disabled}
+    <Box sx={{ position: 'relative' }}>
+      {showAutocomplete && (
+        <CommandAutocomplete input={value} onSelect={handleSelect} />
+      )}
+      <Paper
+        component="form"
+        onSubmit={handleSubmit}
+        elevation={0}
+        sx={{
+          p: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
       >
-        <SendIcon />
-      </IconButton>
-    </Paper>
+        <TextField
+          fullWidth
+          placeholder="Type your message or / for commands..."
+          value={value}
+          onChange={handleChange}
+          disabled={disabled}
+          variant="standard"
+          InputProps={{ disableUnderline: true }}
+          sx={{ px: 1 }}
+        />
+        <IconButton
+          type="submit"
+          color="primary"
+          disabled={!value.trim() || disabled}
+        >
+          <SendIcon />
+        </IconButton>
+      </Paper>
+    </Box>
   );
 }
 

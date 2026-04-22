@@ -1,0 +1,36 @@
+Working in 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/children/b
+reakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'd be happy to help you with your work! It looks like your message might have
+been cut off — you mentioned "prompt_templates" but didn't include a specific
+question or request.
+
+Here are some things I can help you with:
+
+ • Jira: View, create, or update issues in your CTSC project
+ • Confluence: Read, create, or search pages
+ • Bitbucket: Browse repos, PRs, and code
+ • Code: Write, review, debug, or refactor code
+ • Research: Look into technical topics or documentation
+
+Could you clarify what you'd like me to do with "prompt_templates"? For
+example:
+
+ • Are you looking for a Jira issue or Confluence page related to prompt
+   templates?
+ • Do you want to create or work with prompt template code?
+ • Something else entirely?
+
+Please share more details and I'll get right on it!
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 26.9K/1M
+

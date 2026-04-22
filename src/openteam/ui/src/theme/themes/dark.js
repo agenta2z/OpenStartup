@@ -53,6 +53,14 @@ const dark = {
     shimmerMid:          'rgba(255, 255, 255, 0.1)',
   },
 
+  // Chat layout dimensions — configurable per theme
+  layout: {
+    responseMaxHeight: 320,       // max height of AI response body before "Full Response" button appears
+    responseMaxWidth: '75%',      // max width of AI response bubbles
+    widgetMaxWidth: '75%',        // max width of conversation tool widgets
+    userMessageMaxWidth: '70%',   // max width of user message bubbles
+  },
+
   typography: {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     h1: { fontSize: '2rem', fontWeight: 600 },

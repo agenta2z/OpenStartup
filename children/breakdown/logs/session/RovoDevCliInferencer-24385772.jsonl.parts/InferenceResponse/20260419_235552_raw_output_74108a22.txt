@@ -1,0 +1,987 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup/children/breakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the workspace to understand the existing tools,
+skills, and codebase structure before decomposing the task. Let me examine the
+key artifacts referenced in the request.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the role definition document"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools"
+      • _intent: "Explore existing tools directory"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+      • _intent: "Explore existing skills directory"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation/reso
+urces/tools"
+      • _intent: "Explore AgentFoundation tools directory"
+                                                                                
+  Error calling tool 'open_files': Error opening                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md: Path       
+  '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/t  
+  ools/create_role/_runtime/20260415_153712/outputs/role_document.md' is        
+  outside both the workspace directory and whitelisted paths                    
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundat..   
+   .                                                                            
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me explore the workspace directory to understand what's available locally.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "pwd && ls -la"
+  ⬢ Called bash: 
+      • command: "find . -maxdepth 4 -type f -name \"*.md\" | head -60"
+  ⬢ Called bash: 
+      • command: "find . -maxdepth 4 -type d | head -80"
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/children/breakdown         
+   total 0                                                                      
+   drwxr-xr-x@ 3 tchen7  staff   96 Apr 19 14:06 _runtime                       
+   drwxr-xr-x@ 7 tchen7  staff  224 Apr 19 14:06 .                              
+   drwxr-xr-x@ 3 tchen7  staff   96 Apr 15 13:30 ..                             
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 artifacts                      
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 checkpoints                    
+   drwxr-xr-x@ 3 tchen7  staff   96 Apr 19 14:06 logs                           
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 outputs                        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   .                                                                            
+   ./artifacts                                                                  
+   ./checkpoints                                                                
+   ./logs                                                                       
+   ./logs/session                                                               
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts                     
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput      
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig     
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/Async               
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceArgs       
+   (22 lines truncated)                                                         
+   ./_runtime/inferencer_cache                                                  
+   ./_runtime/inferencer_cache/RovoDevCliInferencer                             
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_192223                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_184851                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-2438   
+   5772_20260419_235204                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-548b   
+   7693_20260419_183824                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-d41c   
+   6f23_20260419_140605                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_201420                                                         
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_201702                                                         
+   ./outputs                                                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me explore the broader project structure to find the key artifacts
+referenced in the request — the role document, existing tools (especially
+twg), and skills.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "find /Users/tchen7/MyProjects/CoreProjects/OpenStartup 
+-maxdepth 6 -name \"role_document.md\" 2>/de...
+  ⬢ Called bash: 
+      • command: "find 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources 
+-maxdepth 3 -t...
+  ⬢ Called bash: 
+      • command: "find 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+tools/twg -typ...
+  ⬢ Called bash: 
+      • command: "find 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg -ty...
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_read_messages/tool.json                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_remove_own_reactions/...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_get_channel_history/t...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_remove_reaction/tool....                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_get_dm_messages/tool....                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_list_channels/tool.json                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_get_thread/tool.json                                       
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/role_setup/tool.json                                             
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_search_messages/tool....                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_find_dm_channel/tool....                                   
+   (7 lines truncated)                                                          
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_react/tool.json                                            
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_delete_message/tool.json                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_search_files/tool.json                                     
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_emoji_list/tool.json                                       
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/tool.json                                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_find_channel/tool.json                                     
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_pin_message/tool.json                                      
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/slack_actions/SKILL.md                                          
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/SKILL.md                                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/slack_search/SKILL.md                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/tool.json                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/ADF-SCHEMA.md                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/ROUTING.md                                       
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/RELATION-AN...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/PRODUCT-COL...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/METAGRAPH.md                                     
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/GLOBAL-CONT...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/COMMANDS.md                                      
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/CONTROL-PLA...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/FEDERATED-S...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/NATIVE-SURF...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/PROJECTION-...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/SKILL.md                                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me read the key artifacts — the TWG tool/skill definitions, the role
+document, and check for any existing CI/CD-related code.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+tools/twg/tool....
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/SKIL...
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/refe...
+  ⬢ Called bash: 
+      • command: "find /Users/tchen7/MyProjects/CoreProjects/OpenStartup -name 
+\"role_document.md\" -path \"*20260415...
+  ⬢ Called bash: 
+      • command: "grep -rl 
+\"bamboo\\|github.actions\\|pipeline\\|cicd\\|ci_cd\\|ci/cd\" 
+/Users/tchen7/MyProjects/Cor...
+                                                                                
+                                                                                
+   {                                                                            
+     "name": "twg",                                                             
+     "tool_type": "Action",                                                     
+     "category": "utility",                                                     
+     "description": "Query and manage Atlassian Teamwork Graph data (Jira,      
+   Confluence, Atlas, Loom, Bitbucket, Googl...                                 
+     "parameters": [                                                            
+       {                                                                        
+         "name": "command",                                                     
+         "type": "string",                                                      
+         "required": true,                                                      
+   (4 lines truncated)                                                          
+     "usage_guidance": "Surface routing: Use federated surfaces first (docs,    
+   videos, meetings, spaces) for cross-pro...                                   
+     "returns": "Command output from the TWG CLI (typically structured text     
+   or JSON).",                                                                  
+     "examples": [                                                              
+       "twg docs query --since 7d",                                             
+       "twg jira workitem get --id PROJ-123",                                   
+       "twg work query --scope me --since 7d",                                  
+       "twg confluence search query --cql 'type=page AND                        
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+       "twg org-tree --name \"Jane Doe\" --up-only"                             
+     ]                                                                          
+   }                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ---                                                                          
+   name: twg                                                                    
+   description: >                                                               
+     Query and manage Atlassian Teamwork Graph data — Jira, Confluence,         
+   Atlas, Loom, Bitbucket,                                                      
+     Google Docs, Sharepoint and other work data. Use for cross-product         
+   activity, entity details,                                                    
+     team/user insights, and create/update actions.                             
+   labels:                                                                      
+     - atlassian                                                                
+     - teamwork-graph                                                           
+     - productivity                                                             
+   (116 lines truncated)                                                        
+   - `references/ROUTING.md` — how to pick the right surface                    
+   - `references/GLOBAL-CONTRACT.md` — grammar, filters, pagination, output,    
+   and mutation safety                                                          
+   - `references/FEDERATED-SURFACES.md` — cross-product surfaces                
+   - `references/PROJECTION-SURFACES.md` — work, context, and org hierarchy     
+   - `references/NATIVE-SURFACES.md` — product-specific surfaces                
+   - `references/RELATION-AND-IDENTITY.md` — user lookup and collaborators      
+   - `references/PRODUCT-COLLECTIONS.md` — which surfaces belong to which       
+   Atlassian product collections                                                
+   - `references/METAGRAPH.md` — Teamwork Graph schema exploration via Cypher   
+   - `references/ADF-SCHEMA.md` — compact ADF node/mark catalog, examples,      
+   pitfalls, and deep reference URLs                                            
+   - `references/CONTROL-PLANE.md` — setup/package commands the agent should    
+   mention when relevant, not run by default                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   # Reference Index                                                            
+                                                                                
+   `COMMANDS.md` is the compact table of contents for this reference set.       
+   Use it to decide which guide to open next; it is not meant to mirror raw     
+   CLI help.                                                                    
+   All `scripts/twg` examples in this reference set inherit the                 
+   path-resolution rule from `../SKILL.md`: resolve `sc...                      
+                                                                                
+   ## Start here                                                                
+                                                                                
+   - `ROUTING.md` — pick the right surface                                      
+   - `GLOBAL-CONTRACT.md` — shared command patterns, filters, pagination, and   
+   write safety                                                                 
+   (6 lines truncated)                                                          
+   - `RELATION-AND-IDENTITY.md` — `user`, `user-search`, `resolve`,             
+   `collaborators`                                                              
+   - `CONTROL-PLANE.md` — `login`, `skills`, `integrations`, `echo`             
+                                                                                
+   ## Quick routing                                                             
+                                                                                
+   - Cross-product request -> `FEDERATED-SURFACES.md`                           
+   - Broad work/activity/hierarchy/context -> `PROJECTION-SURFACES.md`          
+   - Product-specific detail or mutation -> `NATIVE-SURFACES.md`                
+   - Need to resolve a person first -> `RELATION-AND-IDENTITY.md`               
+   - Need to tell the user about setup/package/runtime commands ->              
+   `CONTROL-PLANE.md`                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_092...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_092...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_064...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_082...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_135...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_135...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_153...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_153...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_144...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_144...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_070...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_062...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260407_055...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260408_072...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_092...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260415_092...                                   
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/   
+   tools/create_role/_runtime/20260408_073...                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/node-exports-info/README.md                                             
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/define-data-property/README.md                                          
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/is-bigint/CHANGELOG.md                                                  
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/is-bigint/README.md                                                     
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/destroy/README.md                                                       
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/@types/node/diagnostics_channel.d.ts                                    
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/@types/node/crypto.d.ts                                                 
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/@types/node/stream/promises.d.ts                                        
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/@types/node/stream.d.ts                                                 
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/ui/node_mod   
+   ules/@types/node/zlib.d.ts                                                   
+   (20 lines truncated)                                                         
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+   /Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation   
+   /ui/webui/experiment_configs/coscience_...                                   
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me read the role document, the TWG Bitbucket native surface docs, and
+check the Bitbucket MCP tools for pipeline capabilities.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools/
+create_role/_ru...
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/refe...
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketPipeline"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketDeployment"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketEnvironment"
+                                                                                
+                                                                                
+   # AI Program Manager — Role Responsibility Document                          
+                                                                                
+   > **Organization:** OpenStartup (AI-Powered Startup)                         
+   > **Role Type:** AI Employee                                                 
+   > **Version:** 1.0                                                           
+   > **Last Updated:** 2026-04-15                                               
+                                                                                
+   ---                                                                          
+                                                                                
+   ## 1. Role Overview                                                          
+   (185 lines truncated)                                                        
+   | Schedule Slip | Milestone at risk of slipping >1 sprint | PM Lead + Tech   
+   Lead | 4-hour decision |                                                     
+   | Team Health Alert | Velocity drop >25% over 2 sprints | PM Lead +          
+   Engineering Manager | 24-hour review |                                       
+   | Blocker Stagnation | Critical blocker unresolved >48 hours | PM Lead →     
+   relevant VP | Immediate |                                                    
+   | Inter-Team Conflict | Unresolved after 2 AI-facilitated attempts | PM      
+   Lead takes over mediation | Immediate han...                                 
+   | Scope Creep | Requirements diverge >20% from approved spec | Product       
+   Owner + PM Lead | Same-day review |                                          
+   | Security/Compliance Flag | Action touching PII, financial data, or         
+   regulated info | Security Partner + Legal | ...                              
+   | Confidence Threshold | AI confidence <70% on any recommendation | PM       
+   Lead for review | Include score |                                            
+   | Data Anomaly | Contradictory data from different sources | PM Lead +       
+   Data Owner | 4-hour investigation |                                          
+                                                                                
+   ### Graduated Escalation Path                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   - `bitbucket` / `bb`                                                         
+   - `goals`                                                                    
+   - `projects`                                                                 
+   - `focus-areas`                                                              
+   - `teams`                                                                    
+   - also available: `assets`, `csm`, `jsm`, `jira-align`, `talent`             
+                                                                                
+   ## Common shapes                                                             
+                                                                                
+   ```bash                                                                      
+   (62 lines truncated)                                                         
+                                                                                
+   ## Gotchas                                                                   
+                                                                                
+   - Use `confluence search query --cql ...` for structured lookup,             
+   especially when you already know a page title or...                          
+   - Prefer title-oriented CQL for page lookup, for example:                    
+                                                                                
+   ```bash                                                                      
+   scripts/twg confluence search query --cql 'type=page AND title =             
+   "Runbook"'                                                                   
+   scripts/twg confluence search query --cql 'type=page AND title ~             
+   "Runbook"'                                                                   
+   ```                                                                          
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me check what TWG already supports for Bitbucket pipelines, and look
+at the existing tool patterns for reference.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/refe...
+  ⬢ Called bash: 
+      • command: "grep -i \"pipeline\\|deploy\\|build\\|bamboo\\|github.action\"
+/Users/tchen7/MyProjects/CoreProject...
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/refe...
+  ⬢ Called bash: 
+      • command: "# Check what existing tool.json files look like for pattern 
+reference\ncat /Users/tchen7/MyProjects...
+  ⬢ Called bash: 
+      • command: "# Check the role document section on CI/CD and tools\ncat 
+/Users/tchen7/MyProjects/CoreProjects/Ope...
+                                                                                
+                                                                                
+   # Native Surfaces                                                            
+                                                                                
+   Use native surfaces for product-specific detail, richer actions, and         
+   writes.                                                                      
+                                                                                
+   > For how these surfaces map to Atlassian product collections (TWC,          
+   ServCo, StratCo, etc.), see `references/PRODU...                             
+                                                                                
+   ## Main surfaces                                                             
+                                                                                
+   - `jira`                                                                     
+   - `confluence`                                                               
+   (75 lines truncated)                                                         
+   - Use `confluence search query --cql ...` for structured lookup,             
+   especially when you already know a page title or...                          
+   - Prefer title-oriented CQL for page lookup, for example:                    
+                                                                                
+   ```bash                                                                      
+   scripts/twg confluence search query --cql 'type=page AND title =             
+   "Runbook"'                                                                   
+   scripts/twg confluence search query --cql 'type=page AND title ~             
+   "Runbook"'                                                                   
+   ```                                                                          
+                                                                                
+   - Do **not** treat Confluence CQL as semantic content search. CQL is best    
+   for structured metadata filters and tit...                                   
+   - Semantic or fuzzy page-content search is not implemented here yet, so      
+   avoid implying that CQL provides that beh...                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   scripts/twg bb pipeline 123 --logs                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   # Routing                                                                    
+                                                                                
+   Use this guide to pick the right surface first.                              
+                                                                                
+   ## Default order                                                             
+                                                                                
+   1. **Federated** for cross-product requests: `docs`, `videos`, `meetings`,   
+   `spaces`                                                                     
+   2. **Native** for product-specific detail or mutations: `jira`,              
+   `confluence`, `bb`, `goals`, `projects`, `teams`                             
+   3. **Projection** for broad activity, hierarchy, or perimeter: `work         
+   query`, `org-tree`, `context jira workitem`                                  
+   4. **Cypher** only if the typed surfaces do not cover the request            
+   (14 lines truncated)                                                         
+                                                                                
+   ```bash                                                                      
+   # Cross-product docs -> native Confluence details                            
+   scripts/twg docs query --since 14d                                           
+   scripts/twg confluence pages get 12345 --body-format adf                     
+                                                                                
+   # Issue perimeter -> native Jira details                                     
+   scripts/twg context jira workitem PROJ-123 --depth 2                         
+   scripts/twg jira workitem get --id PROJ-123                                  
+   ```                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   {                                                                            
+     "name": "research_propose",                                                
+     "tool_type": "Action",                                                     
+     "aliases": [                                                               
+       "research-propose",                                                      
+       "research",                                                              
+       "propose"                                                                
+     ],                                                                         
+     "category": "workflow",                                                    
+     "is_bridge": true,                                                         
+   (185 lines truncated)                                                        
+       }                                                                        
+     ],                                                                         
+     "returns": "Workspace path containing plan and/or implementation outputs   
+   at _rankevolve_workspace/task_<timesta...                                    
+     "examples": [                                                              
+       "task \"Implement flash attention v2 for HSTU model\"",                  
+       "task --plan \"Add unit tests for the recommendation service\"",         
+       "task --analysis --resume /path/to/workspace",                           
+       "task --confirm \"Refactor the data pipeline to use async I/O\""         
+     ]                                                                          
+   }                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   1. **Always-on program intelligence** — monitors program signals 24/7 and    
+   surfaces anomalies in real-time, unlike...                                   
+   2. **Zero-lag status transparency** — generates reports directly from        
+   source data (Jira, Bitbucket, CI/CD pipelin...                               
+   3. **Pattern recognition at scale** — processes hundreds of signals          
+   simultaneously (ticket updates, PR velocity, ...                             
+   4. **Consistent process enforcement** — applies uniform governance rigor     
+   to every sprint, team, and release witho...                                  
+   5. **Human force multiplier** — provides every human stakeholder (EM, PM,    
+   TPM, executive) with pre-analyzed, deci...                                   
+                                                                                
+   ### AI-Specific Distinction                                                  
+                                                                                
+   Unlike a human PM who builds relationships, reads political dynamics, and    
+   exercises continuous implicit judgment,...                                   
+   (79 lines truncated)                                                         
+   | **Week 2** | Baseline output generation | Generate first status reports,   
+   dependency graphs, and risk assessment...                                    
+   | **Week 3** | Calibration & tuning | Adjust report templates based on PM    
+   Lead feedback. Tune risk detection thre...                                   
+   | **Week 4** | Shadow mode validation | Full week of shadow operation        
+   covering all SOPs (standup prep, risk escal...                               
+                                                                                
+   ### Days 31–60: Assisted Mode — Controlled Activation                        
+                                                                                
+   | Week | Focus | Key Activities | Success Criteria |                         
+   |------|-------|----------------|-----------------|                          
+   | **Weeks 5–6** | Tier 1 go-live | Activate autonomous Tier 1 functions:     
+   daily standup prep, status dashboards, m...                                  
+   | **Weeks 7–8** | Tier 2 introduction | Begin generating Tier 2              
+   recommendations (risk mitigation proposals, sched...                         
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the landscape. Let me check one more
+critical thing — whether twg bb pipeline already covers pipeline status, and
+look at how existing MCP Bitbucket pipeline tools compare to what's needed.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "grep -i \"pipeline\\|deploy\\|build\\|bamboo\" 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/sr...
+  ⬢ Called bash: 
+      • command: "# Check if there's any existing skill pattern we should 
+follow\ncat /Users/tchen7/MyProjects/CorePr...
+                                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/skills/twg/references/NATIVE-SURF...                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ---                                                                          
+   name: slack_actions                                                          
+   description: >                                                               
+     Control Slack interactions — react to messages, manage pins,               
+   send/edit/delete messages,                                                   
+     and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls back to   
+   user token.                                                                  
+   labels:                                                                      
+     - slack                                                                    
+     - actions                                                                  
+     - communication                                                            
+   metadata:                                                                    
+   (60 lines truncated)                                                         
+   ```                                                                          
+                                                                                
+   ### Send a threaded reply                                                    
+   ```                                                                          
+   slack_send_message channel:C123 "Replying in thread" --thread_ts             
+   1712023032.1234                                                              
+   ```                                                                          
+                                                                                
+   ### Send a DM                                                                
+   ```                                                                          
+   slack_send_message user:U456 "Direct message to user"                        
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a comprehensive understanding of the landscape. Let me synthesize
+my findings:
+
+Key findings:
+
+ 1 Existing Bitbucket Pipeline MCP tools already exist: The bitbucketPipeline
+   MCP tool supports list, run, get, steps, step.get, step.log actions. The
+   bitbucketDeployment MCP tool supports list and get. The
+   bitbucketEnvironment tool supports list, get, create, delete, update. These
+   are rich, pre-existing tools.
+ 2 TWG bb pipeline exists but is minimal: Only twg bb pipeline 123 --logs is
+   documented — a single command for viewing pipeline logs by ID. No listing,
+   filtering, or status querying.
+ 3 No Bamboo or GitHub Actions tools exist in the codebase. The MCP toolset is
+   Bitbucket-only.
+ 4 The role document (§6) explicitly lists "CI/CD Pipelines (e.g., Bamboo,
+   GitHub Actions)" as a core tool requiring read-only access to pipeline
+   metadata and status.
+ 5 Existing skill pattern (e.g., slack_actions/SKILL.md) shows the structure:
+   YAML frontmatter with name, description, labels, metadata (env vars,
+   tools), followed by Overview, Prerequisites, Action Groups, Examples.
+ 6 The Bitbucket MCP tools are the most immediately actionable since they
+   already exist and have full pipeline/deployment/environment capabilities —
+   the gap is that no skill documents how to use them for DORA metrics and
+   release readiness.
+
+This changes the decomposition significantly: for Bitbucket Pipelines, no new
+tool needs to be built — the MCP tools already cover it. The real work is (a)
+investigating what those MCP tools can actually return, (b) researching
+Bamboo/GitHub Actions APIs for new tools, (c) designing the cicd_status skill,
+and (d) researching DORA metric computation patterns.
+
+
+
+                                   Analysis
+
+The original request asks for creating three CI/CD pipeline tools
+(bamboo_pipeline_status, github_actions_status, bitbucket_pipelines_status)
+and optionally a cicd_status skill bundling them with DORA metric guidance.
+
+Critical finding from investigation: The Bitbucket MCP toolset already has
+bitbucketPipeline (list/run/get/steps/step.get/step.log), bitbucketDeployment
+(list/get), and bitbucketEnvironment (list/get/create/delete/update) — these
+are pre-existing, fully functional tools. The twg bb pipeline only supports a
+single pipeline 123 --logs command. This means:
+
+ • Bitbucket Pipelines: No new tool needed — existing MCP tools cover pipeline
+   runs, steps, logs, deployments, and environments. What's needed is a skill
+   documenting how to use these existing tools for CI/CD monitoring.
+ • Bamboo & GitHub Actions: These require actual new tool development. Need
+   API research.
+ • DORA metrics & release readiness: Domain knowledge research needed to
+   design the computation patterns that the skill encodes.
+
+The decomposition targets 4 subtasks covering: (1) deep investigation of
+existing Bitbucket MCP tools + TWG bb capabilities, (2) research on Bamboo
+REST API for new tool design, (3) research on GitHub Actions REST API for new
+tool design, (4) research on DORA metrics framework + release readiness
+scoring patterns + error handling to inform the unified skill design.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the full capabilities of the existing 
+Bitbucket MCP pipeline, deployment, and environment tools (bitbucketPipeline,
+bitbucketDeployment, bitbucketEnvironment) and the TWG `bb pipeline` command 
+to determine exactly what data they return, what filters they support, and 
+what gaps remain for CI/CD monitoring. This investigation must discover: (a) 
+the exact response schemas from each action (list/get/steps/step.log for 
+pipelines; list/get for deployments), (b) what fields are available (run 
+status, duration, trigger type, test results, deploy environment, timestamps),
+(c) whether test pass rates are embedded in pipeline step results or require 
+separate queries, (d) how pagination works for listing historical runs, (e) 
+what `twg bb pipeline 123 --logs` actually returns versus the MCP tools, and 
+(f) whether the existing tools can support time-window filtering needed for 
+deployment frequency calculation.",
+      "todos": [
+        "Read the bitbucketPipeline MCP tool schema in detail and test each 
+action (list, get, steps, step.get, step.log) to document the response 
+structure and available fields",
+        "Read the bitbucketDeployment MCP tool schema and test list/get 
+actions to understand deployment state tracking, environment association, and
+timestamp availability",
+        "Read the bitbucketEnvironment MCP tool schema to understand 
+environment type categorization (Production, Staging, Test) and how it 
+connects to deployment data",
+        "Test `twg bb pipeline --help` and `twg bb` commands to discover all 
+available Bitbucket pipeline sub-commands beyond the documented `pipeline 123
+--logs`",
+        "Document the data gap analysis: what CI/CD monitoring data points 
+(test pass rates, build duration trends, deployment frequency by environment)
+are available vs. missing from these existing tools",
+        "Assess whether the existing tools provide sufficient data to compute
+deployment frequency, lead time for changes, and change failure rate without 
+needing a new wrapper tool"
+      ],
+      "scope": "Covers the investigation of all existing Bitbucket CI/CD tools
+(MCP bitbucketPipeline/Deployment/Environment + TWG bb pipeline) to determine
+what already works and what gaps remain, directly informing whether a new 
+bitbucket_pipelines_status tool is needed or if a skill wrapping existing 
+tools suffices",
+      "priority": "CRITICAL",
+      "priority_reason": "The codebase is Bitbucket-centric per existing twg 
+bb integration, and MCP tools already exist for 
+pipelines/deployments/environments — understanding their full capabilities is
+essential before designing any new tools or skills, as it may eliminate the 
+need for a new bitbucket_pipelines_status tool entirely",
+      "priority_score": 4.5,
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research the Atlassian Bamboo REST API to determine the
+specific endpoints, authentication mechanisms, request/response formats, and 
+data models needed to build a `bamboo_pipeline_status` read-only tool. Focus 
+on: (a) plan/build/deployment REST API endpoints for querying build status, 
+recent runs, and test results, (b) authentication options (PAT, OAuth, app 
+passwords) and how they align with the agent's credential model, (c) response
+schemas for build results including status, duration, test pass/fail counts, 
+trigger info, and deployment environment, (d) pagination and filtering 
+capabilities (by branch, date range, status), (e) rate limiting and error 
+response patterns, and (f) whether Bamboo Cloud vs. Bamboo Data Center have 
+API differences that matter.",
+      "todos": [
+        "Research Bamboo REST API v2 endpoints: /rest/api/latest/plan, 
+/rest/api/latest/result, /rest/api/latest/deploy for querying plans, build 
+results, and deployment projects",
+        "Research Bamboo authentication mechanisms (personal access tokens, 
+OAuth 2.0, basic auth) and document which approach fits an AI agent's 
+non-interactive credential model",
+        "Document the Bamboo build result response schema: fields for status 
+(Successful/Failed/Error), duration, buildStartedTime, buildCompletedTime, 
+testResults (successfulTestCount, failedTestCount, skippedTestCount), trigger
+(triggerReason)",
+        "Research Bamboo deployment project API: how to query deployment 
+environments, deployment versions, deployment results, and release status",
+        "Investigate Bamboo's filtering and pagination: expand parameters, 
+max-result limits, date-range filters, branch filtering on build results",
+        "Document Bamboo API rate limiting behavior, error codes, and 
+retry-after headers for designing the tool's error handling and §9 Tool/API 
+Reliability mitigation alignment"
+      ],
+      "scope": "Covers all external research needed to design the 
+bamboo_pipeline_status tool interface — API endpoints, auth, response schemas,
+filtering, error handling — for Atlassian Bamboo specifically",
+      "priority": "HIGH",
+      "priority_reason": "Bamboo is explicitly named in §6 Core Tools of the 
+role document as a CI/CD platform the AI PgM must monitor, and no existing 
+tool or MCP server covers Bamboo, making this new-tool research essential for
+full CI/CD coverage",
+      "priority_score": 3.5,
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Research the GitHub Actions REST API to determine the 
+specific endpoints, authentication mechanisms, request/response formats, and 
+data models needed to build a `github_actions_status` read-only tool. Focus 
+on: (a) workflow runs and jobs API endpoints for querying workflow execution 
+status, job outcomes, and timing, (b) GitHub Apps vs. PAT authentication and 
+token scoping (actions:read permission), (c) response schemas for workflow 
+runs including status, conclusion, run_started_at, updated_at, 
+triggering_actor, head_branch, and deployment events, (d) the deployments API
+for tracking deployment status and environments, (e) pagination (Link header),
+filtering (branch, status, event, created date range), and rate limiting 
+(primary/secondary limits), and (f) how to correlate workflow runs with 
+deployments for DORA metric computation.",
+      "todos": [
+        "Research GitHub Actions REST API endpoints: GET 
+/repos/{owner}/{repo}/actions/runs, GET 
+/repos/{owner}/{repo}/actions/runs/{run_id}/jobs, GET 
+/repos/{owner}/{repo}/actions/workflows for listing and filtering workflow 
+runs",
+        "Research GitHub authentication options (fine-grained PATs with 
+actions:read, GitHub App installation tokens, classic PATs) and document the 
+least-privilege approach for read-only pipeline monitoring",
+        "Document the GitHub Actions workflow run response schema: id, status
+(queued/in_progress/completed), conclusion 
+(success/failure/cancelled/skipped), run_started_at, updated_at, 
+triggering_actor, head_branch, event, run_attempt",
+        "Research the GitHub Deployments API (GET 
+/repos/{owner}/{repo}/deployments, deployment statuses) to understand how 
+deployment events map to workflow runs for tracking deployment frequency",
+        "Investigate GitHub API pagination (per_page, page, Link headers), 
+filtering (actor, branch, event, status, created date range), and rate 
+limiting (5000 req/hr primary, secondary limits for search) for designing 
+robust querying",
+        "Research GitHub Actions workflow run usage/timing API to extract 
+build duration metrics needed for lead-time-for-changes DORA computation"
+      ],
+      "scope": "Covers all external research needed to design the 
+github_actions_status tool interface — API endpoints, auth, response schemas,
+filtering, error handling — for GitHub Actions specifically",
+      "priority": "HIGH",
+      "priority_reason": "GitHub Actions is explicitly named in §6 Core Tools
+alongside Bamboo as a CI/CD platform requiring read-only monitoring, and no 
+existing tool covers it; however it's slightly less critical than Bamboo since
+the codebase is Bitbucket-centric",
+      "priority_score": 3.3,
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research DORA metrics computation patterns, release 
+readiness scoring frameworks, and CI/CD reliability/error-handling best 
+practices to inform the design of the unified `cicd_status` skill (SKILL.md).
+This subtask must produce the domain knowledge needed to encode actionable 
+workflows in the skill: (a) precise definitions and computation formulas for 
+the four DORA metrics (deployment frequency, lead time for changes, change 
+failure rate, mean time to recovery) using pipeline and deployment data, (b) 
+how to compute each metric from the data available via Bitbucket Pipelines MCP
+tools + proposed Bamboo/GitHub Actions tools, (c) release readiness checklist
+patterns that incorporate CI/CD health signals (build pass rate thresholds, 
+deployment environment promotion status, test coverage gates) aligned with §2
+P2 Release Readiness Scoring, (d) error handling and resilience patterns for 
+CI/CD tool integrations (API outage handling, rate-limit retries, 
+last-known-state caching) aligned with §9 Tool/API Reliability, and (e) the 
+standardized return schema design that normalizes data across all three CI/CD
+platforms.",
+      "todos": [
+        "Research the four DORA metrics definitions and computation formulas:
+deployment frequency (deploys per time period to production), lead time for 
+changes (commit-to-deploy duration), change failure rate (failed deploys / 
+total deploys), MTTR (time from failure detection to restoration)",
+        "Design the mapping from raw pipeline/deployment API data to each DORA
+metric: which API fields from Bitbucket/Bamboo/GitHub map to deployment 
+timestamps, failure detection, and recovery events",
+        "Research release readiness scoring patterns that combine CI/CD 
+signals (latest build status, test pass rate > threshold, no failed 
+deployments in staging, all environments green) with §2 P2 criteria (test 
+coverage, open P1 bugs, unmerged PRs, documentation status)",
+        "Research CI/CD API reliability patterns: exponential backoff with 
+jitter for rate limits, circuit breaker patterns for API outages, 
+last-known-state caching with staleness indicators, and graceful degradation 
+when one CI/CD platform is unavailable — aligning with §9 mitigation 
+strategies",
+        "Design a standardized cross-platform return schema for 
+pipeline/deployment status that normalizes Bitbucket, Bamboo, and GitHub 
+Actions data into a common format: run_id, platform, pipeline_name, status 
+(success/failed/running/queued), duration_seconds, trigger_type, branch, 
+deploy_environment, test_results{passed, failed, skipped}, timestamps",
+        "Cross-reference §5 Operational Efficiency Metrics (deployment 
+frequency as a tracked metric), §2 P2 Release Readiness Scoring (CI/CD health
+as a release gate), and SOP 3 step 1 (Bitbucket PR/deployment metrics in 
+weekly status) to ensure the skill covers all role-document touchpoints"
+      ],
+      "scope": "Covers domain knowledge research for DORA metrics, release 
+readiness scoring, error handling patterns, and cross-platform schema 
+normalization — all foundational to the cicd_status SKILL.md design and the 
+standardized tool interface contract",
+      "priority": "CRITICAL",
+      "priority_reason": "This subtask produces the core domain knowledge that
+shapes the entire skill's value proposition — without correct DORA metric 
+formulas, release readiness patterns, and a unified schema, the individual 
+tools would be disconnected data sources rather than an integrated CI/CD 
+intelligence layer for the AI PgM",
+      "priority_score": 4.2,
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": [1]
+    }
+  ],
+  "reasoning": "The decomposition is structured around the three CI/CD 
+platforms plus the unifying skill layer. Subtask 1 (CRITICAL) investigates 
+existing Bitbucket MCP tools — this is the highest-priority investigation 
+because these tools already exist and may eliminate the need for a new 
+bitbucket_pipelines_status tool, fundamentally changing the scope. Subtasks 2
+and 3 (HIGH) research Bamboo and GitHub Actions APIs respectively — these are
+independent, parallelizable research tasks for genuinely new tools. Subtask 4
+(CRITICAL) researches the domain knowledge (DORA metrics, release readiness, 
+error handling, schema design) that ties everything together into the 
+cicd_status skill. Subtask 4 depends on Subtask 1 because the existing 
+Bitbucket tool capabilities constrain the DORA metric computation patterns. 
+Subtasks 2 and 3 are fully independent. The decomposition avoids a separate 
+'existing codebase search' subtask because that investigation was performed 
+during this analysis and found no existing CI/CD wrappers beyond the MCP tools
+and TWG bb — this finding is embedded in Subtask 1's scope.",
+  "coverage_complete": true,
+  "gaps": "none — The four subtasks cover: (1) existing tool investigation for
+Bitbucket, (2) new tool API research for Bamboo, (3) new tool API research for
+GitHub Actions, (4) domain knowledge + unified skill design. The tool.json 
+interface design patterns are already visible from existing tools 
+(twg/tool.json, slack_actions examples) and don't need a separate subtask. The
+role document cross-references (§2, §5, §6, §9, SOP 3) are distributed across
+relevant subtasks rather than siloed."
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 57.8K/1M
+

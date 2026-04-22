@@ -1,0 +1,577 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+Restoring session 'Untitled Session' with 26 messages
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I need to thoroughly investigate the role document, existing tools/skills, and
+MCP toolsets before decomposing. Let me start by examining the key artifacts.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (23 lines truncated)                                                         
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (81 lines truncated)                                                         
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_send_message/:                                             
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_unpin_message/:                                            
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/:                                                            
+   tool.json                                                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me expand the critical sections of the role document (§4, §6, §7 SOP
+3, §8, §9) and examine existing tool/skill patterns plus the MCP toolsets.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[106, 149], [182, 225], [225, 272], [272, 361], [361, 
+394]]"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/tools/slack_se...
+  ⬢ Called gmail:get_tool_schema: 
+      • tool_name: "create_email"
+  ⬢ Called google_calendar:get_tool_schema: 
+      • tool_name: "get_events"
+  ⬢ Called google_calendar:get_tool_schema: 
+      • tool_name: "get_availability"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (306 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/slack_send_message/tool.json:                                       
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "slack_send_message",                                             
+      "tool_type": "Action",                                                    
+      "category": "communication",                                              
+      "description": "Send a message to a Slack channel or user.",              
+      "parameters": [                                                           
+        {"name": "to", "type": "string", "required": true, "description":       
+   "Target: channel ID (C123), user ID (U123)...                                
+        {"name": "content", "type": "string", "required": true,                 
+   "description": "Message text to send."},                                     
+        {"name": "--thread_ts", "type": "string", "description": "Thread        
+   timestamp to reply in a thread."}                                            
+      ],                                                                        
+      "returns": "JSON with channel, ts, and message details.",                 
+      "examples": ["slack_send_message channel:C123 \"Hello from the            
+   agent\""]                                                                    
+    }                                                                           
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/slack_actions/SKILL.md:                                            
+                                                                                
+                                                                                
+    ---                                                                         
+    name: slack_actions                                                         
+    description: >                                                              
+      Control Slack interactions — react to messages, manage pins,              
+   send/edit/delete messages,                                                   
+      and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls back     
+   to user token.                                                               
+    labels:                                                                     
+      - slack                                                                   
+      - actions                                                                 
+      - communication                                                           
+   (115 lines truncated)                                                        
+    slack_emoji_list --limit 50                                                 
+    ```                                                                         
+                                                                                
+    ## Ideas                                                                    
+                                                                                
+    - React with ✅ to mark completed tasks                                     
+    - Pin key decisions or weekly status updates                                
+    - Send summary messages to team channels after completing analysis          
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/twg/tool.json:                                                      
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "twg",                                                            
+      "tool_type": "Action",                                                    
+      "category": "utility",                                                    
+      "description": "Query and manage Atlassian Teamwork Graph data (Jira,     
+   Confluence, Atlas, Loom, Bitbucket, Goog...                                  
+      "parameters": [                                                           
+        {                                                                       
+          "name": "command",                                                    
+          "type": "string",                                                     
+   (7 lines truncated)                                                          
+      "examples": [                                                             
+        "twg docs query --since 7d",                                            
+        "twg jira workitem get --id PROJ-123",                                  
+        "twg work query --scope me --since 7d",                                 
+        "twg confluence search query --cql 'type=page AND                       
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+        "twg org-tree --name \"Jane Doe\" --up-only"                            
+      ]                                                                         
+    }                                                                           
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me also check the Gmail MCP draft capability and examine an existing
+SKILL.md to understand the pattern fully.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called gmail:get_tool_schema: 
+      • tool_name: "create_email_draft"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/SKI...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/SKILL.md:                                                      
+                                                                                
+                                                                                
+    ---                                                                         
+    name: twg                                                                   
+    description: >                                                              
+      Query and manage Atlassian Teamwork Graph data — Jira, Confluence,        
+   Atlas, Loom, Bitbucket,                                                      
+      Google Docs, Sharepoint and other work data. Use for cross-product        
+   activity, entity details,                                                    
+      team/user insights, and create/update actions.                            
+    labels:                                                                     
+      - atlassian                                                               
+      - teamwork-graph                                                          
+   (119 lines truncated)                                                        
+    - `references/FEDERATED-SURFACES.md` — cross-product surfaces               
+    - `references/PROJECTION-SURFACES.md` — work, context, and org hierarchy    
+    - `references/NATIVE-SURFACES.md` — product-specific surfaces               
+    - `references/RELATION-AND-IDENTITY.md` — user lookup and collaborators     
+    - `references/PRODUCT-COLLECTIONS.md` — which surfaces belong to which      
+   Atlassian product collections                                                
+    - `references/METAGRAPH.md` — Teamwork Graph schema exploration via         
+   Cypher                                                                       
+    - `references/ADF-SCHEMA.md` — compact ADF node/mark catalog, examples,     
+   pitfalls, and deep reference URLs                                            
+    - `references/CONTROL-PLANE.md` — setup/package commands the agent should   
+   mention when relevant, not run by default                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a comprehensive picture of all the artifacts. Let me synthesize my
+findings before producing the decomposition.
+
+Key Findings:
+
+  1 Gmail MCP toolset already provides:
+     • create_email — send emails with subject, recipients, cc, bcc, content,
+       sendTime (scheduled)
+     • create_email_draft — create drafts for human review before sending
+       (critical for Tier 3 gate)
+     • No built-in template enforcement, AI-generated labeling, or confidence
+       indicators — these must be added at the tool wrapper level
+  2 Google Calendar MCP toolset already provides:
+     • get_events — read events for a calendar by calendarId, timeMin/timeMax,
+       with timezone support
+     • get_availability — query busy/free periods for multiple users by email,
+       returns busy slots in UTC
+     • Both are read-only — exactly matching §6 "Read access" requirement
+  3 Existing Slack tools (slack_send_message, etc.) are well-documented in
+    slack_actions SKILL.md with full messaging, threading, pinning, and
+    reactions capabilities. No [AI PM] prefix enforcement built in.
+  4 Existing tool.json pattern (from slack_send_message): Simple JSON schema
+    with name, tool_type, category, description, parameters array, returns,
+    examples.
+  5 Existing SKILL.md pattern (from twg, slack_actions): YAML frontmatter
+    (name, description, labels, metadata.requires.env/tools), then sections
+    for Overview, Prerequisites, workflow patterns, Common Patterns with
+    examples, Guidance rules, References.
+  6 Role document §4 defines 5 channels with specific AI norms — each channel
+    needs its own protocol rules in the skill.
+  7 Role document §7 SOP 3 defines the 5-step weekly report workflow with Tier
+    3 human review gate for executive-facing comms.
+  8 Role document §8 defines graduated escalation L0-L4 with specific channel
+    routing rules.
+  9 Role document §9 defines surveillance perception mitigation (opt-in
+    channels, rate limiting, no individual performance characterization).
+ 10 The task mentions confluence_create_page from "subtask 2" — the skill
+    should reference this dependency but we don't investigate it here.
+
+
+
+                                   Analysis
+
+The task requires 3 new tools and 1 new skill:
+
+Tools:
+
+ • (a) email_send — wrapping Gmail MCP create_email and create_email_draft
+   with mandatory AI-generated labeling, confidence indicators, and template
+   enforcement for the AI PgM
+ • (b) calendar_get_events — wrapping Google Calendar MCP get_events for team
+   capacity planning
+ • (c) calendar_get_availability — wrapping Google Calendar MCP
+   get_availability for availability/scheduling
+
+Skill:
+
+ • pgm_stakeholder_communication — comprehensive SKILL.md codifying
+   dual-interface communication protocols, 5-channel routing, report
+   templates, Tier 3 gates, rate limiting, escalation routing
+
+The decomposition splits into 4 subtasks: (1) Gmail/email API and tool
+investigation for email_send tool, (2) Google Calendar API investigation for
+calendar tools, (3) existing communication tool capability investigation for
+the skill's integration layer, and (4) domain research for the communication
+skill's protocols, templates, escalation routing, and governance patterns.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the Gmail MCP toolset capabilities 
+(create_email, create_email_draft) and research Gmail API features to design 
+the email_send tool.json that enforces mandatory AI-generated labeling in 
+subject lines and bodies, includes confidence indicators, supports the 
+approved weekly status report template structure (Executive Summary → 
+Milestones → Risks → Decisions Needed → Next Steps per §7 SOP 3), and 
+implements a draft-first workflow for Tier 3 executive-facing communications.
+Research how Gmail API handles HTML email bodies (for structured report 
+formatting), scheduled sends (sendTime parameter for cadenced Friday 
+delivery), and whether Gmail labels/categories can be programmatically applied
+to enforce the §6 'all emails labeled AI-generated' requirement. Also 
+investigate whether the `create_email_draft` action can serve as the Tier 3 
+human-review gate mechanism — where executive-facing reports are saved as 
+drafts for PM Lead review before sending.",
+      "todos": [
+        "Document the full parameter schemas for Gmail MCP create_email and 
+create_email_draft, noting which parameters map to the role's requirements: 
+recipients for stakeholder routing, content for templated body, sendTime for 
+scheduled delivery, threadId for follow-up chains",
+        "Research Gmail API support for HTML-formatted email bodies — 
+determine whether the MCP content parameter accepts HTML/rich text for 
+structured report templates with sections, headers, RAG indicators, and 
+confidence scores",
+        "Research how to enforce the §4 and §6 mandatory AI-generated 
+disclosure requirements in the tool.json schema — design parameter constraints
+that prepend '[AI PM Report]' to subjects and append AI-generated disclaimers
+to bodies automatically",
+        "Research the draft-as-review-gate pattern: determine if 
+create_email_draft creates drafts visible to the authenticated user (PM Lead)
+for review, and whether a subsequent create_email can be used to send the 
+reviewed draft, implementing the §7 SOP 3 step 4 Tier 3 human review gate",
+        "Design the tool.json schema for email_send following the existing 
+OpenStartup tool.json pattern (name, tool_type, category, parameters array 
+with name/type/required/description, returns, examples), including mandatory 
+template_type parameter (weekly_status, executive_briefing, 
+stakeholder_digest) and confidence_level parameter"
+      ],
+      "scope": "Covers the email_send tool: Gmail MCP integration, 
+AI-disclosure label enforcement, template support, draft-first Tier 3 
+workflow, and tool.json schema design",
+      "priority": "CRITICAL",
+      "priority_reason": "The email_send tool is one of three new tools 
+required and is essential for the AI PgM's weekly status report distribution 
+(§7 SOP 3 step 5) and executive briefings. Without understanding Gmail MCP 
+capabilities and designing the AI-disclosure enforcement, the tool cannot be 
+created correctly.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Investigate the Google Calendar MCP toolset capabilities
+(get_events, get_availability) and research how to design the 
+calendar_get_events and calendar_get_availability tool.json schemas for the AI
+PgM's read-only capacity planning, availability tracking, and meeting 
+scheduling needs per §6 Team Calendars row and §2 Capacity Dashboard 
+Generation. Research how calendar event data can be used to compute team 
+capacity metrics (available hours per sprint, meeting load, over-allocation 
+detection) and how the availability (busy/free) API supports finding meeting 
+slots across multiple team members. Investigate timezone handling across 
+distributed teams, pagination for large event sets, and how to enforce 
+read-only access at the tool schema level to satisfy §6 'Read access' 
+restriction and §8 data access ethical bright lines.",
+      "todos": [
+        "Document the full parameter schemas for Google Calendar MCP 
+get_events (calendarId, timeMin, timeMax, maxResults, orderBy, timeZone) and 
+get_availability (calendarIds array, timeMin, timeMax), mapping each to 
+capacity planning use cases from §2 and §6",
+        "Research how to compute team capacity metrics from calendar event 
+data — available hours per sprint (total hours minus meeting hours), meeting 
+load percentage per person, over-allocation detection (>X% time in meetings),
+idle capacity identification — for §2 Capacity Dashboard Generation",
+        "Research how get_availability's busy/free slot format can be used for
+meeting scheduling workflows — finding common free slots across multiple team
+members for sprint ceremonies, risk review meetings, and escalation 
+discussions per §7 SOPs",
+        "Design tool.json schemas for calendar_get_events and 
+calendar_get_availability following OpenStartup conventions, ensuring 
+read-only by design (no write parameters), with parameters for team-level 
+queries (multiple calendarIds), sprint-aligned time ranges, and timezone 
+normalization",
+        "Research privacy constraints for calendar access — determine what 
+event details are returned (title, attendees, location vs just busy/free) and
+how to ensure the tool respects §6 'Read access' and §8 Data Access 
+Restrictions by not exposing personal calendar details beyond what's needed 
+for capacity planning"
+      ],
+      "scope": "Covers the calendar_get_events and calendar_get_availability 
+tools: Google Calendar MCP integration, capacity planning computation, team 
+availability queries, read-only enforcement, and tool.json schema design",
+      "priority": "CRITICAL",
+      "priority_reason": "Calendar tools are required for the AI PgM's 
+capacity planning and meeting scheduling capabilities (§2, §6). Without 
+understanding what data the Google Calendar MCP returns and how to compute 
+capacity metrics from it, these tools cannot be properly designed.",
+      "priority_score": "4.0",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Investigate the existing Slack tools 
+(slack_send_message, slack_actions skill, slack_search skill) and TWG tool 
+capabilities to discover all available commands, parameters, and operations 
+that the pgm_stakeholder_communication skill will orchestrate across its 
+multi-channel communication workflows. The skill must integrate Slack 
+messaging (with [AI PM] prefix enforcement, threading for daily summaries, 
+rate-limited notifications), Confluence page creation/updates (via TWG 
+confluence surface or the new confluence_create_page from subtask 2), and Jira
+coordination ticket creation (via TWG jira surface). This investigation 
+determines the complete tool palette the skill will reference and how each 
+tool maps to the §4 Communication Protocols table's five channels.",
+      "todos": [
+        "Read and catalog all capabilities from slack_actions SKILL.md — 
+document which tools support the AI PgM's Slack communication needs: 
+slack_send_message for alerts/summaries with [AI PM] prefix, 
+slack_edit_message for updating status threads, slack_pin_message for pinning
+weekly reports, slack_react for acknowledging items",
+        "Read and catalog the slack_search SKILL.md capabilities — document 
+how slack_search_messages and slack_get_channel_history can support the §9 
+opt-in channel monitoring constraint and how slack_find_channel resolves 
+channel targets for communication routing",
+        "Investigate the TWG tool's Confluence surface capabilities (pages 
+create, pages update, search via CQL) for publishing program status pages, 
+risk registers, and meeting notes tagged with 'ai-generated' label per §4 
+Confluence channel norms — document available commands from 
+NATIVE-SURFACES.md",
+        "Investigate the TWG tool's Jira surface capabilities for creating 
+coordination tickets tagged 'created-by-ai-pm' per §4 Jira channel norms — 
+document how jira workitem create and update commands work and what metadata 
+can be set",
+        "Map each existing tool to the §4 Communication Protocols table's 5 
+channels (Slack, Email, Confluence, Jira, Meetings) — identify which channels
+are already tooled, which need the new tools from subtasks 1-2, and which 
+channel capabilities are missing entirely"
+      ],
+      "scope": "Covers the tool capability foundation for 
+pgm_stakeholder_communication skill: existing Slack, TWG/Confluence, and 
+TWG/Jira tool capabilities that the skill will orchestrate for multi-channel 
+communication",
+      "priority": "HIGH",
+      "priority_reason": "The skill must accurately reference and orchestrate
+existing tools. Without investigating their actual capabilities (commands, 
+parameters, return formats), the SKILL.md would prescribe workflows the tools
+don't support or miss capabilities they already offer. This is a mandatory 
+investigation subtask per decomposition guidelines.",
+      "priority_score": "3.8",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research the domain knowledge, communication governance
+frameworks, and report template best practices needed to author the 
+pgm_stakeholder_communication SKILL.md. This skill must encode: (a) the §4 
+Dual-Interface Design's AI-to-Human communication protocols with 
+audience-adapted tone calibration rules for each of the 5 channels; (b) the §7
+SOP 3 weekly status report template with section-specific guidance (Executive
+Summary → Milestones → Risks → Decisions Needed → Next Steps); (c) the §8 
+Graduated Escalation Path's channel routing decision logic (when to use Slack
+vs email vs Confluence vs Jira); (d) the §9 Surveillance Perception 
+mitigation's rate limiting rules and opt-in channel governance; and (e) the 
+Tier 3 human-review gate enforcement pattern for executive-facing 
+communications. Research how AI agents in program management contexts handle 
+tone calibration, confidence indicators, and AI-disclosure norms across 
+different stakeholder audiences.",
+      "todos": [
+        "Research best practices for AI-to-human communication tone 
+calibration across different audiences — how to encode rules for executive 
+(narrative, strategic, outcome-focused) vs engineering (data-rich, 
+action-oriented, metric-focused) vs cross-functional (balanced, context-heavy)
+tone per §4 Communication Protocols table",
+        "Research program management status report template patterns and the 
+Executive Summary → Milestones → Risks → Decisions Needed → Next Steps 
+structure from §7 SOP 3 — document best practices for each section's content,
+length, and format including RAG status indicators and confidence scores",
+        "Research escalation channel routing decision models — when to use 
+real-time Slack (Sev3-4 notifications, blocker alerts), when email (weekly 
+cadenced reports, executive briefings), when Confluence (persistent 
+documentation, risk registers), when Jira (coordination tickets, blocker 
+tracking) — map to §8 Graduated Escalation Path levels L0-L4",
+        "Research AI notification rate limiting patterns and anti-surveillance
+communication design — frequency caps per channel per recipient, notification
+batching strategies, opt-in/opt-out channel governance, and how to focus on 
+team-level patterns rather than individual behavior per §9 Surveillance 
+Perception mitigation",
+        "Research AI-disclosure and transparency conventions for automated 
+communications — '[AI PM]' prefixes, 'AI-generated' labels, confidence 
+indicators (high/medium/low with percentage ranges), source attribution 
+requirements, and how these build trust per §4 AI-Specific Norms across all 
+channels"
+      ],
+      "scope": "Covers the pgm_stakeholder_communication SKILL.md domain 
+content: tone calibration rules, report templates, escalation routing logic, 
+rate limiting governance, AI transparency conventions, and Tier 3 gate 
+enforcement",
+      "priority": "CRITICAL",
+      "priority_reason": "This subtask produces the domain knowledge 
+foundation for the SKILL.md — the central deliverable. Without researching 
+tone calibration, report templates, escalation routing, and governance 
+patterns, the skill would lack the actionable communication protocols that 
+make it valuable for the AI PgM role.",
+      "priority_score": "4.3",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "The decomposition follows the natural structure of the 
+deliverables: two tool investigation subtasks (email_send and calendar tools,
+subtasks 1-2) that each deep-dive into their respective MCP platform 
+capabilities and tool.json design; one existing-tool investigation subtask 
+(subtask 3) that discovers the full capability palette the skill will 
+orchestrate across Slack, Confluence, and Jira; and one domain research 
+subtask (subtask 4) for the communication governance knowledge the skill 
+encodes. Subtasks 1-3 are fully independent investigations with no 
+cross-dependencies. Subtask 4 (domain research) is also independent — it 
+researches communication frameworks and patterns regardless of specific tool 
+capabilities. Together, the 4 subtasks cover: all 3 new tools' API and schema
+design needs (subtasks 1-2), all existing tools the skill leverages (subtask 
+3), and all domain knowledge for the skill's protocols, templates, escalation
+routing, and governance (subtask 4). The task description's mention of 
+confluence_create_page 'from subtask 2' is noted as an external dependency — 
+subtask 3 documents it as a tool the skill will reference but does not 
+investigate its creation.",
+  "coverage_complete": true,
+  "gaps": "The confluence_create_page tool referenced as coming from a 
+separate subtask is not investigated here — the skill will reference it as a 
+dependency. This is by design per the task description's scoping."
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 131.1K/1M
+

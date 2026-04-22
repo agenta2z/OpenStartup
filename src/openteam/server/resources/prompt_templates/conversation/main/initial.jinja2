@@ -3,10 +3,12 @@
 {{ employee.mindset }}
 {% endif %}
 
-{# Guard workflow variables — they may not be provided in conversation-only mode #}
-{% if workflow_target_path is defined and workflow_target_path %}
+{# Guard workflow variables — shown when workflow_description is set (always for rovodev backend) #}
+{% if workflow_description is defined and workflow_description %}
 ## Workflow Context
+{% if workflow_target_path is defined and workflow_target_path %}
 You operate on {{ workflow_target_path }} under repository `{{ session_root_path | default("(not set)") }}`.
+{% endif %}
 
 <WorkflowDescription>
 {{ workflow_description | default("No active workflow.") }}

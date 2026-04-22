@@ -38,14 +38,10 @@ function getStatusText(status, serverInfo) {
   if (status === 'connecting') return 'Connecting...';
   if (status === 'disconnected') return 'Disconnected — Retrying...';
 
-  // Connected — build descriptive text
+  // Connected — prefer server_name if available
+  if (serverInfo?.server_name) return `Connected — ${serverInfo.server_name}`;
   const parts = ['Connected'];
-  if (serverInfo?.version) {
-    parts.push(`Server v${serverInfo.version}`);
-  }
-  if (serverInfo?.real_sessions) {
-    parts.push('Real Sessions');
-  }
+  if (serverInfo?.version) parts.push(`Server v${serverInfo.version}`);
   return parts.join(' — ');
 }
 

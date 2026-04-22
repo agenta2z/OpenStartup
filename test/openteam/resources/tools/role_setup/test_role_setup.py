@@ -49,6 +49,76 @@ import click
 logger = logging.getLogger(__name__)
 
 
+def _run_async_with_forced_cleanup(coro, cleanup_timeout: float = 15.0):
+    """Run an async coroutine and force-exit event loop cleanup.
+
+    ``asyncio.run()`` can hang indefinitely during its cleanup phase
+    (``shutdown_asyncgens()`` / ``shutdown_default_executor()``) when
+    workers leave unclosed async resources (e.g., httpx connection pools,
+    subprocess pipe transports held by child processes like MCP servers).
+
+    This wrapper runs the coroutine in a background thread.  Once the
+    coroutine completes, the main thread gets the result immediately.
+    Event loop cleanup is attempted with a timeout — if it hangs, we
+    force-close the loop and continue.
+
+    Args:
+        coro: The coroutine to run.
+        cleanup_timeout: Max seconds for event loop cleanup after the
+            coroutine returns.
+
+    Returns:
+        The coroutine's return value.
+    """
+    import threading
+
+    result_holder = {}
+    work_done = threading.Event()
+
+    def _run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result_holder["result"] = loop.run_until_complete(coro)
+        except Exception as e:
+            result_holder["exception"] = e
+        finally:
+            # Signal that the coroutine is done (before cleanup)
+            work_done.set()
+
+            # Best-effort cleanup — may hang, but that's OK (daemon thread)
+            try:
+                to_cancel = asyncio.all_tasks(loop)
+                for task in to_cancel:
+                    task.cancel()
+                if to_cancel:
+                    loop.run_until_complete(
+                        asyncio.wait_for(
+                            asyncio.gather(*to_cancel, return_exceptions=True),
+                            timeout=cleanup_timeout,
+                        )
+                    )
+            except Exception:
+                pass
+            try:
+                loop.run_until_complete(
+                    asyncio.wait_for(loop.shutdown_asyncgens(), timeout=cleanup_timeout)
+                )
+            except Exception:
+                pass
+            loop.close()
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    # Wait for the coroutine to complete (not for cleanup)
+    work_done.wait()
+
+    if "exception" in result_holder:
+        raise result_holder["exception"]
+    return result_holder.get("result")
+
+
 def _extract_aggregator_result(result) -> str:
     """Extract the aggregator output from a BTA ainfer() result.
 
@@ -190,10 +260,11 @@ def _extract_aggregator_result(result) -> str:
     default=False,
     help="Run only the outer breakdown step (identify setup tasks). Skip workers and aggregation.",
 )
-@click.option("--subtask-breakdown-only", is_flag=True, default=False, help="Run inner BTA breakdown for a specific subtask")
-@click.option("--breakdown-file", default=None, type=click.Path(), help="Path to outer breakdown output file (for --subtask-breakdown-only)")
-@click.option("--subtask-index", default=1, type=int, help="1-based subtask index (for --subtask-breakdown-only)")
-@click.option("--inner-research-only", is_flag=True, default=False, help="Run inner BTA workers only (needs --breakdown-file)")
+@click.option("--subtask-breakdown-only", is_flag=True, default=False, help="Run inner BTA breakdown only for a specific subtask (no workers, no aggregation)")
+@click.option("--run-subtask", is_flag=True, default=False, help="Run full inner BTA for a specific subtask (breakdown + workers). Use --disable-subtask-aggregator to skip aggregation.")
+@click.option("--breakdown-file", default=None, type=click.Path(), help="Path to outer breakdown output file (for --subtask-breakdown-only / --run-subtask)")
+@click.option("--subtask-index", default=1, type=int, help="1-based subtask index (for --subtask-breakdown-only / --run-subtask)")
+@click.option("--inner-research-only", is_flag=True, default=False, help="Run inner BTA workers only (needs --breakdown-file with inner breakdown output)")
 @click.option(
     "--resume-workspace",
     default=None,
@@ -205,7 +276,7 @@ def _extract_aggregator_result(result) -> str:
         "not the outer experiment root (that file is the outer breakdown)."
     ),
 )
-@click.option("--disable-aggregator", is_flag=True, default=False, help="Skip aggregation phase (run workers only)")
+@click.option("--disable-subtask-aggregator", is_flag=True, default=False, help="Skip inner (subtask-level) aggregation phase (run breakdown + workers only). For --run-subtask mode.")
 @click.option(
     "--tools-file",
     default=None,
@@ -234,11 +305,12 @@ def main(
     templates_dir: str | None,
     breakdown_only: bool,
     subtask_breakdown_only: bool,
+    run_subtask: bool,
     breakdown_file: str | None,
     subtask_index: int,
     inner_research_only: bool,
     resume_workspace: str | None,
-    disable_aggregator: bool,
+    disable_subtask_aggregator: bool,
     tools_file: str | None,
     log_level: str,
 ) -> None:
@@ -307,6 +379,14 @@ def main(
         "timestamp": workspace.name,  # folder name is the timestamp
         "mode": "resume" if resume_workspace else "new",
     }
+    # Preserve task_query in config for resume (so aggregator knows the
+    # original task, not the literal string "resume")
+    if resume_workspace:
+        prev_config_path = Path(resume_workspace) / "config.json"
+        if prev_config_path.exists():
+            prev_config = json.loads(prev_config_path.read_text())
+            if "task_query" in prev_config:
+                config["task_query"] = prev_config["task_query"]
     (workspace / "config.json").write_text(json.dumps(config, indent=2))
     logger.info("Workspace: %s", workspace)
 
@@ -378,7 +458,6 @@ def main(
         saved = _json.loads(ckpt.read_text())
         sub_queries = saved.get("sub_queries", saved) if isinstance(saved, dict) else saved
         click.echo(f"[Resume] Workspace: {resume_ws}")
-        click.echo(f"[Resume] Skip aggregator: {disable_aggregator}")
         click.echo(f"[Resume] {len(sub_queries)} sub_queries from checkpoint")
         click.echo(f"Auth: {'UCT' if has_uct else 'Basic' if has_basic else 'None (local only)'}")
         click.echo("")
@@ -434,9 +513,23 @@ def main(
 
         streaming_cache_dir = str(workspace / "_runtime" / "inferencer_cache")
 
+        # Recover the original subtask query from config (so the aggregator
+        # sees the real task description, not the literal string "resume").
+        _prev_config_path = Path(resume_workspace) / "config.json"
+        _prev_config = json.loads(_prev_config_path.read_text()) if _prev_config_path.exists() else {}
+        _task_query = _prev_config.get("task_query", "resume")
+        _subtask_index = _prev_config.get("subtask_index", 0)
+        if _task_query == "resume":
+            click.echo(
+                "WARNING: No task_query found in config.json — aggregator "
+                "will receive 'resume' as the task description. Re-run with "
+                "--run-subtask to save the subtask query first.",
+                err=True,
+            )
+
         bta = _build_inner_bta(
-            sub_query="resume",
-            index=0,
+            sub_query=_task_query,
+            index=_subtask_index,
             tm=tm,
             rovo_kwargs=rovo_kwargs,
             inner_breakdown_preamble=inner_breakdown_preamble,
@@ -455,9 +548,8 @@ def main(
             available_tools_text=available_tools_text,
         )
 
-        # Enable resume + skip aggregator
+        # Enable resume
         bta.resume_with_saved_results = True
-        bta.disable_aggregator = disable_aggregator
         bta.enable_result_save = True
 
         for sq in sub_queries:
@@ -469,9 +561,9 @@ def main(
                 desc = str(sq)[:60]
             click.echo(f"  [{tp}] {desc}...")
 
-        click.echo(f"\nRunning BTA (resume=True, disable_agg={disable_aggregator})...")
+        click.echo(f"\nRunning BTA (resume=True, query={_task_query[:60]}...)...")
         start_time = time.time()
-        result = asyncio.run(bta.ainfer("resume", inference_config={}))
+        result = _run_async_with_forced_cleanup(bta.ainfer(_task_query, inference_config={}))
         elapsed = time.time() - start_time
 
         result_text = _extract_aggregator_result(result)
@@ -481,7 +573,6 @@ def main(
         (workspace / "artifacts" / "summary.json").write_text(
             json.dumps({
                 "mode": "resume",
-                "disable_aggregator": disable_aggregator,
                 "workspace": str(workspace),
                 "sub_queries_count": len(sub_queries),
                 "duration_seconds": round(elapsed, 1),
@@ -531,7 +622,7 @@ def main(
         click.echo(f"\nRunning {len(sub_queries)} workers...")
         start_time = time.time()
         bta._build_diamond_graph(sub_queries)
-        results = asyncio.run(bta.arun())
+        results = _run_async_with_forced_cleanup(bta.arun())
         elapsed = time.time() - start_time
 
         result_text = str(results)
@@ -553,12 +644,48 @@ def main(
         click.echo(f"Output: {workspace / 'artifacts' / 'inner_research_output.md'}")
         sys.exit(0)
 
+    elif run_subtask:
+        if not breakdown_file:
+            click.echo("ERROR: --breakdown-file is required with --run-subtask", err=True)
+            sys.exit(1)
+
+        mode_desc = "breakdown + workers" + (" (skip aggregation)" if disable_subtask_aggregator else " + aggregation")
+        click.echo(f"[Run Subtask] Subtask {subtask_index} from: {breakdown_file}")
+        click.echo(f"[Run Subtask] Mode: {mode_desc}")
+        click.echo(f"Auth mode: {'UCT' if has_uct else 'Basic Auth'}")
+        click.echo("")
+
+        inferencer, inference_input = build_subtask_breakdown_only(  # inference_input = subtask_desc
+            breakdown_file=breakdown_file,
+            subtask_index=subtask_index,
+            role_document_path=role_document_path,
+            cloud_id=cloud_id,
+            uct_token=uct_token,
+            email=email,
+            api_token=api_token,
+            base_url=base_url,
+            agent_named_id=agent_named_id,
+            templates_dir=templates_dir,
+            streaming_cache_dir=streaming_cache_dir,
+            workspace_root=str(workspace),
+            inferencer_logger=inferencer_logger,
+        )
+        # Override: run full inner BTA (breakdown + workers), not just breakdown
+        inferencer.breakdown_only = False
+        inferencer.disable_aggregator = disable_subtask_aggregator
+
+        # Save subtask query to config so --resume-workspace can recover it
+        config["task_query"] = inference_input
+        config["subtask_index"] = subtask_index
+        config["mode"] = "run_subtask"
+        (workspace / "config.json").write_text(json.dumps(config, indent=2))
+
     elif subtask_breakdown_only:
         if not breakdown_file:
             click.echo("ERROR: --breakdown-file is required with --subtask-breakdown-only", err=True)
             sys.exit(1)
 
-        click.echo(f"[Subtask Breakdown] Subtask {subtask_index} from: {breakdown_file}")
+        click.echo(f"[Subtask Breakdown Only] Subtask {subtask_index} from: {breakdown_file}")
         click.echo(f"Auth mode: {'UCT' if has_uct else 'Basic Auth'}")
         click.echo("")
 
@@ -604,7 +731,7 @@ def main(
     # 7. Run inference
     start_time = time.time()
     try:
-        result = asyncio.run(inferencer.ainfer(inference_input))
+        result = _run_async_with_forced_cleanup(inferencer.ainfer(inference_input))
     except Exception:
         logger.exception("Inference failed")
         click.echo("ERROR: Inference failed. Check logs above.", err=True)
@@ -621,20 +748,25 @@ def main(
         output_file.write_text(result_text)
         primary_deliverable = output_file
     else:
-        (artifacts_dir / "aggregator_raw_output.md").write_text(result_text)
-        if aggregator_type == "rovodev":
-            agent_files = list(outputs_dir.glob("*.md"))
-            if agent_files:
-                logger.info("Agent created deliverable: %s", sorted(agent_files)[-1].name)
-            else:
-                (outputs_dir / "role_setup_report.md").write_text(result_text)
+        from agent_foundation.common.response_parsers import extract_delimited
+        clean_text = extract_delimited(result_text) if "<Response>" in result_text else result_text
+        (artifacts_dir / "aggregator_raw_output.md").write_text(clean_text)
+
+        deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + \
+                           list(outputs_dir.rglob("tools/**/*"))
+        if deliverable_files:
+            logger.info(
+                "Agent created %d deliverable(s): %s",
+                len(deliverable_files),
+                ", ".join(f.name for f in sorted(deliverable_files)),
+            )
         else:
-            (outputs_dir / "role_setup_report.md").write_text(result_text)
-        deliverable_files = list(outputs_dir.glob("*.md"))
+            logger.info("No deliverable files found in %s", outputs_dir)
+
         primary_deliverable = (
             sorted(deliverable_files)[-1]
             if deliverable_files
-            else outputs_dir / "role_setup_report.md"
+            else artifacts_dir / "aggregator_raw_output.md"
         )
 
     summary = {

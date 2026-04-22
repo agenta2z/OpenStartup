@@ -1,0 +1,41 @@
+Working in 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/children/b
+reakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+─── Failed to start third-party MCP server ─────────────────────────────────────
+Failed to connect to MCP server 'atlassian_project' at 
+https://api.atlassian.com/rovodev/v3/mcp/integrations. Tools from this server
+will not be available. Detail: Client error '429 Too Many Requests' for url 
+'https://api.atlassian.com/rovodev/v3/mcp/integrations' For more information 
+check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+────────────────────────────────────────────────────────────────────────────────
+─── Failed to start third-party MCP server ─────────────────────────────────────
+Failed to connect to MCP server 'google_calendar' at 
+https://api.atlassian.com/rovodev/v3/mcp/integrations. Tools from this server
+will not be available. Detail: Client error '429 Too Many Requests' for url 
+'https://api.atlassian.com/rovodev/v3/mcp/integrations' For more information 
+check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+────────────────────────────────────────────────────────────────────────────────
+⚠ Started 16 of 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'd be happy to help! It looks like your message might have been cut off. You
+mentioned "prompt_templates" — could you provide more details about what you'd
+like me to do?
+
+Here are some things I can help with:
+
+ • Explore your codebase for prompt templates
+ • Search Jira (CTSC project) for issues related to prompt templates
+ • Search Confluence for documentation about prompt templates
+ • Create, update, or review prompt template files
+ • Research prompt template best practices
+
+What would you like me to help with regarding prompt templates?
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 19.6K/1M

@@ -1,0 +1,1 @@
+idle_timeout=1800s, tool_use_timeout=7200s (overrides: idle=None, tool_use=None, instance: idle=1800, tool_use=7200)

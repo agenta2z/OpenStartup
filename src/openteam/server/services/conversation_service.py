@@ -125,15 +125,21 @@ class ConversationService:
         llm_backend: str = "mock",
         working_dir: str | None = None,
         cache_dir: str | None = None,
+        session_store: object | None = None,
     ) -> None:
         self._templates_dir = templates_dir
         self._llm_backend = llm_backend
         self._working_dir = working_dir or str(Path.home())
         self._cache_dir = cache_dir
-        self._inferencer = None
+        self._session_store = session_store
+        self._inferencers: dict[str, object] = {}  # session_id → ConversationalInferencer
+        self._mock_prompt_cache: dict[str, dict] = {}  # session_id → last prompt data (mock mode)
+        # Per-session JsonLogger cache for RankEvolve-style structured logging.
+        # Created lazily on first run_conversation_turn call so that we have
+        # a session_dir to bind to. Reused across turns so the JSONL file
+        # accumulates and the parts/ subfolders persist across the session.
+        self._session_loggers: dict[str, Any] = {}
         self._template_manager = self._build_template_manager()
-        if llm_backend == "rovodev":
-            self._inferencer = self._build_rovodev_inferencer()
 
     def _build_template_manager(self):
         """Create TemplateManager for conversation prompt rendering.
@@ -227,6 +233,10 @@ class ConversationService:
                 idle_timeout_seconds=600,
                 tool_use_idle_timeout_seconds=600,
                 cache_folder=cache_folder,
+                enable_legacy=True,  # Legacy mode uses --output-file for clean output
+                                     # capture that preserves XML tags and code fences.
+                                     # Non-legacy (TUI mode) mangles fences via Rich
+                                     # markup, breaking parse_conversation_response().
             )
             logger.info(
                 "RovoDevCliInferencer initialized (working_dir=%s, acli=%s, cache=%s)",
@@ -247,9 +257,12 @@ class ConversationService:
 
             # 3. Load tool registry, apply config-based filtering, and build tool executor
             from agent_foundation.resources.tools.registry import load_all_tools
-            from agent_foundation.integrations.dispatch import build_integration_executor
+            from openteam.server.integrations.dispatch import build_integration_executor
 
-            tool_registry = load_all_tools()
+            # Pass OpenStartup's tools directory so create_role, role_setup
+            # and all slack/twg tools are discovered alongside AF built-ins.
+            openteam_tools_dir = self._templates_dir.parent / "tools"
+            tool_registry = load_all_tools(extra_dirs=[openteam_tools_dir])
 
             # Filter tools based on .initial.config.yaml → tools.enabled_action_tools
             # If the whitelist is defined and non-empty, only include listed tools.
@@ -259,26 +272,57 @@ class ConversationService:
 
             integration_executor = build_integration_executor()
 
+            # Generic registry-driven dispatcher — reads 'executor' field from each
+            # tool's tool.json and imports the callable at construction time.
+            # Fallback to integration_executor for Slack/TWG tools.
+            from openteam.server.services.tool_dispatcher import ToolDispatcher
+            session_context = {
+                "working_dir": self._working_dir,
+                "server_dir": str(self._session_store.server_dir) if self._session_store else "",
+                # cloud_id, uct_token, email loaded from environment if needed
+                "cloud_id": "",
+                "uct_token": None,
+                "email": None,
+            }
+            dispatcher = ToolDispatcher(
+                tool_registry=tool_registry,
+                integration_executor=integration_executor,
+                session_context=session_context,
+                interactive=None,  # Injected per-turn by run_conversation_turn
+            )
+
+            conv_inferencer = None  # assigned after closure; safe because tools only run during run_agentic_loop
+
             async def tool_executor(tool_name, arguments):
-                if integration_executor.handles(tool_name):
-                    return await integration_executor(tool_name, arguments)
-                # Fallback: unknown tool
-                from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
-                    ToolExecutionResult,
-                )
-                return ToolExecutionResult(
-                    result=f"Unknown tool: {tool_name}"
-                )
+                result = await dispatcher(tool_name, arguments)
+                # Auto-derive phase updates from SOP tool_phase_map
+                # (populated by _render_prompt() from the SOP before tool execution)
+                if hasattr(result, "context_updates") and conv_inferencer is not None:
+                    tool_phase_map = conv_inferencer.prior_context.get("tool_phase_map", {})
+                    tool_phase = tool_phase_map.get(tool_name)
+                    if tool_phase and "current_phase" not in result.context_updates:
+                        result.context_updates["current_phase"] = tool_phase
+                        result.context_updates["phase_status"] = "completed"
+                return result
 
             # 4. Wrap in ConversationalInferencer with tools
+            # Note: tool_executor closure references conv_inferencer for
+            # tool_phase_map access. Python closures capture by name (not value),
+            # so conv_inferencer will be bound by the time tools execute.
             conv_inferencer = ConversationalInferencer(
                 base_inferencer=base,
+                # NOTE: _tool_dispatcher set below after conv_inferencer is created
                 prompt_renderer=prompt_renderer,
                 tool_registry=tool_registry,
                 tool_executor=tool_executor,
                 max_iterations=5,
                 compression_threshold=8000,
             )
+            # Store dispatcher on inferencer so run_conversation_turn can inject
+            # per-turn interactive (needed for async background task dispatch).
+            # ConversationalInferencer uses @attrs(slots=False) — dynamic attrs allowed.
+            conv_inferencer._tool_dispatcher = dispatcher
+
             logger.info(
                 "ConversationalInferencer wrapping RovoDevCliInferencer "
                 "(tools: %d registered)", len(tool_registry),
@@ -356,6 +400,442 @@ class ConversationService:
             )
             return tool_registry
 
+    # ── Workflow-controlled conversation ────────────────────────────
+
+    def _get_session_inferencer(self, session_id: str):
+        """Get or create a per-session ConversationalInferencer."""
+        if session_id not in self._inferencers and self._llm_backend == "rovodev":
+            self._inferencers[session_id] = self._build_rovodev_inferencer()
+        return self._inferencers.get(session_id)
+
+    def evict_session_inferencer(self, session_id: str) -> None:
+        """Free memory when a session is deleted."""
+        self._inferencers.pop(session_id, None)
+
+    def get_last_prompt_data(self, session_id: str) -> dict:
+        """Return cached prompt data from the last turn for a given session.
+
+        Reads _last_template_source, _last_template_feed, _last_rendered_prompt,
+        _last_template_config from the ConversationalInferencer after run_agentic_loop().
+        Returns empty dict if session has no inferencer or no data yet.
+
+        The template_feed is sanitized — non-JSON-serializable objects (e.g. SOP,
+        StateGraphTracker) that get spread into the feed via **prior_context are
+        converted to their string representation or omitted.
+        """
+        inf = self._inferencers.get(session_id)
+        if inf is None:
+            # Fall back to mock prompt cache (populated by astream_response in mock mode)
+            return self._mock_prompt_cache.get(session_id, {})
+        return {
+            "template_source": getattr(inf, "_last_template_source", "") or "",
+            "template_feed": self._sanitize_feed(getattr(inf, "_last_template_feed", {}) or {}),
+            "rendered_prompt": getattr(inf, "_last_rendered_prompt", "") or "",
+            "template_config": getattr(inf, "_last_template_config", {}) or {},
+        }
+
+    @staticmethod
+    def _sanitize_feed(feed: dict) -> dict:
+        """Make template_feed JSON-serializable.
+
+        The feed dict contains **prior_context spread, which includes non-JSON
+        objects like SOP (from _sop key), StateGraphTracker, SOPPhase, etc.
+        This method converts them to safe representations.
+        """
+        import json
+
+        result = {}
+        for key, value in feed.items():
+            # Skip internal/private keys that are never useful for display
+            if key.startswith("_"):
+                continue
+            try:
+                # Test if value is JSON serializable
+                json.dumps(value)
+                result[key] = value
+            except (TypeError, ValueError):
+                # Convert non-serializable objects to string repr
+                try:
+                    result[key] = str(value)
+                except Exception:
+                    result[key] = f"<non-serializable: {type(value).__name__}>"
+        return result
+
+    def _compute_session_context(self, session: dict) -> dict:
+        """Build prior_context dict from session workflow state — called once per turn."""
+        from agent_foundation.server.workflow_context import WorkflowContext
+
+        wc_dict = session.get("workflow_context", {})
+        # Ensure workflow_description is non-empty before constructing
+        # WorkflowContext — its __post_init__ tries a stale rankevolve
+        # importlib path when workflow_description is falsy.
+        if wc_dict:
+            if not wc_dict.get("workflow_description"):
+                wc_dict["workflow_description"] = self._load_workflow_description()
+            wc = WorkflowContext.from_dict(wc_dict)
+        else:
+            wc = WorkflowContext(
+                workflow_description=self._load_workflow_description()
+            )
+
+        return {
+            "session_root_path": self._working_dir,
+            "workflow_status": wc.to_status_text(),
+            "workflow_description": wc.workflow_description,
+            "strategy": wc.strategy,
+            "current_phase": wc.current_phase,
+            "phase_status": wc.phase_status,
+            "completed_phases": wc.completed_phases,
+            "phase_outputs": wc.phase_outputs,
+        }
+
+    def _load_workflow_description(self) -> str:
+        """Load the default workflow description from prompt templates."""
+        desc_file = (
+            self._templates_dir
+            / "conversation"
+            / "main"
+            / "_variables"
+            / "workflow_description"
+            / "default.jinja2"
+        )
+        return desc_file.read_text(encoding="utf-8") if desc_file.is_file() else ""
+
+    def _persist_workflow_updates(
+        self, session: dict, prior_context: dict, data_service: object | None
+    ) -> None:
+        """Persist updated workflow state from the inferencer's prior_context."""
+        from agent_foundation.server.workflow_context import (
+            WorkflowContext,
+            WorkflowPhaseRecord,
+        )
+
+        # Rebuild from prior_context (inferencer's live state, updated in-place
+        # by context_updates during the turn) — NOT from the stale session dict.
+        completed_raw = prior_context.get("completed_phases", [])
+        completed = []
+        for r in completed_raw:
+            if isinstance(r, WorkflowPhaseRecord):
+                completed.append(r)
+            elif isinstance(r, dict):
+                completed.append(WorkflowPhaseRecord.from_dict(r))
+
+        wc = WorkflowContext(
+            strategy=prior_context.get("strategy", "default"),
+            workflow_description=prior_context.get("workflow_description") or self._load_workflow_description(),
+            current_phase=prior_context.get("current_phase", "idle"),
+            phase_status=prior_context.get("phase_status", "idle"),
+            completed_phases=completed,
+            phase_outputs=prior_context.get("phase_outputs", {}),
+        )
+
+        if data_service and hasattr(data_service, "update_workflow_context"):
+            data_service.update_workflow_context(session["id"], wc.to_dict())
+        elif self._session_store and hasattr(self._session_store, "update_workflow_context"):
+            self._session_store.update_workflow_context(session["id"], wc.to_dict())
+
+    def _get_or_create_session_logger(self, session_id: str, data_service):
+        """Lazily create the per-session JsonLogger.
+
+        Adapts RankEvolve's pattern (rich_python_utils.io_utils.json_io.JsonLogger
+        configured with is_artifact + parts_min_size=0 + parts_file_namer) to
+        OpenStartup's session layout, but bypasses RankEvolve's `SessionLogger`
+        wrapper because it always creates a NEW nested subdirectory inside the
+        passed `base_log_dir` — incompatible with our existing session dirs.
+        """
+        if session_id in self._session_loggers:
+            return self._session_loggers[session_id]
+        if data_service is None or not hasattr(data_service, "get_session_dir"):
+            return None
+        session_dir = data_service.get_session_dir(session_id)
+        if session_dir is None:
+            return None
+        try:
+            from rich_python_utils.io_utils.json_io import JsonLogger
+        except ImportError:
+            logger.debug("JsonLogger not available; skipping structured session logging")
+            return None
+        json_logger = JsonLogger(
+            file_path=str(session_dir / "session.jsonl"),
+            append=True,
+            parts_min_size=0,            # all fields → parts/ files (matches RankEvolve)
+            is_artifact=True,            # auto-sets parts_key_paths='*'
+            parts_file_namer=lambda obj: obj.get("type", "") if isinstance(obj, dict) else "",
+            # space_ext_mode omitted: only affects space= param, not group=/subfolder=
+        )
+        self._session_loggers[session_id] = json_logger
+        return json_logger
+
+    async def run_conversation_turn(
+        self, session: dict, user_message: str, *, interactive, data_service=None
+    ):
+        """Run a full conversation turn with workflow-controlled agentic loop.
+
+        Unlike astream_response() (async generator yielding chunks),
+        this returns AgenticResult after run_agentic_loop() completes.
+        Streaming happens inside run_agentic_loop() via interactive.stream_token_batches().
+        """
+        inferencer = self._get_session_inferencer(session["id"])
+        if inferencer is None:
+            raise RuntimeError("ConversationalInferencer not initialized")
+
+        # Inject per-turn interactive into the dispatcher so async tools (create_role,
+        # role_setup) can send task_status WS messages and spawn background tasks.
+        if hasattr(inferencer, "_tool_dispatcher"):
+            inferencer._tool_dispatcher._interactive = interactive
+
+        # Inject workflow state as prior_context
+        session_ctx = self._compute_session_context(session)
+        inferencer.set_prior_context(session_ctx)
+
+        # Sync conversation history
+        conv_messages = [
+            {
+                "role": "user" if m.get("role") in ("manager", "user") else "assistant",
+                "content": m.get("content", ""),
+            }
+            for m in session.get("messages", [])
+        ]
+        inferencer.set_messages(conv_messages)
+
+        # ── RankEvolve-style structured logging setup ─────────────────────
+        # Get/create per-session JsonLogger; compute initial turn number from
+        # what's already on disk; track the current turn so we can save data
+        # for both intermediate iterations (via on_new_turn) and the final turn.
+        sid = session["id"]
+        json_logger = self._get_or_create_session_logger(sid, data_service)
+        session_dir = (
+            data_service.get_session_dir(sid)
+            if data_service is not None and hasattr(data_service, "get_session_dir")
+            else None
+        )
+
+        # Count existing turn directories. Prefer new-style (turn_NNN/ at root,
+        # RankEvolve layout); fall back to legacy nested (turns/turn_NNN/).
+        initial_turn = 0
+        if session_dir is not None:
+            new_style = sum(
+                1 for p in session_dir.iterdir()
+                if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
+            )
+            if new_style > 0:
+                initial_turn = new_style
+            else:
+                legacy_dir = session_dir / "turns"
+                if legacy_dir.is_dir():
+                    initial_turn = sum(
+                        1 for p in legacy_dir.iterdir()
+                        if p.is_dir() and p.name.startswith("turn_")
+                    )
+
+        current_turn = [initial_turn]                # 1-based after first increment
+        last_widget_response: list[Any] = [None]      # tracked for final-turn user_input
+
+        # ── on_new_turn callback (fires between agentic-loop iterations) ──
+        # When the inferencer hands control back to the user (widget, free-text),
+        # the previous iteration's prompt+response is now complete. We:
+        #   1) Log the per-turn artifacts to JSONL (PromptTemplate, RenderedPrompt, …)
+        #   2) Save turn.json via save_turn_data so REST View Prompt works
+        #   3) Update WebSocketInteractive._last_prompt_data so the NEXT preamble
+        #      message can carry inline prompt_data
+        #   4) Point the inferencer's cache_folder at the next turn's directory
+        #      so streaming cache files (stream_*.txt) co-locate with that turn.
+        # Returns the new turn number (1-based) so the inferencer can use it for
+        # its own per-turn output paths if it wants.
+        #
+        # NOTE: Must be `async def` — `run_agentic_loop` calls this with `await`
+        # (see conversational_inferencer.py: `new_turn = await on_new_turn(...)`).
+        # All work inside is synchronous (file I/O via JsonLogger, save_turn_data),
+        # but the function signature must be a coroutine. We don't actually need
+        # any `await` calls inside; making it `async` simply ensures the returned
+        # value is a coroutine object that can be awaited.
+        async def _on_new_turn(prev_turn: int, widget_response: Any) -> int:
+            last_widget_response[0] = widget_response
+            new_turn = (prev_turn or 0) + 1
+            current_turn[0] = new_turn
+
+            import json as _json
+            # 1) Per-turn JSONL records (RankEvolve-style, group= → subfolder)
+            if json_logger is not None:
+                _grp = f"turn_{new_turn:03d}"
+                try:
+                    if widget_response is not None:
+                        json_logger(
+                            {"type": "UserInput", "item": str(widget_response)},
+                            group=_grp, parts_key_path_root="item",
+                        )
+                    if getattr(inferencer, "_last_template_source", None):
+                        json_logger(
+                            {"type": "PromptTemplate",
+                             "item": inferencer._last_template_source},
+                            group=_grp, parts_key_path_root="item",
+                        )
+                    if getattr(inferencer, "_last_rendered_prompt", None):
+                        json_logger(
+                            {"type": "RenderedPrompt",
+                             "item": inferencer._last_rendered_prompt},
+                            group=_grp, parts_key_path_root="item",
+                        )
+                    if getattr(inferencer, "_last_template_feed", None):
+                        json_logger(
+                            {"type": "TemplateFeed",
+                             "item": _json.dumps(inferencer._last_template_feed,
+                                                  indent=2, ensure_ascii=False, default=str)},
+                            group=_grp, parts_key_path_root="item",
+                        )
+                    if getattr(inferencer, "_last_template_config", None):
+                        json_logger(
+                            {"type": "TemplateConfig",
+                             "item": _json.dumps(inferencer._last_template_config,
+                                                  indent=2, ensure_ascii=False, default=str)},
+                            group=_grp, parts_key_path_root="item",
+                        )
+                    json_logger(
+                        {"type": "ApiPayload",
+                         "item": _json.dumps({
+                             # ConversationalInferencer exposes system_prompt as a property
+                             # (→ base_inferencer.system_prompt), same concept as
+                             # RankEvolve's conversation.system_prompt.
+                             "system_prompt": getattr(inferencer, "system_prompt", "") or "",
+                             # Use _messages (live state, updated via add_message() throughout
+                             # the loop) — NOT session["messages"] (a snapshot from turn start).
+                             "messages": list(getattr(inferencer, "_messages", [])),
+                         }, indent=2, ensure_ascii=False, default=str)},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                    # InferenceResponse: empty placeholder for the widget-interrupted
+                    # iteration; the LLM didn't fully respond (handed off to the user).
+                    json_logger(
+                        {"type": "InferenceResponse", "item": ""},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                except Exception as e:
+                    logger.debug("[_on_new_turn] JSONL logging failed: %s", e)
+
+            # 2) save_turn_data so REST View Prompt has turn.json available
+            if data_service is not None and hasattr(data_service, "save_turn_data"):
+                prompt_data = self.get_last_prompt_data(sid) or {}
+                if widget_response is not None:
+                    prompt_data["user_input"] = str(widget_response)
+                try:
+                    data_service.save_turn_data(sid, new_turn, prompt_data)
+                except Exception as e:
+                    logger.debug("[_on_new_turn] save_turn_data failed: %s", e)
+
+                # 3) Refresh the interactive's inline prompt_data cache so the next
+                # preamble carries the latest rendered prompt without a REST round-trip.
+                if hasattr(interactive, "_last_prompt_data"):
+                    interactive._last_prompt_data = prompt_data
+
+            # 4) Co-locate the next turn's streaming cache with its directory
+            if session_dir is not None and hasattr(inferencer, "cache_folder"):
+                try:
+                    next_turn_dir = session_dir / f"turn_{(new_turn + 1):03d}"
+                    next_turn_dir.mkdir(parents=True, exist_ok=True)
+                    inferencer.cache_folder = str(next_turn_dir)
+                except Exception as e:
+                    logger.debug("[_on_new_turn] cache_folder rotation failed: %s", e)
+
+            return new_turn
+
+        # Set up cache_folder for the very first turn before the loop starts.
+        if session_dir is not None and hasattr(inferencer, "cache_folder"):
+            try:
+                first_turn_dir = session_dir / f"turn_{(initial_turn + 1):03d}"
+                first_turn_dir.mkdir(parents=True, exist_ok=True)
+                inferencer.cache_folder = str(first_turn_dir)
+            except Exception as e:
+                logger.debug("Initial cache_folder setup failed: %s", e)
+
+        # Run the full agentic loop
+        result = await inferencer.run_agentic_loop(
+            user_message,
+            interactive=interactive,
+            session_id=sid,
+            on_new_turn=_on_new_turn,
+            turn_number=initial_turn,
+        )
+
+        # ── Final-turn logging (after the loop returns) ──────────────────
+        # The last iteration's prompt+response don't go through on_new_turn
+        # because there's no "next turn" handoff. Capture them here.
+        final_turn = current_turn[0] + 1
+        # Stash on result so manager_websocket_routes can use it as the canonical
+        # turn number (avoids the off-by-one recomputation).
+        try:
+            result.turn_number = final_turn  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+        if json_logger is not None:
+            import json as _json
+            _grp = f"turn_{final_turn:03d}"
+            try:
+                # The final turn's user_input is the most recent widget response
+                # (from the last on_new_turn iteration), or the original message
+                # if no widget interactions happened.
+                _user_input = last_widget_response[0] if last_widget_response[0] is not None else user_message
+                json_logger(
+                    {"type": "UserInput", "item": str(_user_input)},
+                    group=_grp, parts_key_path_root="item",
+                )
+                if getattr(result, "last_template_source", None):
+                    json_logger(
+                        {"type": "PromptTemplate", "item": result.last_template_source},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                if getattr(result, "last_rendered_prompt", None):
+                    json_logger(
+                        {"type": "RenderedPrompt", "item": result.last_rendered_prompt},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                if getattr(result, "last_template_feed", None):
+                    json_logger(
+                        {"type": "TemplateFeed",
+                         "item": _json.dumps(result.last_template_feed,
+                                              indent=2, ensure_ascii=False, default=str)},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                if getattr(result, "last_template_config", None):
+                    json_logger(
+                        {"type": "TemplateConfig",
+                         "item": _json.dumps(result.last_template_config,
+                                              indent=2, ensure_ascii=False, default=str)},
+                        group=_grp, parts_key_path_root="item",
+                    )
+                json_logger(
+                    {"type": "ApiPayload",
+                     "item": _json.dumps({
+                         "system_prompt": getattr(inferencer, "system_prompt", "") or "",
+                         "messages": list(getattr(inferencer, "_messages", [])),
+                     }, indent=2, ensure_ascii=False, default=str)},
+                    group=_grp, parts_key_path_root="item",
+                )
+                json_logger(
+                    {"type": "InferenceResponse",
+                     "item": getattr(result, "raw_response", "") or ""},
+                    group=_grp, parts_key_path_root="item",
+                )
+            except Exception as e:
+                logger.debug("[run_conversation_turn] final-turn JSONL logging failed: %s", e)
+
+        # save_turn_data for the final turn (REST View Prompt support)
+        if data_service is not None and hasattr(data_service, "save_turn_data"):
+            try:
+                prompt_data = self.get_last_prompt_data(sid) or {}
+                _user_input = last_widget_response[0] if last_widget_response[0] is not None else user_message
+                prompt_data["user_input"] = str(_user_input)
+                data_service.save_turn_data(sid, final_turn, prompt_data)
+                if hasattr(interactive, "_last_prompt_data"):
+                    interactive._last_prompt_data = prompt_data
+            except Exception as e:
+                logger.debug("Final-turn save_turn_data failed: %s", e)
+
+        # Persist updated workflow context
+        self._persist_workflow_updates(session, inferencer.prior_context, data_service)
+
+        return result
+
     async def astream_response(self, session: dict, user_message: str):
         """Stream response tokens for the user's message.
 
@@ -370,6 +850,14 @@ class ConversationService:
             rendered_prompt = self.render_prompt(session, user_message)
             raw_response = self._mock_response(user_message)
             parsed = self._parse_response(raw_response)
+            # Cache prompt data so get_last_prompt_data() works in mock mode
+            sid = session.get("id", "")
+            self._mock_prompt_cache[sid] = {
+                "template_source": "(mock mode — no Jinja2 template rendered)",
+                "template_feed": {"user_message": user_message},
+                "rendered_prompt": rendered_prompt,
+                "template_config": {"backend": "mock"},
+            }
             # Simulate streaming: yield word-by-word with tiny delays
             words = parsed.split(" ")
             for i, word in enumerate(words):
@@ -378,7 +866,13 @@ class ConversationService:
                 await asyncio.sleep(0.03)  # 30ms per word — feels natural
 
         elif self._llm_backend == "rovodev":
-            if self._inferencer is None:
+            # rovodev backend: use run_conversation_turn() instead (workflow-controlled).
+            # astream_response() is not the correct entrypoint for rovodev — it bypasses
+            # run_agentic_loop() and the SOP/prompt rendering.
+            # Callers should use run_conversation_turn() with a WebSocketInteractive.
+            # This branch is kept as a safety fallback only.
+            inferencer = self._get_session_inferencer(session["id"])
+            if inferencer is None:
                 raise RuntimeError("ConversationalInferencer not initialized")
 
             # Sync conversation history from session into the inferencer
@@ -390,22 +884,20 @@ class ConversationService:
                 conv_messages.append(
                     {"role": prompt_role, "content": msg.get("content", "")}
                 )
-            self._inferencer.set_messages(conv_messages)
+            inferencer.set_messages(conv_messages)
 
-            # Stream via ConversationalInferencer.ainfer_streaming()
-            # This delegates to base_inferencer.ainfer_streaming() which
-            # yields string chunks from the acli subprocess stdout.
+            # Stream via base ainfer_streaming() — NOTE: this bypasses run_agentic_loop(),
+            # so workflow context, SOP, and tools are NOT active in this path.
+            # Prefer run_conversation_turn() for full workflow-controlled streaming.
             full_response = ""
-            async for chunk in self._inferencer.ainfer_streaming(user_message):
-                # Ensure chunk is a string (not TerminalInferencerResponse)
+            async for chunk in inferencer.ainfer_streaming(user_message):
                 chunk_str = str(chunk) if not isinstance(chunk, str) else chunk
                 if chunk_str:
                     full_response += chunk_str
                     yield chunk_str
 
-            # Update conversation history
-            self._inferencer.add_message("user", user_message)
-            self._inferencer.add_message("assistant", full_response)
+            inferencer.add_message("user", user_message)
+            inferencer.add_message("assistant", full_response)
 
         else:
             # Fallback for other backends

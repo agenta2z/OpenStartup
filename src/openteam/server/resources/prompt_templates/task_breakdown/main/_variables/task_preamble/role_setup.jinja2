@@ -28,6 +28,12 @@ Carefully analyze the following aspects of the role and achieve the above goal.
    - Do NOT merge unrelated capabilities just because they happen to share a platform — use clear **responsibility boundaries** as the grouping criterion.
 4. **Keep enhancement subtasks separate** from creation subtasks. Enhancement tasks involve analyzing existing tool code, understanding its current interface, and designing additions — this is fundamentally different from creating a new tool from scratch. Each enhancement subtask should reference the specific existing tool being extended.
 
+### Subtask Scope Discipline
+
+Each subtask MUST have a NON-OVERLAPPING scope. Two subtasks should never both claim responsibility for the same skill or tool. Overlap creates duplicate deliverables that waste worker effort and produce conflicting versions.
+
+Each subtask MUST have a clear, specific scope statement (e.g., "CI/CD pipeline monitoring via Bamboo + GitHub Actions") that the worker can use to decide what's in scope vs out of scope. Avoid vague or general subtasks like "engineering tooling" or "general automation" — they encourage workers to produce everything.
+
 ### Subtask Format
 
 Each subtask should use `args` to specify its `task_preamble` variant, and include the relevant details in its `description` and `todos`:
@@ -51,13 +57,13 @@ Each subtask should use `args` to specify its `task_preamble` variant, and inclu
 - Reference the parts of the role document that drive the enhancement need.
 
 **Skill/Tool Association Subtask** (exactly one, mandatory)
-— `"args": {"task_preamble": "skill_tool_associate"}`:
+— `"args": {"task_preamble": "skill_tool_association"}`:
 - Exactly **one** subtask that identifies all existing tools/skills relevant to the role.
 - Do NOT split into multiple association subtasks.
 
 ### IMPORTANT
 
-- You MUST include exactly one `skill_tool_associate` subtask — it is mandatory.
+- You MUST include exactly one `skill_tool_association` subtask — it is mandatory.
 - Prioritize subtasks based on their role impact: CRITICAL if skill/tool is for the role's highest-priority responsibilities, HIGH for secondary, MEDIUM for supporting activities, LOW for nice-to-have capabilities.
 - Tool and skill names and high-level descriptions alone may not reveal their full capabilities. Take a careful deep dive into artifacts of related existing skills/tools (e.g., SKILL.md, tool.json, code) to understand their functionality and limitations before creating skill/tool subtasks.
 - Do NOT propose building new or enhancing software systems, databases, or framework infrastructure. They are not tool/skill level of concern. Note those in the `gaps` field instead.

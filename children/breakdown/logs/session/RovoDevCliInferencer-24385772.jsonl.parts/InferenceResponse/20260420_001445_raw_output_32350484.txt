@@ -1,0 +1,499 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup/children/breakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+Restoring session 'Untitled Session' with 16 messages
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me investigate the key artifacts and tools referenced in this request to
+understand what already exists before decomposing.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools/
+create_role/_ru...
+  ⬢ Called google_calendar:get_tool_schema: 
+      • tool_name: "get_availability"
+  ⬢ Called google_calendar:get_tool_schema: 
+      • tool_name: "get_events"
+                                                                                
+                                                                                
+   | **Meeting Prep & Agenda Generation** | Generate pre-meeting briefings      
+   with data, risks, and decision points for...                                 
+                                                                                
+   ### Priority 3 — Supporting Activities (≈20% of operational capacity)        
+                                                                                
+   | Responsibility | Description | Autonomy | Time Allocation |                
+   |---|---|---|---|                                                            
+   | **Metrics & Trend Analysis** | Compute velocity, cycle time, deployment    
+   frequency, defect density, and sprint p...                                   
+   | **Capacity Dashboard Generation** | Generate capacity dashboards from      
+   sprint data and team calendars. Flag over...                                 
+   | **Sprint Planning Data Packages** | Provide velocity projections,          
+   capacity analysis, recommended scope, and car...                             
+   | **Process Improvement Recommendations** | Analyze cycle time, deployment   
+   frequency, defect rates. Recommend pro...                                    
+   (35 lines truncated)                                                         
+   | **Tier 2** | Human-on-the-Loop (HOTL) | AI recommends; human approves      
+   before action | Risk mitigation proposals...                                 
+   | **Tier 3** | Human-in-the-Loop (HITL) | AI provides data; human decides    
+   and acts | Scope changes, personnel dec...                                   
+                                                                                
+   ### Automatic Escalation Triggers (Hard Rules)                               
+                                                                                
+   These conditions force human involvement regardless of AI confidence:        
+                                                                                
+   | Trigger | Condition | Escalation Target | SLA |                            
+   |---|---|---|---|                                                            
+   | Schedule Slip | Milestone at risk of slipping >1 sprint | PM Lead + Tech   
+   Lead | 4-hour decision |                                                     
+                                                                                
+                                                                                
+  ⬢ Called google_calendar:get_tool_schema: 
+      • tool_name: "list_calendars"
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/SKIL...
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+tools/twg/tool....
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/slack_ac...
+                                                                                
+                                                                                
+   ---                                                                          
+   name: twg                                                                    
+   description: >                                                               
+     Query and manage Atlassian Teamwork Graph data — Jira, Confluence,         
+   Atlas, Loom, Bitbucket,                                                      
+     Google Docs, Sharepoint and other work data. Use for cross-product         
+   activity, entity details,                                                    
+     team/user insights, and create/update actions.                             
+   labels:                                                                      
+     - atlassian                                                                
+     - teamwork-graph                                                           
+     - productivity                                                             
+   (40 lines truncated)                                                         
+   | Generating ADF bodies for Confluence pages | `references/ADF-SCHEMA.md`    
+   |                                                                            
+   | Exploring the Teamwork Graph schema (node types, relationships) |          
+   `references/METAGRAPH.md` |                                                  
+   | Setup, packaging, diagnostics, or integration help |                       
+   `references/CONTROL-PLANE.md` |                                              
+                                                                                
+   **Do not rely solely on `--help` for surface selection.** The references     
+   contain routing logic, fallback strategi...                                  
+                                                                                
+   ## Surface Routing                                                           
+                                                                                
+   - **Federated surfaces** (cross-product): `docs`, `videos`, `meetings`,      
+   `spaces`, `recently-viewed`                                                  
+   - **Native surfaces** (product-specific): `jira`, `confluence`,              
+   `bitbucket`, `goals`, `projects`, `teams`                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   {                                                                            
+     "name": "twg",                                                             
+     "tool_type": "Action",                                                     
+     "category": "utility",                                                     
+     "description": "Query and manage Atlassian Teamwork Graph data (Jira,      
+   Confluence, Atlas, Loom, Bitbucket, Googl...                                 
+     "parameters": [                                                            
+       {                                                                        
+         "name": "command",                                                     
+         "type": "string",                                                      
+         "required": true,                                                      
+   (4 lines truncated)                                                          
+     "usage_guidance": "Surface routing: Use federated surfaces first (docs,    
+   videos, meetings, spaces) for cross-pro...                                   
+     "returns": "Command output from the TWG CLI (typically structured text     
+   or JSON).",                                                                  
+     "examples": [                                                              
+       "twg docs query --since 7d",                                             
+       "twg jira workitem get --id PROJ-123",                                   
+       "twg work query --scope me --since 7d",                                  
+       "twg confluence search query --cql 'type=page AND                        
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+       "twg org-tree --name \"Jane Doe\" --up-only"                             
+     ]                                                                          
+   }                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ---                                                                          
+   name: slack_actions                                                          
+   description: >                                                               
+     Control Slack interactions — react to messages, manage pins,               
+   send/edit/delete messages,                                                   
+     and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls back to   
+   user token.                                                                  
+   labels:                                                                      
+     - slack                                                                    
+     - actions                                                                  
+     - communication                                                            
+   metadata:                                                                    
+   (60 lines truncated)                                                         
+   ```                                                                          
+                                                                                
+   ### Send a threaded reply                                                    
+   ```                                                                          
+   slack_send_message channel:C123 "Replying in thread" --thread_ts             
+   1712023032.1234                                                              
+   ```                                                                          
+                                                                                
+   ### Send a DM                                                                
+   ```                                                                          
+   slack_send_message user:U456 "Direct message to user"                        
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me check a few more things — the role document's data access restrictions
+and the TWG's Jira sprint/capacity capabilities.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools/
+create_role/_ru...
+  ⬢ Called bash: 
+      • command: "grep -i 
+\"sprint\\|velocity\\|capacity\\|allocation\\|workload\" 
+/Users/tchen7/MyProjects/CoreProje...
+  ⬢ Called bash: 
+      • command: "grep -i \"sprint\\|velocity\\|capacity\\|jira sprint\" 
+/Users/tchen7/MyProjects/CoreProjects/OpenSt...
+                                                                                
+                                                                                
+   | **Slack** | Real-time coordination, blocker alerts, dependency             
+   notifications, daily summary threads | Concise, ...                          
+   | **Email** | Weekly status reports, executive briefings, stakeholder        
+   digests | Professional, narrative for leade...                               
+   | **Confluence** | Program status pages, decision logs, risk registers,      
+   retrospective documentation | Documentati...                                 
+   | **Jira** | Issue tracking, dependency management, sprint analytics,        
+   coordination tickets | Structured metadata ...                               
+   | **Meetings** | Pre-meeting agendas, post-meeting summaries, action item    
+   tracking | Neutral facilitator tone. Cl...                                   
+                                                                                
+   ### Dual-Interface Design                                                    
+                                                                                
+   The AI PgM maintains two fundamentally different communication interfaces:   
+                                                                                
+   (111 lines truncated)                                                        
+   ## Appendix C: Sources & References                                          
+                                                                                
+   ### Internal Sources                                                         
+   - AI Native Program Management — Atlassian CPO vision document               
+   - PgM AI-Augmented Persona Snapshots — AI assistance potential per PM        
+   activity                                                                     
+   - Program Management RACI — Tasks and Accountabilities                       
+   - Practical Patterns for Human-On/Off-the-Loop AI — HITL/HOTL/HOoTL          
+   definitions and patterns                                                     
+   - A Governance Framework for Trusted Autonomy — Three-pillar governance      
+   (Action Registry, Simulation Sandbox, Aud...                                 
+   - Autonomy Model, Agent Creation Authority, and Layered Safety Controls —    
+   Multi-agent autonomy specification                                           
+   - Unlocking Agent Autonomy with a System of Verification —                   
+   Assessment-Execution-Tracking verification layers                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   scripts/twg jira sprint start --board-id <board-id> --id <id> --name         
+   "Sprint 42" --start-date 2026-03-01 --end-da...                              
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the landscape. Let me synthesize my
+findings:
+
+Key findings:
+
+ 1 Google Calendar MCP toolset already exists with three directly relevant
+   tools:
+    • get_availability — accepts array of calendarIds (emails),
+      timeMin/timeMax in ISO 8601, returns busy periods per user
+    • get_events — accepts single calendarId, timeMin/timeMax, returns
+      chronological events with metadata
+    • list_calendars — lists all accessible calendars with metadata (id,
+      summary, timeZone, accessRole)
+ 2 TWG provides Jira sprint data — twg jira sprint start exists for sprint
+   management; TWG native surfaces cover Jira workitems, sprint queries, and
+   velocity-adjacent data. The projection surface work query provides activity
+   summaries.
+ 3 Existing skill patterns (e.g., slack_actions/SKILL.md) show the structure:
+   YAML frontmatter (name, description, labels, metadata with env/tools), then
+   Overview, Prerequisites, Action Groups, Examples.
+ 4 No existing calendar tool or skill exists in the OpenStartup or
+   AgentFoundation codebases.
+ 5 Data privacy is critical — §6 explicitly prohibits HR/personnel data
+   access. Calendar data must be limited to free/busy and meeting metadata; no
+   personal info beyond capacity rollup.
+ 6 The proposed tools (calendar_availability, calendar_events_list) largely 
+   overlap with existing MCP tools — the decision is wrap-vs-build, and the
+   answer is almost certainly "wrap the MCP tools via a skill" rather than
+   building new tools.
+ 7 The team_capacity skill is the novel contribution: it must synthesize
+   calendar free/busy data + Jira sprint commitment data + allocation
+   thresholds into capacity dashboards and sprint planning packages.
+
+
+
+                                   Analysis
+
+The request involves creating calendar/availability tools and a team_capacity
+skill for the AI PgM role. My investigation reveals that the Google Calendar
+MCP toolset (get_availability, get_events, list_calendars) already provides
+the core calendar read capabilities needed. The TWG tool provides Jira
+sprint/workitem data. The key gap is: (1) understanding exactly what these
+existing tools return and how they can be composed, (2) designing the
+team_capacity skill that orchestrates calendar + Jira data into capacity
+insights, and (3) ensuring privacy compliance.
+
+The decomposition covers four subtasks: investigating existing Google Calendar
+MCP tools, investigating TWG Jira sprint capabilities, researching capacity
+planning/sprint planning domain knowledge and formulas, and researching data
+privacy boundaries for calendar data handling.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the full capabilities of the existing Google
+Calendar MCP toolset (get_availability, get_events, list_calendars) to 
+determine exactly what data they provide, their parameters, response formats,
+and limitations — and assess whether new wrapper tools (calendar_availability,
+calendar_events_list) are needed or whether the skill should directly 
+reference MCP tools. Specifically: (a) test or document what get_availability
+returns (busy period format, timezone handling, multi-user batch support), (b)
+what get_events returns (event summary, attendees, duration, out-of-office/OOO
+event type detection, all-day events), (c) what list_calendars returns (team 
+calendar discovery, shared calendars), (d) whether these tools support 
+team-level calendar queries or only individual, (e) identify gaps that would 
+require a new wrapper tool vs. skill-level guidance. Also examine the existing
+skill pattern (slack_actions/SKILL.md, twg/SKILL.md) to understand the 
+SKILL.md structure, YAML frontmatter conventions, and how existing skills 
+reference MCP tools vs. internal tools.",
+      "todos": [
+        "Read and document the full schema and behavior of google_calendar MCP
+get_availability: input format (calendarIds as email array, timeMin/timeMax in
+UTC ISO 8601), output format (busy periods per user), timezone handling 
+requirements",
+        "Read and document the full schema and behavior of google_calendar MCP
+get_events: input format (single calendarId, timeMin/timeMax, maxResults, 
+orderBy, timeZone), output format (event objects with 
+start/end/summary/attendees), and whether it exposes event type (OOO, focus 
+time, etc.)",
+        "Read and document google_calendar MCP list_calendars: how to discover
+team/shared calendars, accessRole filtering, and whether team calendars are 
+discoverable programmatically",
+        "Assess wrap-vs-build decision: do the MCP tools provide sufficient 
+capability that the skill can reference them directly, or are there gaps 
+(e.g., batch event listing across multiple users, OOO detection, working-hours
+inference) requiring new tool wrappers?",
+        "Examine slack_actions/SKILL.md and twg/SKILL.md structure as 
+templates: YAML frontmatter format (name, description, labels, 
+metadata.requires.env, metadata.requires.tools), section layout (Overview, 
+Prerequisites, Action Groups, Examples), and how MCP tools vs internal tools 
+are referenced"
+      ],
+      "scope": "Covers investigation of all existing Google Calendar MCP tools
+and existing SKILL.md patterns to determine the wrap-vs-build decision and 
+inform the skill's structure",
+      "priority": "CRITICAL",
+      "priority_reason": "The wrap-vs-build decision for calendar tools is the
+foundational architectural choice — it determines whether new tools need to be
+created or if the skill can directly leverage existing MCP tools. Without this
+investigation, the aggregator cannot design the correct deliverables.",
+      "priority_score": 4.8,
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Investigate the TWG tool's Jira sprint, workitem, and 
+team-related capabilities to discover exactly what sprint commitment, 
+velocity, and workload data can be extracted for the team_capacity skill's 
+sprint overlay workflow. The skill must combine calendar availability with 
+Jira sprint data to compute effective capacity and flag over/under-allocation.
+Specifically: (a) discover all TWG Jira sprint commands (sprint start, sprint
+query, board queries, sprint velocity), (b) what workitem queries can extract
+story points, assignee, sprint assignment, and status for computing sprint 
+commitment per person, (c) whether TWG teams surface provides team membership
+lists that can be used to enumerate team members for calendar queries, (d) 
+whether TWG work query or projection surfaces provide activity/workload 
+summaries useful for capacity analysis. Read the TWG SKILL.md, 
+NATIVE-SURFACES.md, PROJECTION-SURFACES.md, and COMMANDS.md references.",
+      "todos": [
+        "Read TWG references/NATIVE-SURFACES.md in full to discover all Jira 
+sprint-related commands: sprint listing, sprint details, board queries, and 
+what data fields are returned (sprint dates, goals, committed points)",
+        "Read TWG references/PROJECTION-SURFACES.md to discover work query 
+capabilities: can it aggregate workload per user over a time range? Does it 
+show assigned story points or task counts per sprint?",
+        "Read TWG references/COMMANDS.md to identify any additional commands 
+relevant to capacity analysis: team membership lists, user workload summaries,
+velocity data",
+        "Investigate TWG teams surface: can 'twg teams get <team>' return 
+member lists (account IDs/emails) that can then be fed into Google Calendar 
+get_availability for team-level capacity rollup?",
+        "Document the exact TWG commands and their output fields needed for 
+the team_capacity skill's sprint-overlay workflow: mapping sprint commitment 
+(story points assigned per person) against calendar availability (free hours 
+per person)"
+      ],
+      "scope": "Covers investigation of TWG's Jira sprint, team, and workload
+capabilities to understand what sprint commitment and team membership data is
+available for the capacity skill",
+      "priority": "CRITICAL",
+      "priority_reason": "The team_capacity skill fundamentally depends on 
+overlaying calendar availability with Jira sprint data. Without understanding
+exactly what sprint/workload data TWG can provide, the skill's core workflow 
+cannot be designed.",
+      "priority_score": 4.5,
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Research capacity planning, sprint planning, and team 
+availability computation best practices to inform the team_capacity skill's 
+workflow design. This research must produce the domain knowledge needed to 
+design actionable formulas and thresholds for: (a) computing per-person 
+available hours from calendar free/busy data (accounting for working hours, 
+OOO, meetings, focus time), (b) converting available hours to sprint capacity
+(hours-to-points ratio, historical velocity adjustment), (c) comparing sprint
+commitment against capacity to detect over-allocation (>100% capacity) and 
+under-allocation (<70% capacity) with configurable thresholds, (d) aggregating
+individual capacity into team-level capacity dashboards, (e) sprint planning 
+data package components (velocity projections, recommended scope based on 
+capacity, carryover analysis). Also research how meeting load affects capacity
+and how to factor meeting prep time into availability for §2 P2 Meeting 
+Prep.",
+      "todos": [
+        "Research standard formulas for computing sprint capacity from 
+calendar data: total working hours in sprint window minus PTO/OOO minus 
+recurring meetings minus planned focus time = available capacity hours",
+        "Research over-allocation and under-allocation detection thresholds 
+used in Agile/Scrum capacity planning: what percentage thresholds (e.g., >110%
+= over-allocated, <60% = idle) are industry-standard, and how should they be 
+configurable?",
+        "Research sprint planning data package best practices: what components
+should a capacity-informed sprint planning package include (velocity trend, 
+capacity forecast, recommended story points, carryover items, risk flags)?",
+        "Research how to compute team-level capacity from individual 
+capacities: simple summation vs. weighted by role/skill, handling part-time 
+team members, accounting for shared/cross-team members",
+        "Research meeting load analysis patterns for Meeting Prep (§2 P2): how
+to identify heavy-meeting days that reduce effective coding/work capacity, and
+how to surface meeting-prep time requirements for upcoming ceremonies 
+(standups, sprint reviews, PI planning)"
+      ],
+      "scope": "Covers domain knowledge research for capacity planning 
+formulas, allocation thresholds, sprint planning packages, and meeting load 
+analysis needed to design the team_capacity skill's workflows",
+      "priority": "HIGH",
+      "priority_reason": "The skill's value comes from encoding correct 
+capacity planning logic. Without researched formulas and thresholds, the skill
+would provide vague guidance rather than actionable computation patterns. 
+However, experienced practitioners could provide reasonable defaults, so this
+is HIGH rather than CRITICAL.",
+      "priority_score": 3.5,
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research data privacy boundaries, ethical constraints, 
+and practical safeguards for calendar data access in the context of the AI PgM
+role's §6 ethical bright lines. The role document explicitly prohibits access
+to HR/personnel data and requires least-privilege data access. Calendar data 
+sits in a sensitive zone — it reveals personal appointments, health 
+information (doctor visits), and behavioral patterns. This research must 
+determine: (a) exactly what calendar data fields are safe to access for 
+capacity purposes (free/busy blocks only vs. event summaries vs. attendee 
+lists), (b) how Google Calendar API distinguishes between free/busy queries 
+(which hide event details) vs. event listing (which exposes 
+summaries/attendees), (c) what the minimum data access level is for each 
+capacity workflow (free/busy suffices for capacity; event details needed only
+for meeting prep), (d) how to implement data minimization in the tool/skill 
+design, and (e) how to handle edge cases like personal calendar events visible
+on work calendars.",
+      "todos": [
+        "Research Google Calendar API privacy tiers: freeBusyReader role (sees
+only busy/free blocks, no event details) vs. reader role (sees event summaries
+and attendees) — which role aligns with §6 least-privilege for capacity 
+rollup?",
+        "Document the data minimization approach: for capacity dashboards, 
+only free/busy blocks are needed (no event titles, descriptions, or 
+attendees); for meeting prep, event titles and attendee lists are needed but 
+descriptions should be excluded",
+        "Research how to detect out-of-office (OOO) events from Google 
+Calendar data without accessing personal event details: does the free/busy API
+expose OOO status, or is event-level access required?",
+        "Define the privacy safeguard rules the skill must encode: never log 
+or store event descriptions, never surface personal appointment details in 
+capacity reports, aggregate individual data to team level in dashboards, 
+provide only hours-available per person (not calendar contents)",
+        "Cross-reference §6 Data Access Restrictions table (HR/Personnel Data
+= NO ACCESS, Communication Archives = opt-in only) to confirm calendar access
+falls within permitted boundaries and document any ambiguities requiring PM 
+Lead clarification"
+      ],
+      "scope": "Covers privacy, ethics, and data minimization research for 
+calendar data access, ensuring the tool/skill design respects §6 ethical 
+bright lines and least-privilege principles",
+      "priority": "HIGH",
+      "priority_reason": "The role document's ethical bright lines are hard 
+constraints — violating them would be a governance failure. The skill must 
+encode correct privacy boundaries from the start. This is HIGH because the 
+general principle (minimize data access) is clear, but the specific Google 
+Calendar API privacy tiers and OOO detection mechanics need research to 
+implement correctly.",
+      "priority_score": 3.7,
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": [1]
+    }
+  ],
+  "reasoning": "The decomposition follows four complementary axes: (1) 
+Investigate what existing Google Calendar MCP tools already provide — this is
+the most critical subtask because it determines the fundamental architecture 
+(wrap existing MCP tools vs. build new tools). (2) Investigate TWG's Jira 
+sprint/team capabilities — equally critical because the team_capacity skill 
+must overlay sprint data on calendar data. (3) Research capacity planning 
+domain knowledge — provides the formulas, thresholds, and patterns the skill 
+encodes. (4) Research data privacy constraints — ensures the design respects 
+the role's ethical bright lines. Subtasks 1 and 2 are independent 
+investigations that can run in parallel. Subtask 3 is independent domain 
+research. Subtask 4 depends on Subtask 1 because the privacy analysis needs to
+know what data the Google Calendar MCP tools actually expose. Together, these
+four subtasks provide everything the aggregator needs: tool capability 
+mapping, sprint data integration points, capacity computation logic, and 
+privacy guardrails.",
+  "coverage_complete": true,
+  "gaps": "none — The four subtasks cover: (1) existing calendar tool 
+investigation + wrap-vs-build decision + SKILL.md pattern, (2) Jira 
+sprint/team data investigation for capacity overlay, (3) capacity planning 
+domain knowledge + sprint planning formulas + meeting load analysis, (4) 
+privacy/ethics constraints for calendar data. The tool parameter design and 
+standardized return schema will be synthesized by the aggregator from the 
+findings of all four subtasks."
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 74K/1M
+

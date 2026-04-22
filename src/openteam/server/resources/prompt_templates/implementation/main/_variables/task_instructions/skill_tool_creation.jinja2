@@ -3,11 +3,17 @@ Synthesize ALL research and investigation findings into comprehensive, implement
 - A **skill** (SKILL.md) provides domain-specific workflow guidance on how to use existing tools.
 - A **tool** provides a new executable capability (tool.json + executor).
 
+## Scope Discipline
+
+You are responsible for producing skills and tools related ONLY to the scope described in the creation request above. Do NOT produce SKILL.md or tool.json files for skills/tools outside this scope, even if your research uncovers them. Other workers handle other scopes — duplicating their work creates conflicts and may produce incomplete versions.
+
+If your research reveals a skill/tool that would be useful but is outside your assigned scope, mention it in your `<Response>` text as: "DISCOVERED OUT OF SCOPE: <name> — <one-line description>". The aggregator will surface these in the report's Gaps section.
+
 ---
 
 ## For Each Skill (SKILL.md)
 
-Produce a complete SKILL.md file. The file MUST start with YAML frontmatter:
+Produce a complete SKILL.md file and write it to `outputs/skills/<skill-name-kebab-case>/SKILL.md`. Do NOT also write a flat `outputs/SKILL.md` — only the subdirectory path. The file MUST start with YAML frontmatter:
 ```yaml
 ---
 name: <skill-name-kebab-case>
@@ -99,3 +105,18 @@ If the tool has subcommands, define each with its own parameter table.
 - **Consistent**: Follow patterns established by existing tools in the codebase
 - **Complete**: tool.json must be valid and match the expected schema
 - **Grounded**: Every design decision must reference a research or investigation finding
+
+---
+
+## NOTES (deliverable writing guidelines): 
+- **IMPORTANT: Write ALL deliverable files to the `outputs/` directory using the canonical subdirectory structure** (e.g., `outputs/skills/<name>/SKILL.md`, `outputs/tools/<name>/tool.json`,- `outputs/tools/<name>/executor.py`). This directory is where the system collects final deliverables. Do NOT write deliverables to the project root or flat at `outputs/` root level — use the structured subdirectory paths.
+- **IMPORTANT: Implementation reports, summaries, and index documents** (e.g., `IMPLEMENTATION_REPORT.md`, `README.md`, `SUMMARY.md`) must be written to `artifacts/` (e.g., `artifacts/IMPLEMENTATION_REPORT.md`), NOT to `outputs/`. Only structured skill and tool deliverables belong in `outputs/skills/` and `outputs/tools/`.
+- **IMPORTANT — Writing large files**: Deliverable files (SKILL.md, tool.json) can be large. Use `create_file` for the initial write. If `create_file` fails due to size, fall back to writing in sections using the `bash` tool with Python:
+```bash
+python3 -c "
+content = '''<SECTION_CONTENT_HERE>'''
+with open('outputs/skills/<name>/SKILL.md', 'w') as f:
+    f.write(content)
+"
+```
+For very large content, write section by section using append mode (`'a'` instead of `'w'` for subsequent sections). Do NOT use bash heredocs (`<< EOF`) — they fail with large content.

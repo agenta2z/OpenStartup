@@ -8,10 +8,11 @@
 #   ./run.sh --ui         # Start only the React UI
 #   ./run.sh --build      # Build the React UI for production, then serve
 #   ./run.sh --port 9000           # Use a custom backend port
-#   ./run.sh --real-sessions       # Persistent sessions from <project>/_runtime
-#   ./run.sh --real-sessions /dir  # Persistent sessions from custom runtime root
-#   ./run.sh --resume-server <name> # Resume a specific server (e.g., server_20260406_083000_a1b2c3d4)
-#   ./run.sh --new-server          # Force a new server (don't resume latest)
+#   ./run.sh --real-sessions            # Persistent sessions from <project>/_runtime (always new server)
+#   ./run.sh --real-sessions /dir       # Persistent sessions from custom runtime root
+#   ./run.sh --resume-latest-server     # Resume the most recently created server
+#   ./run.sh --resume-server <name>     # Resume a specific server by name (e.g., server_20260406_...)
+#   ./run.sh --new-server               # Force a new server (same as default, kept for compatibility)
 #
 # Requires: python3, node/npm (node_modules installed in src/ui)
 # ─────────────────────────────────────────────────────────────────────
@@ -21,6 +22,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_DIR="$SCRIPT_DIR/server"
 UI_DIR="$SCRIPT_DIR/ui"
+
+# ── Python path for shared libraries ─────────────────────────────────
+# Resolve the project root (2 levels up from this script: OpenStartup/)
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CORE_PROJECTS="$(cd "$PROJECT_ROOT/.." && pwd)"
+
+# Add AgentFoundation and RichPythonUtils src/ to PYTHONPATH if they exist
+_extra_paths=""
+for _lib_src in \
+    "$CORE_PROJECTS/AgentFoundation/src" \
+    "$CORE_PROJECTS/RichPythonUtils/src" \
+    "$PROJECT_ROOT/src"; do
+  if [[ -d "$_lib_src" ]]; then
+    _extra_paths="${_extra_paths:+$_extra_paths:}$_lib_src"
+  fi
+done
+if [[ -n "$_extra_paths" ]]; then
+  export PYTHONPATH="${_extra_paths}${PYTHONPATH:+:$PYTHONPATH}"
+fi
 
 # ── Defaults ─────────────────────────────────────────────────────────
 PYTHON="${OPENSTARTUP_PYTHON:-/opt/homebrew/anaconda3/bin/python}"
@@ -54,10 +74,17 @@ while [[ $# -gt 0 ]]; do
       SERVER_EXTRA_ARGS+=("--real-sessions" "$REAL_SESSIONS_DIR")
       ;;
     --resume-server)
+      # Resume a specific named server: --resume-server server_20260406_...
       SERVER_EXTRA_ARGS+=("--resume-server" "$2")
       shift 2
       ;;
+    --resume-latest-server)
+      # Resume the most recently created server
+      SERVER_EXTRA_ARGS+=("--resume-latest-server")
+      shift
+      ;;
     --new-server)
+      # Explicit new server (same as default — kept for backwards compatibility)
       SERVER_EXTRA_ARGS+=("--resume-server" "new")
       shift
       ;;
@@ -101,6 +128,24 @@ cleanup() {
 }
 
 trap cleanup EXIT INT TERM
+
+# ── Kill stale acli/rovodev processes from previous sessions ─────────
+# These accumulate when servers are restarted without clean shutdown.
+# Only kill processes that are NOT children of the current shell.
+_cleanup_stale_acli() {
+  local current_ppid=$$
+  local killed=0
+  while IFS= read -r pid; do
+    # Skip if it's a child of current shell
+    if [[ "$pid" != "$current_ppid" ]]; then
+      if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null && killed=$((killed+1)) || true
+      fi
+    fi
+  done < <(pgrep -f "acli rovodev\|atlassian_cli_rovodev" 2>/dev/null || true)
+  [[ $killed -gt 0 ]] && log "Cleaned up $killed stale acli/rovodev process(es)." || true
+}
+_cleanup_stale_acli
 
 # ── Pre-flight checks ───────────────────────────────────────────────
 if $RUN_SERVER; then

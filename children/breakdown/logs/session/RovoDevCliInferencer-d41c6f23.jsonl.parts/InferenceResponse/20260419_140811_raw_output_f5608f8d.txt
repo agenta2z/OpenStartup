@@ -1,0 +1,791 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the referenced files and existing tools/skills to
+understand the full context before decomposing the task.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the AI Program Manager role document"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+      • _intent: "Explore existing skills directory"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools/twg"
+      • _intent: "Explore twg tool structure"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (23 lines truncated)                                                         
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (4 lines truncated)                                                          
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/:             
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/:      
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/:                                                                      
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/:                                                                
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/:                                                            
+   tool.json                                                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me expand the role document and examine the existing twg skill/tool
+artifacts to understand the full context.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[0, -1]]"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/SKI...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+    > **Role Type:** AI Employee                                                
+    > **Version:** 1.0                                                          
+    > **Last Updated:** 2026-04-15                                              
+                                                                                
+    ---                                                                         
+                                                                                
+   (509 lines truncated)                                                        
+    - **Google TPM Model** — Technical depth + execution excellence             
+    - **Thompson's Coordination Theory** — Hierarchical coordination models     
+    - **Katz and Kahn Role Theory** — Role clarity, interdependence, and        
+   flexibility foundations                                                      
+    - **Malone and Crowston Coordination Theory** — Inter-agent coordination    
+   and dependency management                                                    
+                                                                                
+    ---                                                                         
+                                                                                
+    *This document is a living artifact. It should be reviewed quarterly by     
+   the AI PM Sponsor and governance team, a...                                  
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/SKILL.md:                                                      
+                                                                                
+                                                                                
+    ---                                                                         
+    name: twg                                                                   
+    description: >                                                              
+      Query and manage Atlassian Teamwork Graph data — Jira, Confluence,        
+   Atlas, Loom, Bitbucket,                                                      
+      Google Docs, Sharepoint and other work data. Use for cross-product        
+   activity, entity details,                                                    
+      team/user insights, and create/update actions.                            
+    labels:                                                                     
+      - atlassian                                                               
+      - teamwork-graph                                                          
+   (119 lines truncated)                                                        
+    - `references/FEDERATED-SURFACES.md` — cross-product surfaces               
+    - `references/PROJECTION-SURFACES.md` — work, context, and org hierarchy    
+    - `references/NATIVE-SURFACES.md` — product-specific surfaces               
+    - `references/RELATION-AND-IDENTITY.md` — user lookup and collaborators     
+    - `references/PRODUCT-COLLECTIONS.md` — which surfaces belong to which      
+   Atlassian product collections                                                
+    - `references/METAGRAPH.md` — Teamwork Graph schema exploration via         
+   Cypher                                                                       
+    - `references/ADF-SCHEMA.md` — compact ADF node/mark catalog, examples,     
+   pitfalls, and deep reference URLs                                            
+    - `references/CONTROL-PLANE.md` — setup/package commands the agent should   
+   mention when relevant, not run by default                                    
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/twg/tool.json:                                                      
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "twg",                                                            
+      "tool_type": "Action",                                                    
+      "category": "utility",                                                    
+      "description": "Query and manage Atlassian Teamwork Graph data (Jira,     
+   Confluence, Atlas, Loom, Bitbucket, Goog...                                  
+      "parameters": [                                                           
+        {                                                                       
+          "name": "command",                                                    
+          "type": "string",                                                     
+   (7 lines truncated)                                                          
+      "examples": [                                                             
+        "twg docs query --since 7d",                                            
+        "twg jira workitem get --id PROJ-123",                                  
+        "twg work query --scope me --since 7d",                                 
+        "twg confluence search query --cql 'type=page AND                       
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+        "twg org-tree --name \"Jane Doe\" --up-only"                            
+      ]                                                                         
+    }                                                                           
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/COMMANDS.md:                                        
+                                                                                
+                                                                                
+    # Reference Index                                                           
+                                                                                
+    `COMMANDS.md` is the compact table of contents for this reference set.      
+    Use it to decide which guide to open next; it is not meant to mirror raw    
+   CLI help.                                                                    
+    All `scripts/twg` examples in this reference set inherit the                
+   path-resolution rule from `../SKILL.md`: resolve `s...                       
+                                                                                
+    ## Start here                                                               
+                                                                                
+    - `ROUTING.md` — pick the right surface                                     
+   (9 lines truncated)                                                          
+                                                                                
+    ## Quick routing                                                            
+                                                                                
+    - Cross-product request -> `FEDERATED-SURFACES.md`                          
+    - Broad work/activity/hierarchy/context -> `PROJECTION-SURFACES.md`         
+    - Product-specific detail or mutation -> `NATIVE-SURFACES.md`               
+    - Need to resolve a person first -> `RELATION-AND-IDENTITY.md`              
+    - Need to tell the user about setup/package/runtime commands ->             
+   `CONTROL-PLANE.md`                                                           
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me examine the projection surfaces and native surfaces references, as
+these are most relevant to the analytics/metrics computation skill that needs
+to be built.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/ref...
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/PROJECTION-SURFACES.md:                             
+                                                                                
+                                                                                
+    # Projection Surfaces                                                       
+                                                                                
+    Use projections for broad views rather than product-native CRUD.            
+                                                                                
+    ## Main surfaces                                                            
+                                                                                
+    - `work query` — recent work across entities                                
+    - `org-tree` — management chain or reporting tree                           
+    - `context jira workitem` — issue perimeter and nearby artifacts            
+   (23 lines truncated)                                                         
+    - `--depth`                                                                 
+    - `--up-only` / `--down-only`                                               
+                                                                                
+    ## Good defaults                                                            
+                                                                                
+    - use `work query` for “what has this person worked on?”                    
+    - use `org-tree` for hierarchy questions                                    
+    - use `context jira workitem` before drilling into native Jira details      
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/NATIVE-SURFACES.md:                                 
+                                                                                
+                                                                                
+    # Native Surfaces                                                           
+                                                                                
+    Use native surfaces for product-specific detail, richer actions, and        
+   writes.                                                                      
+                                                                                
+    > For how these surfaces map to Atlassian product collections (TWC,         
+   ServCo, StratCo, etc.), see `references/PROD...                              
+                                                                                
+    ## Main surfaces                                                            
+                                                                                
+    - `jira`                                                                    
+   (78 lines truncated)                                                         
+                                                                                
+    ```bash                                                                     
+    scripts/twg confluence search query --cql 'type=page AND title =            
+   "Runbook"'                                                                   
+    scripts/twg confluence search query --cql 'type=page AND title ~            
+   "Runbook"'                                                                   
+    ```                                                                         
+                                                                                
+    - Do **not** treat Confluence CQL as semantic content search. CQL is best   
+   for structured metadata filters and ti...                                    
+    - Semantic or fuzzy page-content search is not implemented here yet, so     
+   avoid implying that CQL provides that be...                                  
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/ROUTING.md:                                         
+                                                                                
+                                                                                
+    # Routing                                                                   
+                                                                                
+    Use this guide to pick the right surface first.                             
+                                                                                
+    ## Default order                                                            
+                                                                                
+    1. **Federated** for cross-product requests: `docs`, `videos`,              
+   `meetings`, `spaces`                                                         
+    2. **Native** for product-specific detail or mutations: `jira`,             
+   `confluence`, `bb`, `goals`, `projects`, `teams`                             
+    3. **Projection** for broad activity, hierarchy, or perimeter: `work        
+   query`, `org-tree`, `context jira workitem`                                  
+   (17 lines truncated)                                                         
+    # Cross-product docs -> native Confluence details                           
+    scripts/twg docs query --since 14d                                          
+    scripts/twg confluence pages get 12345 --body-format adf                    
+                                                                                
+    # Issue perimeter -> native Jira details                                    
+    scripts/twg context jira workitem PROJ-123 --depth 2                        
+    scripts/twg jira workitem get --id PROJ-123                                 
+    ```                                                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (23 lines truncated)                                                         
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me also check the existing skill structure pattern and the remaining TWG
+references that are most relevant to metrics computation (METAGRAPH for
+schema, GLOBAL-CONTRACT for query patterns, and FEDERATED-SURFACES for
+cross-product data).
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/ref...
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/slack_a...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/METAGRAPH.md:                                       
+                                                                                
+                                                                                
+    # Metagraph Cypher Reference                                                
+                                                                                
+    The **metagraph** is the schema/ontology graph for the Teamwork Graph       
+   (TWG). It represents all registered node t...                                
+                                                                                
+    - **~140 node types**, **~260+ edges**                                      
+    - Query via Cypher (read-only)                                              
+                                                                                
+    ---                                                                         
+                                                                                
+   (138 lines truncated)                                                        
+                                                                                
+    Find all node types reachable within 2 hops from JiraIssue:                 
+                                                                                
+    ```cypher                                                                   
+    MATCH p = (center:NodeType {typeName:                                       
+   'JiraIssue'})-[:meta_relationship_type*1..2]->(neighbor:NodeType)            
+    RETURN center.typeName AS startType, neighbor.typeName AS reachableType,    
+   length(p) AS hops                                                            
+    LIMIT 50                                                                    
+    ```                                                                         
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/GLOBAL-CONTRACT.md:                                 
+                                                                                
+                                                                                
+    # Global Contract                                                           
+                                                                                
+    These patterns recur across TWG surfaces.                                   
+    All `scripts/twg` examples in this reference set inherit the                
+   path-resolution rule from `../SKILL.md`: resolve `s...                       
+                                                                                
+    ## Discovery                                                                
+                                                                                
+    ```bash                                                                     
+    scripts/twg --help                                                          
+   (20 lines truncated)                                                         
+                                                                                
+    For very large goal exports, prefer SQLite:                                 
+                                                                                
+    ```bash                                                                     
+    scripts/twg goals --scope org --account-id <id> \                           
+      --include-parent-goal --include-contributing-projects \                   
+      --sqlite-file /tmp/goals.db                                               
+    ```                                                                         
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/FEDERATED-SURFACES.md:                              
+                                                                                
+                                                                                
+    # Federated Surfaces                                                        
+                                                                                
+    Start here for cross-product requests.                                      
+    If the result is not rich enough, pivot to the product-native surface.      
+                                                                                
+    ## Use these first                                                          
+                                                                                
+    - `docs` — cross-product documents                                          
+    - `videos` — cross-product videos                                           
+   (41 lines truncated)                                                         
+    scripts/twg pr "ari:cloud:graph::pull-request/..."                          
+    scripts/twg bb pr 42                                                        
+    ```                                                                         
+                                                                                
+    ## Notes                                                                    
+                                                                                
+    - `recently-viewed` has a 30-day TTL.                                       
+    - Prefer query first, then get.                                             
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/slack_actions/SKILL.md:                                            
+                                                                                
+                                                                                
+    ---                                                                         
+    name: slack_actions                                                         
+    description: >                                                              
+      Control Slack interactions — react to messages, manage pins,              
+   send/edit/delete messages,                                                   
+      and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls back     
+   to user token.                                                               
+    labels:                                                                     
+      - slack                                                                   
+      - actions                                                                 
+      - communication                                                           
+   (115 lines truncated)                                                        
+    slack_emoji_list --limit 50                                                 
+    ```                                                                         
+                                                                                
+    ## Ideas                                                                    
+                                                                                
+    - React with ✅ to mark completed tasks                                     
+    - Pin key decisions or weekly status updates                                
+    - Send summary messages to team channels after completing analysis          
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/slack_search/SKILL.md:                                             
+                                                                                
+                                                                                
+    ---                                                                         
+    name: slack_search                                                          
+    description: >                                                              
+      Search and retrieve Slack data — messages, files, channels, threads,      
+   and DMs.                                                                     
+      Provides enterprise-wide search using user token authentication with      
+   automatic                                                                    
+      token refresh via the proximity server.                                   
+    labels:                                                                     
+      - slack                                                                   
+      - search                                                                  
+   (60 lines truncated)                                                         
+    On auth failure, automatically retries with fresh tokens from the           
+   proximity server.                                                            
+                                                                                
+    ## Notes                                                                    
+                                                                                
+    - `slack_get_channel_history` has a dual-API fallback: tries                
+   `conversations.history` first,                                               
+      falls back to `search.messages` if the bot/user isn't in the channel.     
+    - `slack_get_dm_messages` is also available as                              
+   `slack_get_messages_with_user` (alias).                                      
+    - Channel listing paginates by default — large workspaces may take          
+   several API calls.                                                           
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the full context. Let me analyze what's
+needed and produce the decomposition.
+
+Summary of what I've learned:
+
+ 1 The Role Document (AI Program Manager) defines in Section 5 specific KPIs:
+   velocity, cycle time, deployment frequency, defect density, sprint
+   predictability, drift detection, and risk scoring. Section 2 (Priority 3)
+   describes "Metrics & Trend Analysis" as a Tier 1 responsibility computing
+   these metrics. SOPs describe how these metrics feed into daily standups,
+   risk escalation, and weekly status reports.
+ 2 The TWG tool is a CLI tool that queries the Atlassian Teamwork Graph — it
+   can access Jira issues/sprints, Bitbucket PRs/pipelines, Confluence pages,
+   goals, projects, teams, and cross-product work activity. It has native
+   surfaces for Jira (workitem get, sprint data), Bitbucket (PRs, pipelines),
+   and projection surfaces (work query for activity). It also supports Cypher
+   queries for custom graph traversal.
+ 3 The TWG skill provides routing, command patterns, and reference docs. The
+   skill tells agents how to pick the right surface, query patterns, and
+   pagination.
+ 4 The task is to create a program analytics / metrics computation skill that
+   orchestrates raw queries via TWG + applies statistical models for the KPIs
+   defined in Section 5.
+ 5 This is a SKILL (SKILL.md — domain guidance on using existing tools), not a
+   new tool. It will leverage the existing twg tool and possibly slack tools
+   for distribution.
+
+Key dimensions to research/investigate:
+
+ • TWG tool capabilities for raw data extraction: What specific TWG commands
+   can retrieve sprint velocity data, issue cycle times, PR/deployment
+   frequency, defect counts, etc.?
+ • Statistical models for the KPIs: What formulas, algorithms, and approaches
+   are needed for velocity computation, cycle time analysis, deployment
+   frequency, defect density, sprint predictability, drift detection, and risk
+   scoring?
+ • Workflow design: How the skill orchestrates multi-step queries (query raw
+   data → compute → trend → detect anomalies → output)
+ • Existing skill patterns: How existing skills (twg, slack_actions,
+   slack_search) are structured to guide the new skill's format
+ • Distribution/reporting patterns: How computed metrics get formatted and
+   distributed via Slack/Confluence
+
+
+
+                                   Analysis
+
+The parent task requests creating a program analytics / metrics computation 
+skill for the AI Program Manager role. This skill must:
+
+ 1 Leverage the existing twg tool to extract raw data from Jira (sprint/issue
+   data), Bitbucket (PRs, pipelines, deployments), and cross-product activity
+ 2 Apply statistical models to compute 7 specific KPIs: velocity, cycle time,
+   deployment frequency, defect density, sprint predictability, drift
+   detection, and risk scoring
+ 3 Encode the computational workflows as step-by-step guidance in a SKILL.md
+
+This is a skill (not a tool), so the deliverable is a SKILL.md with domain
+guidance, workflows, formulas, and templates for using existing tools. The key
+complexity lies in:
+
+ • Mapping each KPI to specific TWG queries that can produce the raw data
+ • Defining the statistical formulas and thresholds for each metric
+ • Designing multi-step orchestration workflows (query → compute → trend →
+   alert)
+ • Integrating with the role's SOPs (daily standups, weekly reports, risk
+   escalation)
+
+I'm decomposing into 4 subtasks that balance the investigation of existing
+tool capabilities with the research needed for statistical models and workflow
+design.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the TWG tool's full capabilities for 
+extracting raw engineering metrics data — specifically what Jira, Bitbucket, 
+and projection surface commands can retrieve sprint velocity data, issue 
+lifecycle timestamps (created/started/resolved for cycle time), PR 
+merge/deployment events, defect/bug issue counts, and sprint scope changes. 
+This investigation must map each of the 7 target KPIs (velocity, cycle time, 
+deployment frequency, defect density, sprint predictability, drift detection,
+risk scoring) to the specific TWG commands, surfaces, and flags that can 
+produce the required raw data. Examine the Jira native surface for sprint and
+workitem queries, Bitbucket native surface for PR and pipeline data, 
+projection surfaces for work activity timelines, and the Cypher/metagraph 
+surface for custom graph queries that may be needed when typed surfaces fall 
+short.",
+      "todos": [
+        "Read TWG SKILL.md references (NATIVE-SURFACES.md, 
+PROJECTION-SURFACES.md, FEDERATED-SURFACES.md) to catalog all commands 
+relevant to engineering metrics extraction — specifically jira workitem, jira
+sprint, bb prs, bb pipeline, work query, and context commands",
+        "For each KPI, identify the specific TWG command(s) that can extract 
+the raw data: (a) velocity → jira sprint data + issue story points, (b) cycle
+time → issue state transition timestamps, (c) deployment frequency → bb 
+pipeline/deployment events, (d) defect density → jira workitem queries 
+filtered by type=Bug, (e) sprint predictability → sprint scope vs delivered, 
+(f) drift detection → milestone/timeline data, (g) risk scoring → blocker 
+counts + velocity trends + dependency data",
+        "Investigate TWG METAGRAPH.md and Cypher capabilities to determine if
+custom graph queries are needed for data that typed surfaces cannot provide 
+(e.g., issue state transition history, cross-team dependency graphs, 
+sprint-over-sprint comparisons)",
+        "Document the exact TWG command patterns, required flags, pagination 
+strategies, and output formats for each metric's data extraction pipeline",
+        "Identify gaps where TWG cannot directly provide needed data and note
+what alternative data sources or computation approaches would be required"
+      ],
+      "scope": "Maps all 7 KPIs to specific TWG tool commands and data 
+extraction patterns — the foundational data layer the skill needs",
+      "priority": "CRITICAL",
+      "priority_reason": "The entire skill depends on knowing exactly what 
+data the TWG tool can and cannot provide. Without this mapping, the skill's 
+workflows would be speculative and potentially unimplementable.",
+      "priority_score": "5.0",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research the statistical models, formulas, algorithms, 
+and industry-standard computation methods for each of the 7 program analytics
+KPIs defined in the AI Program Manager role document (Section 5 and Section 2
+Priority 3). For each metric, define the precise mathematical formula, 
+required input variables, normalization approaches, trend detection methods, 
+and anomaly/threshold logic. Cover: (1) velocity computation including 
+normalization across teams with different point scales, (2) cycle time 
+analysis including percentile distributions and outlier detection, (3) 
+deployment frequency including rolling window calculations, (4) defect density
+including severity-weighted formulas, (5) sprint predictability including 
+commitment vs. delivery ratio and variance analysis, (6) drift detection 
+including earned value management and schedule performance index, (7) risk 
+scoring including multi-factor weighted scoring models. Also research how 
+these metrics compose into a holistic program health score.",
+      "todos": [
+        "Research velocity computation methods: story point summation per 
+sprint, rolling average, normalization techniques for cross-team comparison, 
+velocity stability index (standard deviation / mean), and trend projection 
+formulas",
+        "Research cycle time statistical analysis: median vs mean cycle time,
+percentile distributions (P50/P85/P95), control chart methodology (upper/lower
+control limits), and how to decompose cycle time into queue time vs active 
+time",
+        "Research deployment frequency and defect density computation: 
+deployment events per time period, change failure rate, defect density 
+formulas (defects per KLOC or per story point), severity-weighted defect 
+scoring (P1=10x, P2=5x, P3=2x, P4=1x)",
+        "Research sprint predictability models: commitment reliability ratio 
+(delivered/committed), scope change percentage, carryover rate, and 
+statistical process control for sprint predictability trending",
+        "Research drift detection and risk scoring: earned value management 
+concepts (SPI, CPI), schedule variance formulas, multi-factor risk scoring 
+models (likelihood × impact with weighted factors for velocity drops, blocker
+accumulation, dependency conflicts, and scope changes), and threshold 
+calibration approaches"
+      ],
+      "scope": "Defines the mathematical and statistical foundations for all 7
+KPIs — the computation layer between raw data and actionable insights",
+      "priority": "CRITICAL",
+      "priority_reason": "Without precise formulas and statistical models, the
+skill would produce vague guidance rather than actionable computation 
+workflows. The AI PgM needs deterministic, reproducible metric calculations.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Investigate the existing skill file structure and 
+patterns (twg SKILL.md, slack_actions SKILL.md, slack_search SKILL.md) to 
+understand the exact format, metadata schema, section organization, and 
+workflow encoding conventions used in OpenStartup skills. Then design the 
+multi-step orchestration workflows for the program analytics skill — how it 
+chains TWG queries, applies computations, detects anomalies, and routes 
+outputs to the appropriate channels (Slack alerts, Confluence pages, Jira 
+coordination tickets). Each workflow must align with the AI Program Manager's
+SOPs (daily standup data, weekly status reports, risk escalation) and autonomy
+tiers.",
+      "todos": [
+        "Analyze the structure of existing SKILL.md files (twg, slack_actions,
+slack_search) to extract the common pattern: YAML frontmatter schema (name, 
+description, labels, metadata.requires, metadata.tools), section organization
+(Overview, Prerequisites, Workflow, Common Patterns, Examples, References), 
+and how multi-step workflows are encoded",
+        "Design the daily metrics computation workflow: which TWG queries run
+on what cadence, how results are cached/accumulated, how trend comparisons 
+work (current sprint vs rolling average), and how anomaly thresholds trigger 
+alerts — mapping to SOP 1 (Daily Standup) and SOP 2 (Risk Escalation)",
+        "Design the weekly/sprint-boundary computation workflow: sprint 
+retrospective metrics, cross-sprint trend analysis, predictability scoring, 
+and how outputs map to SOP 3 (Weekly Stakeholder Status Report) with 
+audience-adapted formatting",
+        "Design the continuous monitoring workflow for drift detection and 
+risk scoring: scan frequency, sliding window parameters, escalation trigger 
+integration with the role's Three-Tier Autonomy Model (Tier 1 for metric 
+computation, Tier 2 for risk mitigation proposals)",
+        "Determine how the skill should reference and coordinate with 
+slack_actions (for alert distribution) and slack_search (for signal monitoring
+in Slack channels) tools/skills"
+      ],
+      "scope": "Covers skill structure conventions and end-to-end workflow 
+design — how the skill orchestrates queries, computations, and outputs across
+the AI PgM's operational cadence",
+      "priority": "HIGH",
+      "priority_reason": "The workflow design is what transforms raw formulas
++ data queries into an actionable skill. It's dependent on insights from 
+subtasks 1 and 2 but can be investigated in parallel since it focuses on the 
+orchestration layer and skill format conventions.",
+      "priority_score": "3.8",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research reusable templates, reporting formats, 
+threshold calibration approaches, and decision criteria that the program 
+analytics skill should provide as ready-to-use artifacts. This includes: (1) 
+metric report templates for different audiences (executive summary vs 
+engineering detail), (2) RAG (Red/Amber/Green) scoring rubrics with calibrated
+thresholds for each KPI, (3) anomaly alert templates with 
+context-action-deadline structure matching the role's communication protocols,
+(4) program health dashboard specification with composite scoring, and (5) 
+threshold auto-tuning patterns based on historical data and team maturity. 
+Also research how leading engineering organizations (e.g., DORA metrics, SPACE
+framework) structure their metrics programs to identify best practices the 
+skill should encode.",
+      "todos": [
+        "Research DORA (DevOps Research and Assessment) four key metrics 
+framework and SPACE framework for developer productivity — extract the 
+specific metric definitions, measurement approaches, and benchmarking tiers 
+(Elite/High/Medium/Low) that can be adapted for the program analytics skill",
+        "Design RAG scoring rubrics with concrete thresholds for each of the 7
+KPIs: what constitutes Green (healthy), Amber (attention needed), and Red 
+(intervention required), including how thresholds should be calibrated 
+per-team vs organization-wide",
+        "Research metric report template patterns: executive-facing (narrative
+with RAG indicators, trend arrows, key risks) vs engineering-facing (data-rich
+with charts, percentiles, drill-down links), aligned with the role document's
+Communication Protocols (Section 4)",
+        "Research anomaly alert template design following the role's 
+communication protocol structure: context → key info → action needed + 
+deadline → link to details, with severity-based formatting for Sev1-4 
+classifications",
+        "Research composite program health scoring approaches: how to weight 
+and combine individual KPIs into a single health index, including sensitivity
+analysis and the role of confidence intervals when data is sparse or noisy"
+      ],
+      "scope": "Covers templates, thresholds, reporting patterns, and industry
+frameworks — the 'content layer' that makes the skill's outputs immediately 
+usable",
+      "priority": "HIGH",
+      "priority_reason": "Templates and thresholds are what make the skill 
+produce actionable, audience-adapted outputs rather than raw numbers. The 
+DORA/SPACE frameworks provide industry-validated benchmarks essential for 
+credible metrics.",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "The decomposition follows the natural layers of a metrics 
+computation skill: (1) Data Layer — what raw data can TWG provide for each KPI
+(investigation), (2) Computation Layer — what statistical models transform raw
+data into metrics (research), (3) Orchestration Layer — how multi-step 
+workflows chain queries, computations, and outputs together following existing
+skill patterns (investigation), (4) Content Layer — what templates, 
+thresholds, and frameworks make the outputs actionable and audience-adapted 
+(research). Subtasks 1 and 2 are CRITICAL because the skill is meaningless 
+without knowing what data is available and how to compute metrics from it. 
+Subtasks 3 and 4 are HIGH because they transform the foundational knowledge 
+into a well-structured, usable skill. All subtasks can run in parallel since 
+they target different dimensions, though the aggregator will need to 
+synthesize findings from all four into a single coherent SKILL.md. The 
+classification alternates between investigation (subtasks 1, 3 — examining 
+existing artifacts) and research (subtasks 2, 4 — gathering external domain 
+knowledge).",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 59.7K/1M
+

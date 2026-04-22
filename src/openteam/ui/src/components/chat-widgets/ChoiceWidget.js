@@ -15,16 +15,17 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { useTheme } from '@mui/material/styles';
 
-export default function ChoiceWidget({ data }) {
+export default function ChoiceWidget({ data, onSubmit }) {
   const theme = useTheme();
   const { prompt, options = [] } = data || {};
   const [selectedId, setSelectedId] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
 
   const handleConfirm = () => {
+    if (confirmed) return; // double-submit guard
     const selected = options.find((o) => o.id === selectedId);
-    console.log('[ChoiceWidget] Selected:', selected);
     setConfirmed(true);
+    onSubmit?.({ selected_id: selectedId, selected_label: selected?.label });
   };
 
   const selectedLabel = options.find((o) => o.id === selectedId)?.label;

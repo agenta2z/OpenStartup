@@ -47,7 +47,7 @@ function UnknownWidget({ data, type }) {
   );
 }
 
-export default function ChatWidgetRenderer({ widgets }) {
+export default function ChatWidgetRenderer({ widgets, onSubmit }) {
   if (!widgets?.length) return null;
 
   return (
@@ -57,7 +57,9 @@ export default function ChatWidgetRenderer({ widgets }) {
         if (!Component) {
           return <UnknownWidget key={i} type={widget.type} data={widget.data} />;
         }
-        return <Component key={i} data={widget.data} />;
+        // Thread onSubmit through to each widget so server can receive decisions
+        const handleSubmit = onSubmit ? (result) => onSubmit(widget, result) : undefined;
+        return <Component key={i} data={widget.data} onSubmit={handleSubmit} />;
       })}
     </Box>
   );

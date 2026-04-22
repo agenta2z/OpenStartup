@@ -2,7 +2,7 @@
  * OpenStartup — AI Company Dashboard
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -48,6 +48,29 @@ function App() {
   const isDrillDown = selectedProjectId || selectedEmployeeId || selectedConversationId || selectedSessionId;
 
   const clearDrillDown = () => { setSelectedProjectId(null); setSelectedEmployeeId(null); setSelectedConversationId(null); setSelectedSessionId(null); };
+
+  // Task bridge — tasks state is owned by useManagerChat inside ManagerChatView.
+  // ManagerChatView calls onTasksChanged/onSwitchTabRef to keep App in sync for the Sidebar.
+  const [sessionTasksMap, setSessionTasksMap] = useState({});
+  const sessionTasks = sessionTasksMap[selectedSessionId] || {};
+  const [activeTaskId, setActiveTaskId] = useState(null);
+  const switchTabRef = useRef(null);
+
+  const handleTasksChanged = useCallback((tasks) => {
+    setSessionTasksMap(prev => ({ ...prev, [selectedSessionId]: tasks }));
+  }, [selectedSessionId]);
+  const handleActiveTaskChanged = useCallback((taskId) => setActiveTaskId(taskId), []);
+  const handleSwitchTabRef = useCallback((fn) => { switchTabRef.current = fn; }, []);
+  const handleSidebarTaskClick = useCallback((taskId) => {
+    switchTabRef.current?.(taskId, 'task');
+  }, []);
+  const handleSidebarSessionClick = useCallback((sessionId) => {
+    // Reset to session view first (clears task panel if open)
+    switchTabRef.current?.(null, 'session');
+    // Then navigate (clears drilldown state and sets the new session)
+    setSelectedProjectId(null); setSelectedEmployeeId(null);
+    setSelectedConversationId(null); setSelectedSessionId(sessionId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const navigateToProject = (id) => { clearDrillDown(); setSelectedProjectId(id); };
   const navigateToEmployee = (id) => { clearDrillDown(); setSelectedEmployeeId(id); };
   const navigateToConversation = (id) => { clearDrillDown(); setSelectedConversationId(id); };
@@ -56,7 +79,16 @@ function App() {
   const handleTabChange = (_, newValue) => { clearDrillDown(); setActiveTab(newValue); };
 
   const renderContent = () => {
-    if (selectedSessionId) return <ManagerChatView sessionId={selectedSessionId} onBack={handleBack} />;
+    if (selectedSessionId) return (
+      <ManagerChatView
+        key={selectedSessionId}
+        sessionId={selectedSessionId}
+        onBack={handleBack}
+        onTasksChanged={handleTasksChanged}
+        onActiveTaskChanged={handleActiveTaskChanged}
+        onSwitchTabRef={handleSwitchTabRef}
+      />
+    );
     if (selectedProjectId) return <SprintBoardView projectId={selectedProjectId} onBack={handleBack} />;
     if (selectedEmployeeId) return <EmployeeDetailView employeeId={selectedEmployeeId} onBack={handleBack} />;
     if (selectedConversationId) return <ConversationView conversationId={selectedConversationId} onBack={handleBack} />;
@@ -71,7 +103,13 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
-      <Sidebar onSessionClick={navigateToSession} activeSessionId={selectedSessionId} />
+      <Sidebar
+        onSessionClick={handleSidebarSessionClick}
+        activeSessionId={selectedSessionId}
+        tasks={sessionTasks}
+        activeTaskId={activeTaskId}
+        onTaskClick={handleSidebarTaskClick}
+      />
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
         <AppBar position="static" elevation={0} sx={{ backgroundColor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
           <Toolbar variant="dense" sx={{ gap: 1.5, minHeight: 48 }}>

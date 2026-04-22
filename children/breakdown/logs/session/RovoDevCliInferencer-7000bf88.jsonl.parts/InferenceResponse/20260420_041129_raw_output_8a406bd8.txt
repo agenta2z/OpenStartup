@@ -1,0 +1,758 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup/children/breakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the referenced resources to understand the full
+context before decomposing the task.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the AI PgM role document"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+      • _intent: "Explore available skills directory"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools/twg"
+      • _intent: "Explore TWG tool structure"
+                                                                                
+  Error calling tool 'open_files': Error opening                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md: Path       
+  '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/t  
+  ools/create_role/_runtime/20260415_153712/outputs/role_document.md' is        
+  outside both the workspace directory and whitelisted paths                    
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me explore the workspace to find the relevant files.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "find . -type f -name \"role_document.md\" 2>/dev/null | head 
+-5"
+      • _intent: "Find role document in workspace"
+  ⬢ Called bash: 
+      • command: "find . -type d -name \"skills\" 2>/dev/null | head -10"
+      • _intent: "Find skills directories in workspace"
+  ⬢ Called bash: 
+      • command: "find . -type d -name \"twg\" 2>/dev/null | head -10"
+      • _intent: "Find TWG tool directory in workspace"
+  ⬢ Called expand_folder: 
+      • folder_path: "."
+      • _intent: "Explore workspace root structure"
+                                                                                
+                                                                                
+   artifacts/:                                                                  
+                                                                                
+   checkpoints/:                                                                
+                                                                                
+   outputs/:                                                                    
+                                                                                
+                                                                                
+  ⬢ Called bash: 
+      • command: "find . -type f 2>/dev/null"
+  ⬢ Called bash: 
+      • command: "ls -la artifacts/ checkpoints/ outputs/ 2>/dev/null"
+                                                                                
+                                                                                
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_ccf2f9fa.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_860d91ca.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_fa525075.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_cd67a491.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_6fd763b4.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_1ce9448b.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_072649c6.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_ffa5236b.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/Async/20260419_14   
+   0831_e17c8394.txt                                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/Async/20260419_14   
+   0759_94dc4fdd.txt                                                            
+   (185 lines truncated)                                                        
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-548b   
+   7693_20260419_183824/stream_0d9e3f05_be...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-d41c   
+   6f23_20260419_140605/stream_8c27c6a3_40...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-d41c   
+   6f23_20260419_140605/stream_c65c02d7_ac...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-d41c   
+   6f23_20260419_140605/stream_822c068a_2f...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-d41c   
+   6f23_20260419_140605/stream_49f909ce_15...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-b0f5   
+   c9bb_20260420_030925/stream_7167d032_f0...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_201420/stream_7baf808b_89...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_201420/stream_b561f53c_03...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-2410   
+   eac4_20260420_030925/stream_e81a0ed2_eb...                                   
+   ./_runtime/inferencer_cache/RovoDevCliInferencer/RovoDevCliInferencer-469e   
+   7cce_20260419_201702/stream_66f0c93b_88...                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   artifacts/:                                                                  
+   total 0                                                                      
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 .                              
+   drwxr-xr-x@ 7 tchen7  staff  224 Apr 19 14:06 ..                             
+                                                                                
+   checkpoints/:                                                                
+   total 0                                                                      
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 .                              
+   drwxr-xr-x@ 7 tchen7  staff  224 Apr 19 14:06 ..                             
+                                                                                
+   outputs/:                                                                    
+   total 0                                                                      
+   drwxr-xr-x@ 2 tchen7  staff   64 Apr 15 13:30 .                              
+   drwxr-xr-x@ 7 tchen7  staff  224 Apr 19 14:06 ..                             
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me investigate the available TWG skill and existing skill/tool
+patterns to understand the tooling landscape before decomposing.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "find . -name \"SKILL.md\" -o -name \"tool.json\" 2>/dev/null |
+head -20"
+  ⬢ Called get_skill: 
+      • skill_name_or_path: "twg"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_context_for_work_item"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_similar_jira_issues"
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me investigate the TWG CLI's Jira-specific capabilities for issue
+links, blockers, and the existing skill patterns more deeply.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/.agents/skills/twg/references/NATIVE-SURFACES.md 2>/dev/null | 
+head -300"
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/.agents/skills/twg/references/PROJECTION-SURFACES.md 2>/dev/null |
+head -200"
+  ⬢ Called bash: 
+      • command: "cat /Users/tchen7/.agents/skills/twg/references/ROUTING.md 
+2>/dev/null | head -200"
+                                                                                
+                                                                                
+   # Native Surfaces                                                            
+                                                                                
+   Use native surfaces for product-specific detail, richer actions, and         
+   writes.                                                                      
+                                                                                
+   > For how these surfaces map to Atlassian product collections (TWC,          
+   ServCo, StratCo, etc.), see `references/PRODU...                             
+                                                                                
+   ## Main surfaces                                                             
+                                                                                
+   - `jira`                                                                     
+   - `confluence`                                                               
+   (75 lines truncated)                                                         
+   - Use `confluence search query --cql ...` for structured lookup,             
+   especially when you already know a page title or...                          
+   - Prefer title-oriented CQL for page lookup, for example:                    
+                                                                                
+   ```bash                                                                      
+   scripts/twg confluence search query --cql 'type=page AND title =             
+   "Runbook"'                                                                   
+   scripts/twg confluence search query --cql 'type=page AND title ~             
+   "Runbook"'                                                                   
+   ```                                                                          
+                                                                                
+   - Do **not** treat Confluence CQL as semantic content search. CQL is best    
+   for structured metadata filters and tit...                                   
+   - Semantic or fuzzy page-content search is not implemented here yet, so      
+   avoid implying that CQL provides that beh...                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   # Projection Surfaces                                                        
+                                                                                
+   Use projections for broad views rather than product-native CRUD.             
+                                                                                
+   ## Main surfaces                                                             
+                                                                                
+   - `work query` — recent work across entities                                 
+   - `org-tree` — management chain or reporting tree                            
+   - `context jira workitem` — issue perimeter and nearby artifacts             
+                                                                                
+   (20 lines truncated)                                                         
+   - `--first` / `--after`                                                      
+   - `--name` / `--email`                                                       
+   - `--depth`                                                                  
+   - `--up-only` / `--down-only`                                                
+                                                                                
+   ## Good defaults                                                             
+                                                                                
+   - use `work query` for “what has this person worked on?”                     
+   - use `org-tree` for hierarchy questions                                     
+   - use `context jira workitem` before drilling into native Jira details       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   # Routing                                                                    
+                                                                                
+   Use this guide to pick the right surface first.                              
+                                                                                
+   ## Default order                                                             
+                                                                                
+   1. **Federated** for cross-product requests: `docs`, `videos`, `meetings`,   
+   `spaces`                                                                     
+   2. **Native** for product-specific detail or mutations: `jira`,              
+   `confluence`, `bb`, `goals`, `projects`, `teams`                             
+   3. **Projection** for broad activity, hierarchy, or perimeter: `work         
+   query`, `org-tree`, `context jira workitem`                                  
+   4. **Cypher** only if the typed surfaces do not cover the request            
+   (14 lines truncated)                                                         
+                                                                                
+   ```bash                                                                      
+   # Cross-product docs -> native Confluence details                            
+   scripts/twg docs query --since 14d                                           
+   scripts/twg confluence pages get 12345 --body-format adf                     
+                                                                                
+   # Issue perimeter -> native Jira details                                     
+   scripts/twg context jira workitem PROJ-123 --depth 2                         
+   scripts/twg jira workitem get --id PROJ-123                                  
+   ```                                                                          
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me get more details on the TWG Jira capabilities, specifically around
+issue links, sprints, and the context command, plus the existing skills to
+understand patterns.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat /Users/tchen7/.agents/skills/twg/references/COMMANDS.md 
+2>/dev/null"
+  ⬢ Called bash: 
+      • command: "ls /Users/tchen7/.agents/skills/twg/references/ 2>/dev/null"
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/twg/SKIL...
+  ⬢ Called bash: 
+      • command: "ls 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/ 2>/dev/n...
+                                                                                
+                                                                                
+   # Reference Index                                                            
+                                                                                
+   `COMMANDS.md` is the compact table of contents for this reference set.       
+   Use it to decide which guide to open next; it is not meant to mirror raw     
+   CLI help.                                                                    
+   All `scripts/twg` examples in this reference set inherit the                 
+   path-resolution rule from `../SKILL.md`: resolve `sc...                      
+                                                                                
+   ## Start here                                                                
+                                                                                
+   - `ROUTING.md` — pick the right surface                                      
+   - `GLOBAL-CONTRACT.md` — shared command patterns, filters, pagination, and   
+   write safety                                                                 
+   (6 lines truncated)                                                          
+   - `RELATION-AND-IDENTITY.md` — `user`, `user-search`, `resolve`,             
+   `collaborators`                                                              
+   - `CONTROL-PLANE.md` — `login`, `skills`, `integrations`, `echo`             
+                                                                                
+   ## Quick routing                                                             
+                                                                                
+   - Cross-product request -> `FEDERATED-SURFACES.md`                           
+   - Broad work/activity/hierarchy/context -> `PROJECTION-SURFACES.md`          
+   - Product-specific detail or mutation -> `NATIVE-SURFACES.md`                
+   - Need to resolve a person first -> `RELATION-AND-IDENTITY.md`               
+   - Need to tell the user about setup/package/runtime commands ->              
+   `CONTROL-PLANE.md`                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ADF-SCHEMA.md                                                                
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ---                                                                          
+   name: twg                                                                    
+   description: >                                                               
+     Query and manage Atlassian Teamwork Graph data — Jira, Confluence,         
+   Atlas, Loom, Bitbucket,                                                      
+     Google Docs, Sharepoint and other work data. Use for cross-product         
+   activity, entity details,                                                    
+     team/user insights, and create/update actions.                             
+   labels:                                                                      
+     - atlassian                                                                
+     - teamwork-graph                                                           
+     - productivity                                                             
+   (80 lines truncated)                                                         
+   twg recently-viewed --since 7d                                               
+                                                                                
+   # Activity / hierarchy / context                                             
+   twg work query --scope me --since 7d                                         
+   twg work query --scope user --account-id <id> --since 30d                    
+   twg org-tree --name "Jane Doe" --up-only                                     
+   twg context jira workitem PROJ-123 --depth 2                                 
+                                                                                
+   # Product-specific                                                           
+   twg jira workitem get --id PROJ-123                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   slack_actions                                                                
+   slack_search                                                                 
+   twg                                                                          
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me get the critical references for understanding Jira issue links, the
+metagraph (relationships), and existing skill patterns.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bash: 
+      • command: "cat /Users/tchen7/.agents/skills/twg/references/METAGRAPH.md 
+2>/dev/null"
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/.agents/skills/twg/references/GLOBAL-CONTRACT.md 2>/dev/null | 
+head -200"
+  ⬢ Called bash: 
+      • command: "cat 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources/
+skills/slack_ac...
+                                                                                
+                                                                                
+   # Metagraph Cypher Reference                                                 
+                                                                                
+   The **metagraph** is the schema/ontology graph for the Teamwork Graph        
+   (TWG). It represents all registered node ty...                               
+                                                                                
+   - **~140 node types**, **~260+ edges**                                       
+   - Query via Cypher (read-only)                                               
+                                                                                
+   ---                                                                          
+                                                                                
+   ## Schema                                                                    
+   (135 lines truncated)                                                        
+                                                                                
+   ### 9. 2-hop neighborhood exploration                                        
+                                                                                
+   Find all node types reachable within 2 hops from JiraIssue:                  
+                                                                                
+   ```cypher                                                                    
+   MATCH p = (center:NodeType {typeName:                                        
+   'JiraIssue'})-[:meta_relationship_type*1..2]->(neighbor:NodeType)            
+   RETURN center.typeName AS startType, neighbor.typeName AS reachableType,     
+   length(p) AS hops                                                            
+   LIMIT 50                                                                     
+   ```                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   # Global Contract                                                            
+                                                                                
+   These patterns recur across TWG surfaces.                                    
+   All `scripts/twg` examples in this reference set inherit the                 
+   path-resolution rule from `../SKILL.md`: resolve `sc...                      
+                                                                                
+   ## Discovery                                                                 
+                                                                                
+   ```bash                                                                      
+   scripts/twg --help                                                           
+   scripts/twg <surface> --help                                                 
+   (17 lines truncated)                                                         
+                                                                                
+   ## Large outputs                                                             
+                                                                                
+   For very large goal exports, prefer SQLite:                                  
+                                                                                
+   ```bash                                                                      
+   scripts/twg goals --scope org --account-id <id> \                            
+     --include-parent-goal --include-contributing-projects \                    
+     --sqlite-file /tmp/goals.db                                                
+   ```                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ---                                                                          
+   name: slack_actions                                                          
+   description: >                                                               
+     Control Slack interactions — react to messages, manage pins,               
+   send/edit/delete messages,                                                   
+     and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls back to   
+   user token.                                                                  
+   labels:                                                                      
+     - slack                                                                    
+     - actions                                                                  
+     - communication                                                            
+   metadata:                                                                    
+   (60 lines truncated)                                                         
+   ```                                                                          
+                                                                                
+   ### Send a threaded reply                                                    
+   ```                                                                          
+   slack_send_message channel:C123 "Replying in thread" --thread_ts             
+   1712023032.1234                                                              
+   ```                                                                          
+                                                                                
+   ### Send a DM                                                                
+   ```                                                                          
+   slack_send_message user:U456 "Direct message to user"                        
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the tooling landscape. Let me also
+check the Jira and Confluence MCP tool schemas relevant to this skill, plus
+understand what the Jira search capabilities are for blockers and issue links.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "search_jira_using_jql"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "get_jira_issue"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "create_confluence_page"
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a comprehensive understanding of the tooling landscape. Let me
+synthesize everything and produce the decomposition.
+
+Key findings from investigation:
+
+ 1 TWG CLI provides jira workitem get, context jira workitem (with depth-based
+   traversal), jira sprint, and Cypher queries via the metagraph for advanced
+   graph traversal
+ 2 TWG Metagraph has JiraIssue node type with outbound/inbound relationships
+   that can be discovered via Cypher — this is how we'd find issue link types
+   (blocks, depends-on, etc.)
+ 3 Jira MCP tools provide search_jira_using_jql (for JQL queries on blocked
+   status, issue links) and get_jira_issue (with show_links flag)
+ 4 Confluence MCP tools provide create_confluence_page for risk register
+   creation
+ 5 Slack skills exist for notifications (slack_actions skill with
+   slack_send_message)
+ 6 Existing skill patterns (like slack_actions/SKILL.md and twg/SKILL.md) show
+   YAML frontmatter + structured guidance with tool references
+ 7 The skill needs to work across TWG CLI, Jira MCP, Confluence MCP, and Slack
+   tools
+
+
+
+                                   Analysis
+
+The risk_and_dependencies skill is a domain-guidance SKILL.md that
+orchestrates existing tools (TWG CLI, Jira MCP, Confluence MCP, Slack tools)
+for three tightly coupled PgM responsibilities: risk detection, blocker
+surfacing, and dependency analysis.
+
+The skill has 8 distinct capability areas outlined in the description. These
+can be grouped into logical investigation/research domains:
+
+ 1 Data acquisition layer — How do we get dependency/blocker/velocity data
+   from TWG and Jira? This is foundational.
+ 2 Risk framework layer — ROAM classification, severity scoring, pattern
+   detection thresholds. This is domain knowledge.
+ 3 Operational workflow layer — How the skill orchestrates detection →
+   classification → notification → tracking. This ties tools together.
+ 4 Persistence & communication layer — Risk register in Confluence, Slack
+   notifications, Jira coordination tickets. This is output/action.
+
+I'll decompose into 5 subtasks that balance coverage of all 8 capabilities
+while keeping each subtask focused and independent.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate TWG Jira surfaces and Jira MCP tools for 
+dependency and blocker data extraction — the foundational data layer. 
+Deep-dive into TWG CLI's `context jira workitem` (with depth parameter for 
+link traversal), `jira workitem get`, and the TWG Metagraph to discover 
+JiraIssue relationship types (blocks, is-blocked-by, depends-on, clones, 
+etc.). Also investigate JQL patterns via `search_jira_using_jql` for querying
+blocked tickets, issue link types, sprint velocity data, and scope changes. 
+Investigate `get_jira_issue` with `show_links=true` for link detail 
+extraction. Determine which tool (TWG CLI vs Jira MCP) is best for each data 
+need: link traversal, blocker detection, velocity computation, and 
+cross-project dependency discovery.",
+      "todos": [
+        "Run TWG Metagraph Cypher queries to discover all JiraIssue outbound 
+and inbound relationship types, especially issue-link relationships (blocks, 
+depends-on, is-blocked-by) and their category codes",
+        "Investigate TWG `context jira workitem PROJ-123 --depth 2` output 
+format to understand what link/dependency data it returns and how deep 
+traversal works for building dependency graphs",
+        "Document JQL patterns for querying blocked issues (e.g., 
+`issueFunction in linkedIssuesOf()`, `status = Blocked`, `issueLinkType = 
+blocks`), sprint scope changes, and velocity-related fields",
+        "Investigate `get_jira_issue` with `show_links=true` to determine what
+issue link data is returned and whether it includes link type names and 
+directions",
+        "Research JQL capabilities for computing sprint velocity changes: 
+story points completed per sprint, sprint start/end dates, scope change 
+detection via `sprint in` clause combined with `created` date filters",
+        "Determine the optimal tool routing for each data need: TWG context 
+for graph traversal vs JQL search for filtered queries vs TWG Cypher for 
+complex graph patterns"
+      ],
+      "scope": "Covers todo items 1 (TWG issue link types), 2 (TWG blocker 
+detection), and the data foundation for todos 5 (dependency graph queries) and
+6 (blocker surfacing queries)",
+      "priority": "CRITICAL",
+      "priority_reason": "All other capabilities depend on understanding what
+data can be extracted from TWG and Jira. Without this investigation, the skill
+cannot define accurate workflows for any of its 8 capabilities.",
+      "priority_score": "5.0",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research the ROAM risk management framework and risk 
+pattern detection methodologies to define the domain knowledge layer of the 
+skill. This covers how to implement ROAM classification (Resolved, Owned, 
+Accepted, Mitigated) with severity scoring (Sev1-4), what thresholds and 
+signals constitute 'at-risk' conditions, and how to design confidence scoring
+for automated risk detection. Research industry best practices for sprint 
+velocity anomaly detection (>25% drops), scope creep measurement (>20% 
+divergence), and blocker accumulation patterns. Research how program 
+management tools implement risk registers and what metadata fields are 
+standard.",
+      "todos": [
+        "Research ROAM framework implementation patterns: how each category 
+(Resolved, Owned, Accepted, Mitigated) maps to actionable states, transition 
+rules between states, and how AI agents should classify risks into ROAM 
+categories",
+        "Research severity classification matrices used in program management:
+define Sev1 (program-stopping), Sev2 (milestone-impacting), Sev3 
+(sprint-impacting), Sev4 (informational) with concrete signal-to-severity 
+mapping criteria",
+        "Research velocity anomaly detection methodologies: statistical 
+approaches for detecting >25% velocity drops over rolling 2-sprint windows, 
+accounting for team size changes and holiday effects",
+        "Research scope creep detection patterns: how to measure >20% 
+divergence between sprint commitment and current scope, using story point and
+issue count baselines vs current state",
+        "Research risk confidence scoring approaches: how to assign confidence
+levels (high/medium/low) to automated risk detections based on signal 
+strength, data quality, and historical accuracy",
+        "Research risk register best practices: standard fields (ID, 
+description, owner, severity, status, mitigation plan, dates, last updated), 
+update cadence expectations, and resolution tracking workflows"
+      ],
+      "scope": "Covers todo items 3 (risk pattern detection design) and 4 
+(ROAM classification framework design), plus the risk register field 
+definitions needed for todo 8",
+      "priority": "CRITICAL",
+      "priority_reason": "The ROAM framework and severity scoring are the core
+domain knowledge that the entire skill is built around. Without 
+well-researched classification criteria, the skill's risk detection would be 
+arbitrary and unreliable.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Investigate the dependency graph analysis and circular 
+dependency detection workflow design using TWG Cypher, TWG context traversal,
+and Jira MCP tools. This subtask focuses on how to construct cross-team 
+dependency maps from Jira issue links and PR references, detect circular 
+dependencies, identify scheduling conflicts, and surface resource contention.
+Investigate TWG Cypher query capabilities for multi-hop graph traversal across
+JiraIssue nodes, Bitbucket PR references linked to issues, and how to detect 
+cycles in directed graphs using the available query primitives.",
+      "todos": [
+        "Investigate TWG Cypher query patterns for traversing 
+JiraIssue-to-JiraIssue links across projects: multi-hop `blocks`/`depends-on`
+chain queries, cycle detection via path queries, and cross-project link 
+discovery",
+        "Investigate TWG `context jira workitem` output to determine if it 
+returns PR references, branch info, and linked issues — and whether depth=2+ 
+can reveal transitive dependency chains",
+        "Research graph algorithms applicable to dependency analysis: 
+topological sort for scheduling, cycle detection in directed graphs, critical
+path identification, and how to implement these with TWG Cypher's query 
+constraints (no list comprehensions, bound variable-length paths)",
+        "Design the dependency map data structure: how to represent cross-team
+dependencies as a graph with teams as clusters, issues as nodes, and link 
+types as edges — suitable for both analysis and human-readable output",
+        "Research scheduling conflict detection patterns: how to identify 
+cases where Team A's blocked-by depends on Team B's work that isn't scheduled
+in the current sprint, using sprint assignment and due date fields",
+        "Research resource contention detection: identifying when multiple 
+high-priority items depend on the same team or individual, creating bottleneck
+risk"
+      ],
+      "scope": "Covers todo items 5 (dependency graph analysis workflows) and
+6 (blocker surfacing — the dependency/stalled PR detection portion), plus 
+circular dependency and scheduling conflict detection",
+      "priority": "HIGH",
+      "priority_reason": "Dependency graph analysis is one of the three core 
+capabilities and requires understanding TWG Cypher's specific constraints. 
+However, it builds on the data layer findings from subtask 1.",
+      "priority_score": "3.8",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": [1]
+    },
+    {
+      "subtask_id": 4,
+      "description": "Investigate Slack notification tools, Jira issue 
+creation tools, and Confluence page management tools to design the escalation
+routing and communication workflows. This covers the tiered escalation model 
+(Sev3-4 → PM Lead via Slack; Sev1-2 → PM Lead + Tech Lead + VP via Slack + 
+Jira coordination ticket), blocker owner notification with context and action
+deadlines, and how to compose actionable Slack messages using existing 
+`slack_send_message` and `slack_actions` skill. Also investigate Jira 
+`create_jira_issue` for coordination ticket creation and Confluence page 
+creation/update patterns for risk register maintenance.",
+      "todos": [
+        "Investigate `slack_actions` skill capabilities: `slack_send_message`
+parameters for channel targeting (channel:C123 vs user:U456), threading, and 
+message formatting to design notification templates with context and action 
+deadlines",
+        "Investigate `slack_find_channel` and `slack_find_dm_channel` tools 
+for dynamic routing: how to resolve PM Lead, Tech Lead, VP Slack user IDs and
+channels for escalation targeting",
+        "Investigate Jira MCP `create_jira_issue` tool schema and parameters 
+for creating coordination tickets: required fields, issue type selection, how
+to set priority/assignee/labels for escalated items",
+        "Investigate Confluence MCP `create_confluence_page` and 
+`update_confluence_page` for risk register management: page creation with 
+structured HTML tables, update workflows with version tracking",
+        "Design escalation message templates: Sev1-2 urgent notification 
+format (issue summary, severity, impact, required action, SLA deadline), 
+Sev3-4 informational format, and blocker notification format with owner 
+context",
+        "Design the 4-hour SLA tracking mechanism for Sev1-2 escalations: how
+to track decision deadlines, follow-up notification triggers, and resolution 
+confirmation workflows"
+      ],
+      "scope": "Covers todo items 6 (blocker notification via Slack), 7 
+(escalation routing logic), and 8 (risk register Confluence page structure)",
+      "priority": "HIGH",
+      "priority_reason": "Escalation routing and notification are the action 
+layer that makes the skill operationally useful. Without well-designed 
+communication workflows, detected risks go unacted upon.",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 5,
+      "description": "Research mitigation proposal generation patterns and 
+design the end-to-end operational workflows that tie risk detection → 
+classification → escalation → mitigation → tracking into coherent SOPs. 
+Research how AI agents should generate 2-3 mitigation options with trade-off 
+analysis for human approval (Tier 2 decisions), what templates and decision 
+criteria to provide, and how to structure the skill's guidance for composing 
+these into daily operational cycles. Also research stalled PR detection 
+patterns (>48 hours without review) using Bitbucket/TWG PR surfaces.",
+      "todos": [
+        "Research mitigation proposal frameworks: how to generate structured 
+trade-off analyses with 2-3 options per risk (e.g., accept delay, add 
+resources, reduce scope), including impact/effort/risk assessments for each 
+option",
+        "Research Tier 2 human approval workflow patterns: how AI agents 
+should present mitigation options for human decision, what context to include,
+and how to track approval/rejection and implement the chosen option",
+        "Investigate TWG Bitbucket PR surfaces (`twg bb prs`, `twg bb pr 
+<id>`) for detecting stalled PRs: how to identify PRs >48 hours without 
+review, unresolved review comments, and PR-to-Jira-issue linkage",
+        "Design the daily operational cycle SOP: morning risk scan → new risk
+detection → ROAM classification → severity assessment → escalation routing → 
+mitigation proposal → status update → risk register update",
+        "Design reusable templates the skill should provide: risk assessment 
+template, escalation notification template, mitigation proposal template, 
+daily risk report template, and dependency map summary template",
+        "Research how to compose findings from multiple data sources (velocity
+data + blocker count + dependency graph + PR status) into a unified risk score
+or health dashboard summary"
+      ],
+      "scope": "Covers todo item 8 (risk register maintenance patterns — the 
+operational workflow portion), mitigation proposal generation (capability 8 
+from description), stalled PR detection (capability 4), and the end-to-end SOP
+that ties all capabilities together",
+      "priority": "HIGH",
+      "priority_reason": "Mitigation proposals and operational SOPs are what 
+make this skill actionable rather than just informational. The daily cycle 
+design ensures all 8 capabilities work as a cohesive system.",
+      "priority_score": "3.2",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": [2]
+    }
+  ],
+  "reasoning": "The decomposition follows the skill's natural architecture 
+layers: (1) Data acquisition from TWG/Jira — what can we query and extract? 
+(2) Domain knowledge — ROAM framework, severity scoring, detection thresholds.
+(3) Graph analysis — dependency traversal, cycle detection using TWG Cypher. 
+(4) Action/communication — Slack notifications, Jira tickets, Confluence risk
+register. (5) Operational integration — mitigation proposals, SOPs, templates
+that tie everything together. Subtasks 1-2 are independent foundations (data 
+and domain knowledge). Subtask 3 depends on 1 (needs to know what TWG queries
+are available). Subtask 4 is independent (investigates output tools). Subtask
+5 depends on 2 (needs ROAM framework to design SOPs). All 8 capabilities from
+the description and all 8 todo items are covered across the 5 subtasks, with 
+each subtask producing concrete findings that the aggregator can synthesize 
+into the SKILL.md.",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 53.6K/1M
+

@@ -1,0 +1,552 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the referenced files and directories to understand
+the full context before decomposing the task.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the AI Program Manager role document"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me expand the full role document and investigate the existing tools/skills
+to understand the complete context.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[0, -1]]"
+      • _intent: "Read full role document for context"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+    > **Role Type:** AI Employee                                                
+    > **Version:** 1.0                                                          
+    > **Last Updated:** 2026-04-15                                              
+                                                                                
+    ---                                                                         
+                                                                                
+   (509 lines truncated)                                                        
+    - **Google TPM Model** — Technical depth + execution excellence             
+    - **Thompson's Coordination Theory** — Hierarchical coordination models     
+    - **Katz and Kahn Role Theory** — Role clarity, interdependence, and        
+   flexibility foundations                                                      
+    - **Malone and Crowston Coordination Theory** — Inter-agent coordination    
+   and dependency management                                                    
+                                                                                
+    ---                                                                         
+                                                                                
+    *This document is a living artifact. It should be reviewed quarterly by     
+   the AI PM Sponsor and governance team, a...                                  
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me investigate the existing tools and skills that are referenced in
+the task, particularly the ones relevant to CI/CD pipeline integration.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called invoke_subagents: 
+      • task_names: "['Investigate existing tools', 'Investigate existing 
+skills', 'Investigate TWG tool']"
+      • subagent_names: "['Explore', 'Explore', 'Explore']"
+      • task_descriptions: "['Explore the directory 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/se...
+
+─── Subagent: Explore (Investigate existing tools) ─────────────────────────────
+Based on my exploration, here's a comprehensive summary of the available tools
+relevant to CI/CD, build status, deployment, and pipeline monitoring:
+
+
+                           Available Tools Summary
+
+                         OpenStartup Tools Directory
+
+All Tools Found:
+
+ • twg (Teamwork Graph) - Query and manage Atlassian ecosystem data
+ • create_role - AI employee role creation via research
+ • role_setup - Role setup and capability management
+ • slack_* (25 tools) - Slack messaging and channel management
+
+                       AgentFoundation Tools Directory
+
+ • research_propose - Research and proposal generation
+ • task - Task management and execution
+ • view - View/visualization utilities
+ • clarification, confirmation, single_choice, multiple_choice - User
+   interaction tools
+ • knowledge - Knowledge base querying
+ • understand_codebase - Codebase analysis tool
+ • set_model, set_workflow_target_path, set_session_root - Configuration tools
+ • formatters - Output formatting utilities
+
+                          CI/CD & Pipeline Relevance
+
+Most Relevant for CI/CD/Build/Deployment:
+
+ 1 twg - Can query Jira workitems and Bitbucket data, useful for tracking
+   build status and deployment pipelines via the Atlassian ecosystem
+ 2 create_role & role_setup - Can define DevOps/CI roles (example in docs: "AI
+   DevOps Engineer specializing in CI/CD and infrastructure automation")
+ 3 research_propose - Can research CI/CD best practices and propose
+   implementations
+ 4 task - Can manage and execute CI/CD tasks
+ 5 understand_codebase - Can analyze build configuration files and deployment
+   scripts
+
+Slack Tools - Can post build notifications, deployment alerts, and status
+updates to Slack channels
+
+                        Note on AgentFoundation Tools
+
+Unfortunately, I cannot access the AgentFoundation tool.json files directly
+due to path restrictions, but based on the directory structure and names,
+task, research_propose, and view are designed as general-purpose tools that
+could support CI/CD workflows through research, task execution, and result
+visualization.
+
+Next Step: Would you like me to examine the executor code for any of these
+tools to understand their implementation details, or would you like me to
+create a detailed capability matrix showing which tools can interact with
+specific CI/CD systems?
+────────────────────────────────────────────────────────────────────────────────
+
+─── Subagent: Explore (Investigate existing skills) ────────────────────────────
+Perfect! I have successfully read all three SKILL.md files. Let me provide you
+with a comprehensive summary:
+
+
+                          Summary of Existing Skills
+
+                               1. slack_actions
+
+Control Slack interactions — react to messages, manage pins, send/edit/delete
+messages, and fetch member info. Uses bot token (SLACK_BOT_TOKEN) or falls
+back to user token.
+
+Tools: 13 tools including slack_react, slack_send_message, slack_edit_message,
+slack_delete_message, slack_pin_message, slack_member_info, etc.
+
+                           2. twg (Teamwork Graph)
+
+Query and manage Atlassian Teamwork Graph data — Jira, Confluence, Atlas,
+Loom, Bitbucket, Google Docs, Sharepoint and other work data. Use for
+cross-product activity, entity details, team/user insights, and create/update
+actions.
+
+Key features:
+
+ • Federated surfaces for cross-product queries (docs, videos, meetings,
+   spaces)
+ • Native surfaces for product-specific work (jira, confluence, bitbucket,
+   goals, projects, teams)
+ • Projection surfaces for activity, hierarchy, and org context
+ • Identity resolution (user-search, resolve, collaborators)
+ • Comprehensive reference documentation covering routing, global contract,
+   commands, and schema
+
+                               3. slack_search
+
+Search and retrieve Slack data — messages, files, channels, threads, and DMs.
+Provides enterprise-wide search using user token authentication with automatic
+token refresh via proximity server.
+
+Tools: 8 tools including slack_search_messages, slack_search_files,
+slack_get_thread, slack_list_channels, slack_find_channel,
+slack_get_dm_messages, etc.
+
+──────────────────────────────────────────────────────────────────────────────
+
+                        Important Note on CI/CD Skills
+
+There are NO existing skills related to CI/CD, deployment, build status, or 
+pipeline monitoring in this directory. The three skills available are:
+
+ • Slack communication (actions & search)
+ • Atlassian Teamwork Graph integration
+
+This suggests you may be planning to create a new CI/CD monitoring skill. What
+would you like to do next?
+────────────────────────────────────────────────────────────────────────────────
+
+─── Subagent: Explore (Investigate TWG tool) ───────────────────────────────────
+Answer: TWG (Teamwork Graph) is an Atlassian cross-product query and
+management tool that cannot directly access CI/CD, build, deployment, or 
+pipeline data. It can only query Atlassian products (Jira, Confluence,
+Bitbucket, Goals, Projects, Teams, Atlas, Loom) and federated surfaces (Docs,
+Videos, Meetings, Spaces). While it can retrieve Bitbucket PR and pipeline
+object references via twg bb pipeline <id> --logs, it does not provide
+pipeline status, deployment frequency, test pass rates, or release health
+metrics. These insights would require external CI/CD tools (Jenkins, GitHub
+Actions, GitLab CI, etc.).
+
+Key files:
+
+ • tool.json — tool metadata and supported surfaces
+ • SKILL.md — overview, prerequisites, surface routing, and workflow
+ • NATIVE-SURFACES.md — Jira, Confluence, Bitbucket, Goals, Projects commands
+ • FEDERATED-SURFACES.md — cross-product docs, videos, meetings, spaces, PR
+   lookup
+ • PROJECTION-SURFACES.md — work activity, org hierarchy, issue context
+
+Pattern: TWG exposes three surface families:
+
+ 1 Federated (cross-product): docs, videos, meetings, spaces, recently-viewed,
+   pr
+ 2 Native (product-specific): jira, confluence, bitbucket/bb, goals, projects,
+   teams
+ 3 Projection (activity/hierarchy): work query, org-tree, context jira 
+   workitem
+
+For Bitbucket, the available commands are:
+
+```bash
+twg bb repos                    # list repos
+twg bb prs                      # list PRs
+twg bb pr <id>                  # get one PR
+twg bb pr <id> --approve       # approve PR
+twg bb pr-create ...           # create PR
+twg bb pipeline <id> --logs    # view pipeline logs (reference only, no 
+metrics)
+```
+
+TWG has no surfaces for build systems, CI/CD platforms, deployments, test 
+results, or release monitoring. It surfaces Bitbucket code changes and PR
+metadata but not pipeline execution, test pass rates, or deployment health. To
+answer your three original questions:
+
+ 1 Data sources: Jira issues, Confluence pages, Bitbucket repos/PRs, Goals,
+   Projects, Teams, Google Docs, Sharepoint, videos, meetings — no CI/CD, 
+   build, or deployment data
+ 2 Queries available: CRUD operations on Atlassian entities, cross-product
+   search, org hierarchy, work activity tracking — no pipeline queries
+ 3 Cannot retrieve: pipeline status, deployment frequency, test pass rates, or
+   release health data
+────────────────────────────────────────────────────────────────────────────────
+─── Rate limit exceeded ────────────────────────────────────────────────────────
+
+We'll try again in 10 seconds.
+
+────────────────────────────────────────────────────────────────────────────────
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the context. Let me synthesize my
+findings before producing the decomposition.
+
+Key findings from investigation:
+
+ 1 Role document (§6) explicitly lists "CI/CD Pipelines (e.g., Bamboo, GitHub
+   Actions)" as a Core Tool for daily use, with purpose: "Build status,
+   deployment frequency, test pass rates, release pipeline health" — Read-only
+   access to pipeline metadata and status.
+ 2 No existing tool or skill covers CI/CD pipeline integration. The TWG tool
+   can access Bitbucket PR/pipeline logs but NOT pipeline status metrics,
+   deployment frequency, test pass rates, or release health data.
+ 3 Existing tools available: TWG (Atlassian graph data), Slack tools
+   (messaging), Jira/Confluence (via TWG), task management, research tools. No
+   CI/CD-specific tool exists.
+ 4 The parent task says to create a skill/tool for CI/CD pipeline integration,
+   and the original request emphasizes this is explicitly referenced in §6
+   Core Tools and SOPs.
+ 5 SOPs reference CI/CD data: SOP 1 (Daily Standup) needs "commit activity
+   from Bitbucket" and CI status; SOP 3 (Weekly Status Report) needs
+   "PR/deployment metrics"; the Metrics responsibility needs "deployment
+   frequency."
+
+Now I'll produce the decomposition:
+
+
+
+                             Analysis & Reasoning
+
+The task is to create a CI/CD pipeline integration skill and/or tool for the
+AI Program Manager role. From the role document, this integration must
+provide:
+
+ • Build status monitoring (pass/fail, duration trends)
+ • Deployment frequency tracking (how often deployments happen)
+ • Test pass rates (test suite health per pipeline)
+ • Release pipeline health (overall pipeline reliability, stage pass rates)
+
+The role document names specific platforms: "Bamboo, GitHub Actions" as
+examples, suggesting the solution should be platform-flexible.
+
+Current state: No existing tool or skill covers CI/CD. TWG can access
+Bitbucket PR data and pipeline logs (twg bb pipeline <id> --logs) but lacks
+structured pipeline metrics, deployment frequency calculations, test pass rate
+aggregation, or release health scoring. The existing skills (slack_actions,
+slack_search, twg) provide communication and Atlassian data but not CI/CD
+metrics.
+
+What needs to be built: Either (a) a new tool that directly interfaces with
+CI/CD platforms (Bamboo, GitHub Actions, Bitbucket Pipelines) to retrieve
+structured pipeline data, or (b) a skill that leverages existing TWG +
+Bitbucket capabilities plus new tool capabilities, or (c) both — a tool for
+raw CI/CD data access and a skill encoding the PM workflows that consume that
+data.
+
+Decomposition strategy: I need to cover:
+
+ 1 What CI/CD platforms/APIs exist and how to interface with them (Research)
+ 2 What TWG/Bitbucket can already do for pipeline data (Investigation) — to
+   avoid rebuilding what exists
+ 3 How to design the workflows the AI PM needs (the SOPs, metrics, release
+   readiness) that consume CI/CD data (Research)
+ 4 How existing tools in the codebase are structured so a new tool follows the
+   same patterns (Investigation)
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate TWG and Bitbucket tool capabilities for 
+CI/CD-adjacent data retrieval. Deep-dive into the TWG tool's Bitbucket surface
+commands (twg bb pipeline, twg bb prs, twg bb repos) and reference 
+documentation (NATIVE-SURFACES.md, PROJECTION-SURFACES.md) to determine 
+exactly what pipeline, build, deployment, and test data can already be 
+retrieved through existing tools. Map the gap between what TWG provides and 
+what the AI PM role requires per §6 (build status, deployment frequency, test
+pass rates, release pipeline health).",
+      "todos": [
+        "Read TWG NATIVE-SURFACES.md thoroughly to catalog all Bitbucket 
+commands and their return schemas, especially 'twg bb pipeline <id> --logs' 
+and any PR-related metadata that includes CI status",
+        "Read TWG PROJECTION-SURFACES.md to check if 'context jira workitem' 
+or 'work query' surfaces include any build/deployment activity data",
+        "Read the TWG tool.json to understand the tool's interface pattern, 
+parameter structure, and how it routes commands to surfaces",
+        "Document exactly what CI/CD-relevant data TWG can and cannot provide,
+creating a gap analysis against the role document §6 requirements (build 
+status, deployment frequency, test pass rates, release pipeline health)",
+        "Check if TWG's Bitbucket pipeline command returns structured data 
+(JSON) or just raw logs, and whether it includes pass/fail status, duration, 
+trigger info, or stage-level details"
+      ],
+      "scope": "Covers the investigation of existing TWG/Bitbucket tool 
+capabilities to identify what CI/CD data is already accessible and what gaps 
+need to be filled by a new tool or skill",
+      "priority": "CRITICAL",
+      "priority_reason": "Understanding what existing tools can already do is
+essential before designing any new tool or skill — prevents duplication and 
+ensures the new solution fills actual gaps rather than rebuilding existing 
+capabilities",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research CI/CD platform APIs (Bitbucket Pipelines, 
+Bamboo, GitHub Actions) to identify available endpoints for retrieving build 
+status, deployment frequency, test pass rates, and release pipeline health 
+metrics. Focus on the specific data points the AI PM role needs: pipeline run
+status, stage-level results, test report summaries, deployment events, and 
+historical trend data. Identify authentication models, rate limits, and data 
+formats.",
+      "todos": [
+        "Research Bitbucket Pipelines REST API endpoints for: listing pipeline
+runs by repository, getting pipeline step results, retrieving test reports 
+attached to pipeline runs, and querying deployment environments and their 
+history",
+        "Research GitHub Actions REST API endpoints for: listing workflow 
+runs, getting job details and step logs, retrieving check suite results with 
+test annotations, and querying deployment events via the Deployments API",
+        "Research Atlassian Bamboo REST API endpoints for: build results, 
+deployment project status, test result summaries, and release pipeline stage 
+progression",
+        "For each platform, document: authentication method (OAuth, PAT, app 
+tokens), rate limits, pagination patterns, and response data schemas relevant
+to the four required metrics (build status, deployment frequency, test pass 
+rates, pipeline health)",
+        "Identify common data model patterns across platforms that could 
+enable a platform-agnostic interface for the AI PM tool"
+      ],
+      "scope": "Covers external API research for the three CI/CD platforms 
+explicitly mentioned or implied in the role document, focusing on the specific
+data retrieval capabilities needed",
+      "priority": "CRITICAL",
+      "priority_reason": "The tool cannot be designed without knowing what 
+data the target platforms expose — this research directly determines what the
+tool can offer and how it interfaces with each platform",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Investigate the existing tool implementation patterns in
+the codebase (tool.json structure, executor patterns, skill SKILL.md format) 
+to understand how a new CI/CD tool and/or skill should be structured. Examine
+the TWG tool and slack tools as reference implementations to discover: 
+tool.json schema conventions, how tools define parameters and return formats,
+how skills reference tools, and how the executor/runtime system loads and 
+invokes tools.",
+      "todos": [
+        "Read the TWG tool.json to understand the tool definition schema: 
+name, description, parameters, executor type, and any platform-specific 
+configuration",
+        "Read a Slack tool's tool.json (e.g., slack_send_message) to see a 
+second implementation pattern and identify common conventions",
+        "Examine the TWG SKILL.md structure to understand how skills organize
+workflow guidance: sections, tool references, examples, routing tables, and 
+prerequisite declarations",
+        "Look at the tool executor/runtime code to understand how tools are 
+loaded, how parameters are validated, and how results are returned — this 
+determines what patterns the new tool must follow",
+        "Document the template structure for both a new tool.json and a new 
+SKILL.md that the CI/CD integration would need to follow"
+      ],
+      "scope": "Covers the structural and implementation patterns needed to 
+build a new tool/skill that integrates cleanly with the existing agent 
+framework",
+      "priority": "HIGH",
+      "priority_reason": "Without understanding the framework's conventions, 
+the new tool/skill won't integrate properly — but this is slightly lower 
+priority than understanding what data is available (subtasks 1-2) since 
+patterns can be adapted later",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research the specific AI Program Manager workflows and 
+SOPs that consume CI/CD data to define the exact skill workflows needed. Map 
+role document §2 responsibilities (Metrics & Trend Analysis, Release Readiness
+Scoring), §5 KPIs (deployment frequency), §6 tool requirements, and §7 SOPs 
+(Daily Standup, Weekly Status Report) to concrete CI/CD data queries. Design 
+the workflow patterns the skill must encode — e.g., how to compute deployment
+frequency from raw deployment events, how to score release readiness from 
+pipeline health + test pass rates, how to detect build health degradation 
+trends.",
+      "todos": [
+        "Map each SOP step that references CI/CD data to specific data 
+queries: SOP 1 Step 1 needs 'CI/CD build status for active sprint items', SOP
+3 Step 1 needs 'deployment metrics for the week' — define exact query 
+patterns",
+        "Research best practices for computing deployment frequency metrics 
+(DORA metrics framework) and how to aggregate raw deployment events into 
+meaningful frequency measures (daily, weekly, per-team)",
+        "Research release readiness scoring methodologies that incorporate 
+pipeline health (build pass rate, test coverage, stage progression) alongside
+other factors (open P1 bugs, unmerged PRs) referenced in §2",
+        "Design the build health trend detection workflow: what constitutes a
+degradation signal (e.g., increasing build failure rate, growing build 
+duration, declining test pass rate), alert thresholds, and how to integrate 
+with the Risk Escalation SOP (§7 SOP 2)",
+        "Define the data refresh cadence and caching strategy for CI/CD 
+metrics: which queries run continuously vs. on-demand vs. on a schedule, 
+aligned with the role's operational cadence"
+      ],
+      "scope": "Covers the domain knowledge and workflow design needed to 
+translate raw CI/CD platform data into the actionable program management 
+insights the AI PM role requires",
+      "priority": "HIGH",
+      "priority_reason": "The skill's value comes from encoding the right 
+workflows — knowing what data to collect is necessary but insufficient without
+knowing how to transform it into PM-relevant insights and actions",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 5,
+      "description": "Research reusable templates, report formats, and alert 
+patterns for CI/CD metrics presentation in the context of program management.
+The AI PM communicates via Slack, Confluence, email, and Jira (§4) — each 
+channel has specific formatting norms. Design template patterns for: pipeline
+health dashboards (Confluence), build failure alerts (Slack), deployment 
+frequency trend reports (weekly status), and release readiness checklists that
+incorporate CI/CD gate criteria.",
+      "todos": [
+        "Research Confluence page templates for CI/CD dashboards: what 
+sections, metrics visualizations (tables, trend indicators), and formatting 
+patterns are effective for pipeline health reporting",
+        "Research Slack notification templates for build/deployment alerts: 
+structured message format with context → key info → action needed → link, 
+following the role's Slack communication norms from §4",
+        "Research release readiness checklist templates that incorporate CI/CD
+gates (all builds green, test pass rate above threshold, no failed deployments
+in last N hours) alongside existing criteria from §2 (test coverage, open P1 
+bugs, unmerged PRs)",
+        "Research DORA metrics dashboard patterns (deployment frequency, lead
+time for changes, change failure rate, time to restore service) as the 
+industry standard framework for CI/CD health reporting",
+        "Design alert threshold templates that align with the role's 
+escalation framework (§8): what CI/CD conditions trigger Tier 1 autonomous 
+alerts vs. Tier 2 escalation to PM Lead"
+      ],
+      "scope": "Covers the output templates, report formats, and alert 
+patterns the skill needs to provide for presenting CI/CD data across all 
+communication channels",
+      "priority": "MEDIUM",
+      "priority_reason": "Templates enhance the skill's usability but can be 
+iterated on after the core tool and workflow logic are established — they are
+important but not blocking for the initial implementation",
+      "priority_score": "2.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "This decomposition covers the full lifecycle of creating a 
+CI/CD pipeline integration skill/tool for the AI PM role. Subtask 1 
+(Investigation) establishes what existing tools can do, preventing 
+duplication. Subtask 2 (Research) identifies what external CI/CD platforms 
+offer via their APIs, determining what's possible. Subtask 3 (Investigation) 
+ensures the new tool/skill follows established codebase patterns. Subtask 4 
+(Research) designs the PM-specific workflows that transform raw CI/CD data 
+into actionable program management insights. Subtask 5 (Research) defines the
+output templates for multi-channel communication. The subtasks are independent
+— each can be executed in parallel without blocking others — but their 
+findings will be synthesized together: subtasks 1+2 inform the tool's data 
+layer, subtask 3 informs the implementation structure, and subtasks 4+5 inform
+the skill's workflow and presentation layers.",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 47.1K/1M
+

@@ -643,3 +643,21 @@ class RealSessionDataService(MockDataService):
 
     def update_session(self, session_id: str, updates: dict) -> dict | None:
         return self._session_store.update_session(session_id, updates)
+
+    def update_workflow_context(self, session_id: str, wc_dict: dict) -> dict | None:
+        return self._session_store.update_workflow_context(session_id, wc_dict)
+
+    def save_turn_data(self, session_id: str, turn_number: int, turn_data: dict) -> None:
+        return self._session_store.save_turn_data(session_id, turn_number, turn_data)
+
+    def get_turn_data(self, session_id: str, turn_number: int) -> dict | None:
+        return self._session_store.get_turn_data(session_id, turn_number)
+
+    def get_session_dir(self, session_id: str):
+        """Public accessor for the session's on-disk directory.
+
+        Required by `ConversationService` for per-turn JsonLogger wiring and
+        streaming cache placement. Delegates to SessionStore.get_session_dir
+        to avoid touching the private `_session_store` attribute from outside.
+        """
+        return self._session_store.get_session_dir(session_id)

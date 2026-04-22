@@ -1,5 +1,8 @@
 {
   "name": "create_role",
+  "asynchronous": true,
+  "is_bridge": true,
+  "executor": "openteam.server.resources.tools.create_role.executor:execute",
   "description": "Create an AI employee role by researching responsibilities, skills, collaboration patterns, success metrics, and growth paths via Atlassian Rovo knowledge search. Produces a comprehensive role responsibility document.",
   "tool_type": "Action",
   "category": "workflow",

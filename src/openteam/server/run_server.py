@@ -13,7 +13,34 @@ import sys
 from pathlib import Path
 
 # Add src/ directory to path so 'openteam.server' package is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+# ── Python path setup ─────────────────────────────────────────────────────────
+# IMPORTANT: This server depends on AgentFoundation and RichPythonUtils which are
+# sibling repositories under the same CoreProjects directory. They must be on
+# sys.path for `import agent_foundation` and `import rich_python_utils` to work.
+#
+# When started via run.sh: PYTHONPATH is set by the shell script (preferred).
+# When started directly (e.g., in tests or manually): we add them here as fallback.
+#
+# Root cause of "No module named 'agent_foundation'" errors:
+# The server was started directly with `python run_server.py` instead of `bash run.sh`,
+# bypassing the PYTHONPATH setup in run.sh. This fallback ensures it works both ways.
+
+_server_file = Path(__file__).resolve()
+_openteam_src = _server_file.parent.parent.parent          # OpenStartup/src/openteam/server → OpenStartup/src
+# Two .parent's to get from OpenStartup/src to CoreProjects:
+#   OpenStartup/src .parent → OpenStartup
+#   OpenStartup .parent → CoreProjects
+# (The previous version had three .parent's, which overshot to MyProjects/
+# and silently failed because AgentFoundation/src didn't exist there.)
+_core_projects = _openteam_src.parent.parent               # OpenStartup/src → OpenStartup → CoreProjects
+
+for _pkg_src in [
+    str(_openteam_src),                                    # OpenStartup/src (for openteam.*)
+    str(_core_projects / "AgentFoundation" / "src"),       # AgentFoundation/src (for agent_foundation.*)
+    str(_core_projects / "RichPythonUtils" / "src"),       # RichPythonUtils/src (for rich_python_utils.*)
+]:
+    if _pkg_src not in sys.path and Path(_pkg_src).is_dir():
+        sys.path.insert(0, _pkg_src)
 
 
 def main() -> None:
@@ -35,7 +62,13 @@ def main() -> None:
         type=str,
         default=None,
         metavar="NAME",
-        help='Resume a specific server dir (e.g., server_20260406_...). Use "new" to force a new server.',
+        help='Resume a specific server dir by name (e.g., server_20260406_...). Default: always create a new server.',
+    )
+    parser.add_argument(
+        "--resume-latest-server",
+        action="store_true",
+        default=False,
+        help='Resume the most recently created server directory instead of creating a new one.',
     )
     args = parser.parse_args()
 
@@ -52,8 +85,12 @@ def main() -> None:
 
     if args.real_sessions:
         app.state.real_sessions_dir = str(Path(args.real_sessions).expanduser())
-    if args.resume_server:
+    # --resume-latest-server → "latest"; --resume-server <name> → "<name>"; default → None (new)
+    if args.resume_latest_server:
+        app.state.resume_server = "latest"
+    elif args.resume_server:
         app.state.resume_server = args.resume_server
+    # else: app.state.resume_server is not set → session_store defaults to creating new
 
     print(f"Starting OpenStartup API Server ({args.mode} mode)")
     print(f"  Host: {args.host}")

@@ -21,7 +21,15 @@ module.exports = function(app) {
   // Note: CRA dev server needs the WS proxy registered on the server instance,
   // not just as express middleware. We use onAfterSetupMiddleware-style approach
   // by creating the proxy and explicitly upgrading.
-  const wsProxy = createProxyMiddleware('/ws', {
+  // CRITICAL: Proxy ONLY /ws/manager (the app's WebSocket), NOT /ws (catch-all).
+  // webpack-dev-server uses ws://localhost:3000/ws for its HMR (hot module
+  // reload) protocol. If we proxy /ws (which would catch /ws/...) the HMR
+  // upgrade requests get forwarded to our backend's /ws (which doesn't exist —
+  // backend only serves /ws/manager). The backend responds with HTTP, the
+  // browser sees garbage instead of a valid WS frame → "Invalid frame header"
+  // → infinite reconnect loop spamming the console with thousands of errors.
+  // Scoping the proxy path to /ws/manager leaves HMR alone.
+  const wsProxy = createProxyMiddleware('/ws/manager', {
     target: backendTarget,
     changeOrigin: true,
     ws: true,

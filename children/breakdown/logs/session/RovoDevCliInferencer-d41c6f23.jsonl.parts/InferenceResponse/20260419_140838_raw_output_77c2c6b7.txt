@@ -1,0 +1,898 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the referenced files and resources to understand
+the full context before decomposing the task.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the role definition document"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me expand the full role document and investigate the available tools and
+skills to understand what exists.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[0, -1]]"
+      • _intent: "Read full role document for context"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+    > **Role Type:** AI Employee                                                
+    > **Version:** 1.0                                                          
+    > **Last Updated:** 2026-04-15                                              
+                                                                                
+    ---                                                                         
+                                                                                
+   (509 lines truncated)                                                        
+    - **Google TPM Model** — Technical depth + execution excellence             
+    - **Thompson's Coordination Theory** — Hierarchical coordination models     
+    - **Katz and Kahn Role Theory** — Role clarity, interdependence, and        
+   flexibility foundations                                                      
+    - **Malone and Crowston Coordination Theory** — Inter-agent coordination    
+   and dependency management                                                    
+                                                                                
+    ---                                                                         
+                                                                                
+    *This document is a living artifact. It should be reviewed quarterly by     
+   the AI PM Sponsor and governance team, a...                                  
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me investigate the existing tools and skills referenced in the task to
+understand what's available.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called invoke_subagents: 
+      • task_names: "['Investigate existing tools', 'Investigate existing 
+skills', 'Investigate TWG tool']"
+      • subagent_names: "['Explore', 'Explore', 'Explore']"
+      • task_descriptions: "['Explore the tools directories to understand what 
+tools exist and their capabilities. Lo...
+─── Rate limit exceeded ────────────────────────────────────────────────────────
+
+We'll try again in 10 seconds.
+
+────────────────────────────────────────────────────────────────────────────────
+
+─── Subagent: Explore (Investigate existing tools) ─────────────────────────────
+I've reached my iteration limit. Let me provide a final answer based on the
+directory structure I discovered:
+
+
+                         Summary of Tools Discovered
+
+AgentFoundation Tools
+(/Users/tchen7/MyProjects/CoreProjects/AgentFoundation/src/agent_foundation/re
+sources/tools/):
+
+  1 clarification - Likely for asking clarifying questions
+  2 clear - Likely for clearing state or data
+  3 confirmation - For user confirmation/approval workflows
+  4 knowledge - Knowledge base or information retrieval
+  5 multiple_choice - Multiple choice question tool
+  6 research_propose - For proposing research or ideas
+  7 set_model - Configuration for setting the LLM model
+  8 set_session_root - Setting session root directory
+  9 set_workflow_target_path - Setting workflow target paths
+ 10 single_choice - Single choice selection tool
+ 11 task - Task management/execution tool
+ 12 understand_codebase - Code understanding and analysis tool
+ 13 view - View/display tool
+
+OpenStartup Tools
+(/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/tools/):
+
+ 1 twg - (Purpose not yet determined from directory listing)
+ 2 create_role - Creates new roles in the system
+ 3 role_setup - Sets up role configurations
+ 4 Slack tools (24 tools total):
+    • Message management: slack_send_message, slack_edit_message,
+      slack_delete_message, slack_read_messages
+    • Channel operations: slack_list_channels, slack_find_channel,
+      slack_get_channel_history
+    • Direct messaging: slack_find_dm_channel, slack_get_dm_messages
+    • Reactions: slack_react, slack_remove_reaction,
+      slack_remove_own_reactions, slack_list_reactions
+    • Threading: slack_get_thread
+    • Pins: slack_pin_message, slack_unpin_message, slack_list_pins
+    • Search: slack_search_messages, slack_search_files
+    • User info: slack_member_info, slack_emoji_list
+
+Note: I was unable to read the detailed tool.json files to provide specific
+parameters and return types due to workspace access restrictions. To get
+complete details on parameters and return values, you would need to examine
+the tool.json files directly in those directories.
+
+Would you like me to focus on any specific tool category, or do you need
+information about a particular tool in more detail?
+────────────────────────────────────────────────────────────────────────────────
+
+─── Subagent: Explore (Investigate existing skills) ────────────────────────────
+I have all the necessary information to provide a comprehensive answer. Let me
+compile the findings:
+
+
+                                 Final Answer
+
+slack_actions Skill
+
+Full Content: See SKILL.md (lines 0-131 from the opened file above)
+
+Tools Leveraged (12 tools):
+
+ • Reactions: slack_react, slack_remove_reaction, slack_list_reactions,
+   slack_remove_own_reactions
+ • Messaging: slack_send_message, slack_edit_message, slack_delete_message,
+   slack_read_messages
+ • Pins: slack_pin_message, slack_unpin_message, slack_list_pins
+ • Info: slack_member_info, slack_emoji_list
+
+Workflows Encoded:
+
+ • React to messages with emoji (✅ for task completion)
+ • Pin/unpin messages for key decisions or status updates
+ • Send messages to channels/DMs or threaded replies
+ • Edit and delete messages
+ • Read recent messages or thread replies
+ • List pinned items and reactions
+ • Fetch member profiles and custom emoji lists
+
+Domain Knowledge: Slack workspace communication patterns, message threading,
+emoji reactions as signals, message lifecycle management
+
+Authentication: Requires SLACK_BOT_TOKEN (xoxb-* with appropriate scopes);
+falls back to SLACK_XOXC_TOKEN / SLACK_USER_TOKEN
+
+──────────────────────────────────────────────────────────────────────────────
+slack_search Skill
+
+Full Content: See SKILL.md (lines 0-76 from the opened file above)
+
+Tools Leveraged (8 tools):
+
+ • slack_search_messages — search across all channels
+ • slack_search_files — search shared files
+ • slack_get_thread — retrieve all thread replies
+ • slack_list_channels — paginated channel listing
+ • slack_find_channel — resolve channel name to ID
+ • slack_find_dm_channel — find DM channel with a user
+ • slack_get_channel_history — recent messages (dual-API fallback)
+ • slack_get_dm_messages — DM history with optional sender filter
+
+Workflows Encoded:
+
+ • Enterprise-wide message search with keyword queries
+ • File discovery and search
+ • Thread retrieval and conversation reconstruction
+ • Channel discovery and resolution
+ • Direct message history retrieval
+ • Dual fallback strategy (conversations.history → search.messages) when bot
+   isn't in channel
+
+Domain Knowledge: Slack workspace topology, DM channel lookup, enterprise
+search patterns, authentication token lifecycle (session tokens → Proximity
+server → user OAuth token)
+
+Authentication: Token priority: SLACK_XOXC_TOKEN + SLACK_XOXD_TOKEN_ENCODED →
+Proximity server at PROXIMITY_URL (auto-refresh) → SLACK_USER_TOKEN fallback.
+Auto-retries with fresh tokens on auth failure.
+
+──────────────────────────────────────────────────────────────────────────────
+twg (Teamwork Graph) Skill
+
+Full Content: See SKILL.md (lines 0-135 from the opened file above)
+
+Tools Leveraged (1 unified tool):
+
+ • twg — CLI-based surface router that handles all Teamwork Graph operations
+
+Workflows Encoded:
+
+ 1 Routing — select correct surface family (federated, native, projection,
+   identity)
+ 2 Load — read matching reference docs before execution
+ 3 Discover — run --help for flag-level detail
+ 4 Execute — run command with stderr visible
+ 5 Pivot — fallback to next surface family if empty results
+ 6 Summarize — extract key IDs, titles, statuses, URLs, owners
+ 7 Writes — state intended changes before mutations
+
+Surface Families:
+
+ • Federated (cross-product): docs, videos, meetings, spaces, recently-viewed
+   — for Jira, Confluence, Atlas, Loom, Bitbucket, Google Docs, SharePoint
+   queries
+ • Native (product-specific): jira, confluence, bitbucket, goals, projects,
+   teams — detailed product operations and mutations
+ • Projection (activity/hierarchy): work, context, org-tree — cross-product
+   activity, org structure, issue context
+ • Identity: user-search, resolve, collaborators — person lookup
+
+Domain Knowledge: Atlassian ecosystem integration, ADF (Atlassian Document
+Format) generation for Confluence, Teamwork Graph schema via Cypher, org
+hierarchy, cross-product activity patterns. Large exports support SQLite
+output (--sqlite-file).
+
+Authentication: TWG_USER + TWG_TOKEN or twg login setup; Bitbucket requires
+TWG_BBC_TOKEN. Supports platform override via -s <site>.
+
+Prerequisites: macOS (arm64/x64) or Linux (x64); TWG CLI installed.
+
+Reference Structure (10 reference files in references/ directory):
+
+ • ROUTING.md — surface selection logic
+ • GLOBAL-CONTRACT.md — grammar, filters, pagination, output, write safety
+ • COMMANDS.md — compact command index
+ • FEDERATED-SURFACES.md, NATIVE-SURFACES.md, PROJECTION-SURFACES.md —
+   surface-specific detail
+ • RELATION-AND-IDENTITY.md — person resolution
+ • PRODUCT-COLLECTIONS.md — product mapping
+ • ADF-SCHEMA.md — Confluence document format
+ • METAGRAPH.md — schema exploration via Cypher
+ • CONTROL-PLANE.md — setup and diagnostics
+────────────────────────────────────────────────────────────────────────────────
+
+─── Subagent: Explore (Investigate TWG tool) ───────────────────────────────────
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃         TWG (Teamwork Graph) Tool & Skill — Complete Investigation         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+                                   Overview
+
+The TWG tool is an action-based utility that provides unified query and
+mutation access to Atlassian Teamwork Graph data spanning Jira, Confluence,
+Atlas, Loom, Bitbucket, Google Docs, Sharepoint, and other work systems. It is
+designed to avoid trial-and-error by enforcing a routing discipline: federated
+surfaces first (cross-product), native surfaces second (product-specific
+detail/writes), projections third (activity/hierarchy), and Cypher only as a
+fallback.
+
+──────────────────────────────────────────────────────────────────────────────
+
+                                  Key Files
+
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+                            s/tools/twg/tool.json
+
+Single file containing tool definition. Declares the twg action tool with a
+single command parameter accepting arbitrary TWG CLI arguments. Includes
+comprehensive usage_guidance covering surface routing, workflow, and common
+commands.
+
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+                            s/skills/twg/SKILL.md
+
+Main skill documentation. Establishes prerequisites (macOS/Linux, TWG
+installation, auth via TWG_USER/TWG_TOKEN/TWG_BBC_TOKEN). Maps 8 reference
+files to specific task types and enforces a 6-step workflow: Route → Load →
+Discover → Execute → Pivot → Summarize.
+
+                 Reference Files (in /skills/twg/references/)
+
+ • ROUTING.md — Decision tree for surface selection (federated → native →
+   projection → cypher)
+ • GLOBAL-CONTRACT.md — Shared patterns: query/get/create/update/delete,
+   common flags (--scope, --account-id, --since, --limit), pagination, output
+   conventions, write safety
+ • COMMANDS.md — Compact index mapping task types to references
+ • FEDERATED-SURFACES.md — Cross-product: docs, videos, meetings, spaces,
+   recently-viewed, pr
+ • NATIVE-SURFACES.md — Product-specific: jira, confluence, bitbucket/bb,
+   goals, projects, focus-areas, teams
+ • PROJECTION-SURFACES.md — Broad views: work query, org-tree, context jira 
+   workitem
+ • RELATION-AND-IDENTITY.md — User lookup: user, user-search, resolve,
+   collaborators
+ • CONTROL-PLANE.md — Setup/runtime: login, skills, integrations, echo
+
+──────────────────────────────────────────────────────────────────────────────
+
+                            Surface Routing Matrix
+
+
+  Request Type          Primary Surface       Secondary             Tertiary 
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Cross-product docs,   docs, videos,         —                     —        
+  videos, meetings      meetings, spaces                                     
+  Jira                  jira workitem         context jira          —        
+  issues/projects                             workitem                       
+  Confluence pages      confluence pages      docs query then       —        
+                                              pivot                          
+  Bitbucket PRs/repos   bb (or bitbucket)     pr by ARI             —        
+  Goals/focus areas     goals, focus-areas    —                     —        
+  Team/project info     teams, projects       —                     —        
+  Activity/work         work query            —                     —        
+  history                                                                    
+  Org                   org-tree              —                     —        
+  hierarchy/manageme…                                                        
+  chain                                                                      
+  User                  user-search,          collaborators         —        
+  identity/account ID   resolve                                              
+
+
+──────────────────────────────────────────────────────────────────────────────
+
+                          Jira Queries & Operations
+
+Get a single issue:
+
+```bash
+twg jira workitem get --id PROJ-123
+twg jira workitem get --id PROJ-123 --expand transitions,changelog
+```
+
+Create a Jira issue:
+
+```bash
+twg jira workitem create --space PROJ --type Task --summary "New task" 
+--assignee me
+```
+
+Update an issue:
+
+```bash
+twg jira workitem update --id PROJ-123 --summary "Updated title" --assignee me
+```
+
+Transition an issue (change status):
+
+```bash
+twg jira workitem transition --id PROJ-123 --transition-id 21
+```
+
+List project statuses (required for accurate JQL):
+
+```bash
+twg jira space status list --id-or-key PROJ
+twg jira space status list --id-or-key PROJ --output json
+```
+
+Sprint operations:
+
+```bash
+twg jira sprint start --board-id <id> --id <id> --name "Sprint 42" 
+--start-date 2026-03-01 --end-date 2026-03-14
+```
+
+──────────────────────────────────────────────────────────────────────────────
+
+                       Confluence Queries & Operations
+
+Get a single page with ADF body:
+
+```bash
+twg confluence pages get 12345 --body-format adf
+```
+
+Create a page:
+
+```bash
+twg confluence pages create --space-id ENG --title "Runbook" --body-file 
+./content.adf --body-format adf
+```
+
+Update a page:
+
+```bash
+twg confluence pages update 12345 --title "Runbook" --body-file ./content.adf
+--body-format adf -y
+```
+
+Search pages by title or metadata (CQL):
+
+```bash
+twg confluence search query --cql 'type=page AND title ~ "Runbook"'
+twg confluence search query --cql 'type=page AND contributor=currentUser() 
+ORDER BY lastmodified DESC'
+```
+
+Note: CQL is for structured metadata and title matching, not semantic content
+search.
+
+──────────────────────────────────────────────────────────────────────────────
+
+                    Goals, Projects, Teams, & Focus Areas
+
+Query goals:
+
+```bash
+twg goals --scope me
+twg goals --scope org --account-id <id> --include-parent-goal 
+--include-contributing-projects
+```
+
+Large goal export to SQLite:
+
+```bash
+twg goals --scope org --account-id <id> \
+  --include-parent-goal --include-contributing-projects \
+  --sqlite-file /tmp/goals.db
+```
+
+Projects & focus areas:
+
+```bash
+twg projects --scope me --role contributor
+twg focus-areas --scope org --account-id <id> --include-linked-goals
+```
+
+Teams:
+
+```bash
+twg teams query --query Platform
+twg teams get "Platform Engineering"
+```
+
+──────────────────────────────────────────────────────────────────────────────
+
+                     Calendar/Capacity & Team Information
+
+Meetings and recordings:
+
+```bash
+twg meetings --account-id <id> --since 2w --with-recordings
+twg meetings get <id-or-ari>
+```
+
+Team composition and org hierarchy:
+
+```bash
+twg org-tree --name "Jane Doe" --up-only
+twg org-tree --email "jdoe@example.com" --depth 5 --include-profile-title 
+--include-location --include-dept
+```
+
+User identity and collaborators:
+
+```bash
+twg user-search --name "Jane Doe"
+twg resolve --name "Jane Doe"
+twg collaborators <account-id>
+```
+
+──────────────────────────────────────────────────────────────────────────────
+
+                           Work & Activity Queries
+
+Recent work across products:
+
+```bash
+twg work query --scope me --since 7d
+twg work query --scope user --account-id <id> --since 30d
+twg work query --first 50 --after "cursor=="
+```
+
+Issue context and perimeter:
+
+```bash
+twg context jira workitem PROJ-123 --depth 2
+twg context jira workitem PROJ-123 --depth 2  # then pivot to: twg jira 
+workitem get --id PROJ-123
+```
+
+──────────────────────────────────────────────────────────────────────────────
+
+                        Authentication & Configuration
+
+Required environment variables:
+
+ • TWG_USER — username or email
+ • TWG_SITE — Atlassian site domain
+ • TWG_TOKEN — API token for Jira/Confluence/Atlassian Cloud
+ • TWG_BBC_TOKEN — separate token for Bitbucket commands (if needed)
+
+Manual login:
+
+```bash
+twg login
+```
+
+Override site:
+
+```bash
+twg -s <site> <command>
+```
+
+──────────────────────────────────────────────────────────────────────────────
+
+                          Workflow & Best Practices
+
+ 1 Route — Use ROUTING.md to pick the correct surface (federated → native →
+   projection → cypher).
+ 2 Load — Read the matching reference file for command syntax, flags, and
+   patterns.
+ 3 Discover — Run twg <surface> <resource> --help for flag-level detail.
+ 4 Execute — Run the command; keep stderr visible.
+ 5 Pivot — If empty or insufficient, move to the next surface family (e.g.,
+   federated → native).
+ 6 Summarize — Extract key IDs, titles, statuses, URLs, and owners.
+
+For writes: State intended changes before execution unless explicitly asked.
+
+For large outputs: Prefer --sqlite-file for goal exports; use pagination flags
+(--first, --after) for others.
+
+For Confluence: Use ADF format (not storage XML); see ADF-SCHEMA.md for rich
+layouts.
+
+──────────────────────────────────────────────────────────────────────────────
+
+                    Advanced: Cypher & Schema Exploration
+
+For requests not covered by typed surfaces, use twg cypher ... after
+consulting METAGRAPH.md for:
+
+ • Teamwork Graph node types
+ • Relationship structures
+ • Cypher syntax rules
+
+──────────────────────────────────────────────────────────────────────────────
+
+                                   Summary
+
+The TWG tool unifies query access across 7+ Atlassian products with a
+discipline of surface routing. Start with federated surfaces for speed, pivot
+to native surfaces for detail or mutations, use projections for
+activity/hierarchy, and fall back to Cypher only when necessary.
+Authentication is environment-variable driven; all commands support --scope,
+--since, and pagination flags for narrowing results. Writes
+(create/update/delete) are available on most product-native surfaces but
+require intent confirmation.
+────────────────────────────────────────────────────────────────────────────────
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the role document, the available tools,
+and the available skills. Let me analyze what needs to be decomposed.
+
+Key observations from the role document:
+
+ 1 Section 6 (Tools & Technologies) lists: Jira, Confluence, Bitbucket/GitHub,
+   Slack, CI/CD Pipelines, Team Calendars, Atlas/Goals, Email, Dashboarding
+   tools, and AI-specific tooling (MCP, A2A, Verification, Audit Trail)
+ 2 Section 7 (SOPs) defines three core procedures: Daily Standup Facilitation,
+   Risk Escalation, Weekly Stakeholder Status Report
+ 3 The parent task specifically calls out: "Calendar access — Section 6 lists
+   Team Calendars for capacity planning and meeting scheduling"
+ 4 Available tools to leverage: twg (Teamwork Graph), slack_* tools, and the
+   Atlassian MCP tools (Jira, Confluence, Bitbucket, etc.)
+ 5 Available skills to leverage: slack_actions, slack_search, twg
+
+The task is to create skills and/or tools for the AI Program Manager role.
+Skills are SKILL.md files that encode domain guidance on using existing tools.
+The parent task focuses on calendar access for capacity planning and meeting
+scheduling.
+
+Let me now produce the decomposition:
+
+
+
+                                   Analysis
+
+The original request asks me to decompose the creation of skills/tools for the
+AI Program Manager role, with a specific callout that Section 6 lists Team 
+Calendars for capacity planning and meeting scheduling.
+
+Looking at the role document:
+
+ • Section 6 identifies Team Calendars (read access) for capacity planning,
+   availability tracking, and meeting scheduling
+ • Section 2 references capacity dashboard generation (from sprint data and
+   team calendars), sprint planning data packages, and meeting prep/agenda
+   generation
+ • Section 7 (SOPs) defines workflows that depend on calendar/capacity data:
+   Daily Standup Facilitation (scheduling), Risk Escalation (scheduling
+   emergency reviews), Weekly Status Reports (cadence management)
+
+The existing tools that could support calendar operations include:
+
+ 1 TWG tool/skill — has meetings surface for querying meetings/recordings,
+   teams for team composition, work query for activity, and org-tree for
+   hierarchy
+ 2 Google Calendar MCP tools — available via mcp__google_calendar__* with
+   get_events, create_event, get_availability, etc.
+ 3 Slack tools/skills — for coordinating around meetings and sending
+   scheduling notifications
+ 4 Atlassian MCP tools — Jira for sprint data, Confluence for documentation
+
+The skill/tool creation needs research into:
+
+ 1 How existing tools (TWG meetings, Google Calendar) handle calendar queries
+ 2 How capacity planning workflows should be designed using calendar + sprint
+   data
+ 3 How meeting scheduling/prep workflows integrate with the SOP definitions
+ 4 What templates and patterns are needed for capacity dashboards and meeting
+   agendas
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the TWG tool's calendar and meeting 
+capabilities by reading its tool.json, SKILL.md, and reference documentation 
+(especially FEDERATED-SURFACES.md for the 'meetings' surface and 
+NATIVE-SURFACES.md for 'teams' surface). Discover all available commands, 
+parameters, and output formats for: querying meetings and recordings, querying
+team composition and member availability, and querying work activity patterns
+that could inform capacity analysis. Also investigate how TWG's 'work query' 
+projection surface can provide activity data useful for workload and capacity
+assessment.",
+      "todos": [
+        "Read TWG SKILL.md at 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+s/skills/twg/SKILL.md and all reference files in the references/ 
+subdirectory",
+        "Read TWG tool.json at 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+s/tools/twg/tool.json to understand the tool interface",
+        "Document the full command syntax, flags, and output format for 'twg 
+meetings' queries (listing meetings, getting meeting details, filtering by 
+date range, team, recordings)",
+        "Document the full command syntax for 'twg teams query/get' and 'twg 
+org-tree' for understanding team structure and composition relevant to 
+capacity planning",
+        "Document the full command syntax for 'twg work query' to understand 
+how activity data can feed workload analysis",
+        "Identify any gaps in TWG's meeting/calendar capabilities — e.g., can
+it access calendar availability, free/busy status, or scheduled PTO?"
+      ],
+      "scope": "TWG tool capability investigation — meetings, teams, work 
+activity surfaces relevant to calendar-based capacity planning and meeting 
+scheduling",
+      "priority": "CRITICAL",
+      "priority_reason": "The TWG tool is the primary existing tool in the 
+OpenStartup ecosystem for querying Atlassian product data including meetings,
+teams, and work activity. Understanding its full capabilities is essential 
+before designing any skill that leverages it for capacity planning.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Investigate the Google Calendar MCP tools' capabilities
+for calendar access, availability querying, and event management. Examine the
+tool schemas for get_events, get_availability, create_event, update_event, and
+list_calendars to understand what parameters, filters, and return formats are
+available. Determine how these tools can be composed with TWG data to support
+the AI Program Manager's capacity planning and meeting scheduling workflows 
+defined in the role document (Section 6: Team Calendars for capacity planning,
+availability tracking, meeting scheduling).",
+      "todos": [
+        "Get and examine the schema for mcp__google_calendar get_events — 
+understand date range filtering, calendar selection, and return format",
+        "Get and examine the schema for mcp__google_calendar get_availability
+— understand how to query free/busy status across multiple team members' 
+calendars",
+        "Get and examine the schema for mcp__google_calendar create_event and
+update_event — understand event creation parameters including attendees, 
+recurrence, and time zones",
+        "Get and examine the schema for mcp__google_calendar list_calendars —
+understand how to discover team calendars",
+        "Identify how Google Calendar data complements TWG meetings data — 
+determine which tool handles which calendar use case (e.g., TWG for Atlassian
+meetings/recordings, Google Calendar for availability/scheduling)",
+        "Document any authentication, access level, or rate limiting 
+considerations for the Google Calendar tools relevant to the AI PgM's 
+read-only calendar access requirement"
+      ],
+      "scope": "Google Calendar MCP tool capability investigation — 
+availability querying, event management, and calendar discovery for capacity 
+planning and meeting scheduling",
+      "priority": "CRITICAL",
+      "priority_reason": "Google Calendar tools provide the actual calendar 
+availability and scheduling functionality that TWG's meetings surface may not
+cover. The role document specifies Team Calendars for capacity planning and 
+availability tracking, which maps directly to Google Calendar's 
+get_availability and get_events capabilities.",
+      "priority_score": "4.3",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Research best practices, frameworks, and methodologies 
+for AI-driven capacity planning in agile/scrum engineering teams. Focus on how
+to combine calendar data (availability, PTO, meetings), sprint data (velocity,
+committed points), and team composition data into actionable capacity 
+dashboards and allocation recommendations. Research specifically: (a) formulas
+and models for computing team capacity from calendar availability and 
+historical velocity, (b) techniques for detecting over-allocation and idle 
+capacity, (c) patterns for flagging capacity risks ahead of sprint planning, 
+and (d) how to present capacity data in status reports and dashboards as 
+described in the role document Section 2 (Capacity Dashboard Generation, 
+Sprint Planning Data Packages).",
+      "todos": [
+        "Research capacity planning formulas: how to compute available 
+capacity from team size, working hours, meeting load, PTO, and sprint length",
+        "Research techniques for combining calendar availability data with 
+Jira sprint velocity data to produce capacity projections",
+        "Research over-allocation detection patterns: what signals indicate a
+team or individual is over-committed (e.g., meeting load > X%, committed story
+points > capacity)",
+        "Research idle capacity detection: what signals indicate 
+underutilization and how to surface allocation recommendations",
+        "Research sprint planning data package best practices: what capacity 
+data should be provided pre-sprint-planning (velocity projections, capacity 
+analysis, recommended scope, carryover analysis)",
+        "Research dashboard design patterns for capacity visualization: what 
+metrics, charts, and alerting thresholds are most effective for engineering 
+capacity dashboards"
+      ],
+      "scope": "Domain knowledge research — capacity planning methodologies, 
+formulas, and dashboard patterns for agile engineering teams",
+      "priority": "HIGH",
+      "priority_reason": "The AI PgM's capacity planning responsibilities 
+(Section 2: Capacity Dashboard Generation at ~5% time, Sprint Planning Data 
+Packages at ~4% time) require domain expertise to encode correctly. Without 
+understanding the right models and formulas, the skill would produce 
+superficial guidance.",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research best practices for AI-driven meeting 
+scheduling, agenda generation, and ceremony management in program management 
+contexts. Focus on the AI PgM's SOP workflows that involve calendar 
+interaction: (a) SOP 1 Daily Standup Facilitation — scheduling standups, 
+generating pre-meeting data packages at T-30 minutes, distributing 
+post-meeting summaries; (b) SOP 2 Risk Escalation — scheduling emergency 
+review meetings when Sev1-2 risks are detected; (c) SOP 3 Weekly Stakeholder 
+Status Report — cadence management for weekly reporting cycles. Research how 
+to find optimal meeting times using availability data, how to structure 
+meeting prep workflows that pull data from Jira/Confluence/Bitbucket, and how
+to automate agenda generation and post-meeting action item tracking.",
+      "todos": [
+        "Research meeting scheduling optimization: how to find optimal meeting
+times across multiple attendees using calendar availability APIs, respecting 
+time zones and working hours",
+        "Research automated agenda generation best practices: what data 
+sources to pull from (Jira sprint items, blockers, risks, PR status), how to 
+structure agendas for different ceremony types (standup, sprint review, PI 
+planning, steering committee)",
+        "Research post-meeting action item capture and tracking patterns: how
+to extract and assign action items, track completion, and integrate with 
+Jira",
+        "Research emergency meeting scheduling patterns for risk escalation 
+(SOP 2): how to quickly find available slots for multiple stakeholders (PM 
+Lead, Tech Lead, VP) when a Sev1-2 risk is detected",
+        "Research cadence management patterns: how to automate recurring 
+ceremony schedules, handle timezone-aware scheduling, and manage exceptions 
+(holidays, PTO adjustments)",
+        "Research templates for meeting prep briefings: what format works best
+for pre-meeting data packages that include risks, decisions needed, and data 
+summaries"
+      ],
+      "scope": "Workflow design research — meeting scheduling, agenda 
+generation, and ceremony management workflows for the AI PgM's SOPs",
+      "priority": "HIGH",
+      "priority_reason": "Meeting prep and agenda generation is explicitly 
+listed as a Priority 2 responsibility (~5% time allocation). The SOPs define 
+specific meeting-related workflows that the skill must encode with correct 
+step-by-step procedures and calendar integration patterns.",
+      "priority_score": "3.3",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 5,
+      "description": "Investigate the Slack tools and skills (slack_actions, 
+slack_search) to understand how they can be composed with calendar and 
+capacity data for the AI PgM's notification and distribution workflows. Read 
+the SKILL.md files for both slack_actions and slack_search skills. Determine 
+how Slack tools should be used to: (a) distribute capacity alerts and meeting
+notifications, (b) post pre-meeting agendas and post-meeting summaries to team
+channels, (c) surface capacity warnings and scheduling conflicts, and (d) 
+coordinate with the calendar and TWG tools in multi-step workflows (e.g., 
+detect over-allocation from calendar → format alert → send via Slack).",
+      "todos": [
+        "Read slack_actions SKILL.md at 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+s/skills/slack_actions/SKILL.md",
+        "Read slack_search SKILL.md at 
+/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resource
+s/skills/slack_search/SKILL.md",
+        "Document which Slack tools are relevant for meeting-related 
+notifications: slack_send_message (for agenda distribution), slack_react (for
+acknowledgments), slack_pin_message (for key meeting outcomes)",
+        "Identify how Slack message formatting (threading, channel targeting,
+user tagging) should be used for different notification types: capacity 
+alerts, meeting agendas, standup summaries",
+        "Document integration patterns: how a multi-step workflow chains 
+calendar data retrieval (Google Calendar/TWG) → capacity analysis → Slack 
+notification distribution",
+        "Identify any rate limiting or notification batching considerations 
+from the slack tools relevant to the AI PgM's communication protocols (Section
+4: rate-limited notifications, [AI PM] prefix requirement)"
+      ],
+      "scope": "Slack tool capability investigation — notification and 
+distribution workflows for calendar/capacity alerts and meeting coordination",
+      "priority": "MEDIUM",
+      "priority_reason": "Slack is the primary real-time communication channel
+for the AI PgM (Section 4), but it serves as the distribution layer rather 
+than the core capability. Understanding Slack integration is important for 
+end-to-end workflow design but is downstream of the calendar and capacity 
+planning capabilities.",
+      "priority_score": "2.8",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "This decomposition covers the creation of calendar-focused 
+skills/tools for the AI Program Manager by addressing four key dimensions: (1)
+What existing tools can already do — TWG meetings/teams investigation (subtask
+1) and Google Calendar MCP investigation (subtask 2) provide the foundation of
+available capabilities; (2) What domain knowledge is needed — capacity 
+planning research (subtask 3) provides the formulas and models the skill must
+encode; (3) What workflow patterns are needed — meeting scheduling and 
+ceremony management research (subtask 4) provides the SOP-level workflow 
+design; (4) How to distribute outputs — Slack integration investigation 
+(subtask 5) ensures the end-to-end workflow from data collection through 
+notification works correctly. Subtasks 1-2 are independent investigations of 
+different tool ecosystems. Subtask 3-4 are independent research tasks covering
+different domains (capacity planning vs. meeting management). Subtask 5 is 
+independent but its findings will be most useful when combined with subtasks 
+1-2. All subtasks produce findings that an aggregator can synthesize into a 
+cohesive SKILL.md and/or tool definitions.",
+  "coverage_complete": true,
+  "gaps": "none — The five subtasks cover tool capabilities (TWG, Google 
+Calendar, Slack), domain knowledge (capacity planning), and workflow design 
+(meeting scheduling/SOPs). The only minor gap is that Jira sprint data 
+investigation is not a separate subtask, but it is partially covered by 
+subtask 1's TWG investigation (which includes Jira workitem queries) and 
+subtask 3's research on combining sprint velocity with capacity data. If 
+Jira-specific investigation proves necessary, subtask 1 or 3 could be 
+expanded."
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 50.4K/1M
+

@@ -1,0 +1,645 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+Restoring session 'Untitled Session' with 18 messages
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me investigate the key artifacts referenced in the task to understand the
+full context before decomposing.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (81 lines truncated)                                                         
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_send_message/:                                             
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_unpin_message/:                                            
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/:                                                            
+   tool.json                                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (23 lines truncated)                                                         
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me expand the critical sections of the role document and examine the
+existing TWG tool and Atlassian MCP toolset capabilities.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[35, 72], [126, 149], [182, 225], [225, 272], [332, 
+361]]"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/tools/twg/tool...
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "create_jira_issue"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "update_jira_issue"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (255 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/twg/tool.json:                                                      
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "twg",                                                            
+      "tool_type": "Action",                                                    
+      "category": "utility",                                                    
+      "description": "Query and manage Atlassian Teamwork Graph data (Jira,     
+   Confluence, Atlas, Loom, Bitbucket, Goog...                                  
+      "parameters": [                                                           
+        {                                                                       
+          "name": "command",                                                    
+          "type": "string",                                                     
+   (7 lines truncated)                                                          
+      "examples": [                                                             
+        "twg docs query --since 7d",                                            
+        "twg jira workitem get --id PROJ-123",                                  
+        "twg work query --scope me --since 7d",                                 
+        "twg confluence search query --cql 'type=page AND                       
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+        "twg org-tree --name \"Jane Doe\" --up-only"                            
+      ]                                                                         
+    }                                                                           
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/SKILL.md:                                                      
+                                                                                
+                                                                                
+    ---                                                                         
+    name: twg                                                                   
+    description: >                                                              
+      Query and manage Atlassian Teamwork Graph data — Jira, Confluence,        
+   Atlas, Loom, Bitbucket,                                                      
+      Google Docs, Sharepoint and other work data. Use for cross-product        
+   activity, entity details,                                                    
+      team/user insights, and create/update actions.                            
+    labels:                                                                     
+      - atlassian                                                               
+      - teamwork-graph                                                          
+   (119 lines truncated)                                                        
+    - `references/FEDERATED-SURFACES.md` — cross-product surfaces               
+    - `references/PROJECTION-SURFACES.md` — work, context, and org hierarchy    
+    - `references/NATIVE-SURFACES.md` — product-specific surfaces               
+    - `references/RELATION-AND-IDENTITY.md` — user lookup and collaborators     
+    - `references/PRODUCT-COLLECTIONS.md` — which surfaces belong to which      
+   Atlassian product collections                                                
+    - `references/METAGRAPH.md` — Teamwork Graph schema exploration via         
+   Cypher                                                                       
+    - `references/ADF-SCHEMA.md` — compact ADF node/mark catalog, examples,     
+   pitfalls, and deep reference URLs                                            
+    - `references/CONTROL-PLANE.md` — setup/package commands the agent should   
+   mention when relevant, not run by default                                    
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/slack_send_message/tool.json:                                       
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "slack_send_message",                                             
+      "tool_type": "Action",                                                    
+      "category": "communication",                                              
+      "description": "Send a message to a Slack channel or user.",              
+      "parameters": [                                                           
+        {"name": "to", "type": "string", "required": true, "description":       
+   "Target: channel ID (C123), user ID (U123)...                                
+        {"name": "content", "type": "string", "required": true,                 
+   "description": "Message text to send."},                                     
+        {"name": "--thread_ts", "type": "string", "description": "Thread        
+   timestamp to reply in a thread."}                                            
+      ],                                                                        
+      "returns": "JSON with channel, ts, and message details.",                 
+      "examples": ["slack_send_message channel:C123 \"Hello from the            
+   agent\""]                                                                    
+    }                                                                           
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me check the Confluence MCP tools and the TWG native surfaces for
+write capabilities to understand the full picture.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "create_confluence_page"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "update_confluence_page"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/ref...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/NATIVE-SURFACES.md:                                 
+                                                                                
+                                                                                
+    # Native Surfaces                                                           
+                                                                                
+    Use native surfaces for product-specific detail, richer actions, and        
+   writes.                                                                      
+                                                                                
+    > For how these surfaces map to Atlassian product collections (TWC,         
+   ServCo, StratCo, etc.), see `references/PROD...                              
+                                                                                
+    ## Main surfaces                                                            
+                                                                                
+    - `jira`                                                                    
+   (78 lines truncated)                                                         
+                                                                                
+    ```bash                                                                     
+    scripts/twg confluence search query --cql 'type=page AND title =            
+   "Runbook"'                                                                   
+    scripts/twg confluence search query --cql 'type=page AND title ~            
+   "Runbook"'                                                                   
+    ```                                                                         
+                                                                                
+    - Do **not** treat Confluence CQL as semantic content search. CQL is best   
+   for structured metadata filters and ti...                                    
+    - Semantic or fuzzy page-content search is not implemented here yet, so     
+   avoid implying that CQL provides that be...                                  
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Excellent. Now I have a comprehensive picture. Let me also quickly check if
+there's a Jira issue linking MCP tool and look at the TWG's Jira write
+capabilities more closely.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "get_jira_issue"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/ref...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/GLOBAL-CONTRACT.md:                                 
+                                                                                
+                                                                                
+    # Global Contract                                                           
+                                                                                
+    These patterns recur across TWG surfaces.                                   
+    All `scripts/twg` examples in this reference set inherit the                
+   path-resolution rule from `../SKILL.md`: resolve `s...                       
+                                                                                
+    ## Discovery                                                                
+                                                                                
+    ```bash                                                                     
+    scripts/twg --help                                                          
+   (20 lines truncated)                                                         
+                                                                                
+    For very large goal exports, prefer SQLite:                                 
+                                                                                
+    ```bash                                                                     
+    scripts/twg goals --scope org --account-id <id> \                           
+      --include-parent-goal --include-contributing-projects \                   
+      --sqlite-file /tmp/goals.db                                               
+    ```                                                                         
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of all the pieces. Let me synthesize my
+findings:
+
+Key Findings:
+
+ 1 Existing Atlassian MCP toolset already provides:
+    • create_jira_issue — with project_url, issue_type, summary,
+      description_html, assignee, parent_issue, and fields (supports labels,
+      custom fields)
+    • update_jira_issue — with issue_url, summary, description_html, assignee,
+      transition, comment_html, and fields (supports labels)
+    • get_jira_issue — with show_links parameter (shows issue links) but no 
+      dedicated issue linking tool
+    • create_confluence_page — with parent_url, title, content (HTML file
+      path), is_live_doc, is_blog_post
+    • update_confluence_page — with page_url, content (HTML file path), title,
+      version_message
+    • No link_jira_issues tool exists in the MCP toolset
+ 2 TWG tool has native Jira write surfaces:
+    • twg jira workitem create --space PROJ --type Task --summary "..." 
+      --assignee me
+    • twg jira workitem update --id PROJ-123 --summary "..." --assignee me
+    • twg confluence pages create/update with ADF body format
+    • But TWG description says "query and manage" — it does have write
+      capabilities contrary to what the task description claims ("existing twg
+      tool is read-only")
+ 3 Issue linking gap: Neither the Atlassian MCP toolset nor TWG surfaces
+   appear to offer a dedicated issue link creation command. The Jira REST API
+   v3 has POST /rest/api/3/issueLink for this. This is a genuine gap.
+ 4 tool.json pattern: Simple schema: name, tool_type, category, description,
+   parameters, returns, examples. Tools are wrappers with positional flags.
+ 5 SKILL.md pattern: YAML frontmatter (name, description, labels,
+   metadata.requires.env/tools) + Overview, Prerequisites, workflow guidance,
+   Examples, References sections.
+ 6 Role document constraints for tool design:
+    • §4 Jira norms: created-by-ai-pm label on all AI-created tickets, never
+      unilaterally change human-owned tickets
+    • §4 Confluence norms: ai-generated label/tag
+    • §6: Jira write access limited to coordination tickets tagged
+      created-by-ai-pm
+    • §6: Confluence write access for AI PgM-authored pages tagged
+      ai-generated
+    • §8 Ethical Bright Line #5: Never override human decisions
+
+
+
+                                   Analysis
+
+The task requires creating 5 new tools (jira_create_issue, jira_update_issue,
+jira_link_issues, confluence_create_page, confluence_update_page) and 1 skill
+(atlassian_pgm_authoring).
+
+Critical discovery: The existing Atlassian MCP toolset already provides
+create/update capabilities for both Jira issues and Confluence pages. The TWG
+CLI also has native Jira/Confluence write surfaces. The new OpenStartup tools
+will need to wrap these MCP tools with AI PgM-specific constraints
+(auto-labeling, ownership enforcement, AI disclosure). Issue linking is the
+one genuinely missing API capability.
+
+The decomposition splits into: (1) investigating what existing tools already
+provide and what gaps remain (particularly issue linking), (2) researching
+Jira REST API for the linking gap and label/permission enforcement, (3)
+researching Confluence API for page labeling and content format conventions,
+(4) investigating tool.json/SKILL.md patterns for schema design, and (5)
+researching domain knowledge for the skill's governance rules and templates.
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the existing Atlassian MCP toolset 
+(create_jira_issue, update_jira_issue, get_jira_issue, create_confluence_page,
+update_confluence_page) and TWG CLI native surfaces (jira workitem 
+create/update, confluence pages create/update) to discover their full 
+capabilities, parameters, and limitations for the AI PgM's write workflows. 
+Determine which operations the new OpenStartup tools can delegate to the MCP 
+toolset vs which need direct REST API integration. Specifically identify the 
+gap for issue linking — neither MCP nor TWG appears to expose a dedicated 
+issueLink endpoint — and determine whether TWG's `jira workitem create` 
+supports labels, custom fields, or issue link parameters that could fill this
+gap.",
+      "todos": [
+        "Catalog the full parameter schemas of Atlassian MCP create_jira_issue
+and update_jira_issue — specifically how the 'fields' parameter works for 
+applying labels like 'created-by-ai-pm' and whether it supports issueLinks as
+a field",
+        "Catalog the full parameter schemas of Atlassian MCP 
+create_confluence_page and update_confluence_page — how content is passed 
+(HTML file path), labeling mechanisms (is 'ai-generated' label applied via 
+labels field or a separate API call?), and version_message for audit trails",
+        "Investigate TWG native Jira surface write commands by reading 
+NATIVE-SURFACES.md and running 'twg jira workitem create --help' mentally — 
+document what flags exist for labels, links, custom fields, and whether TWG 
+supports issue linking",
+        "Investigate TWG native Confluence surface write commands — document 
+pages create/update flags, body-format options (ADF vs HTML), and whether TWG
+supports page labeling/tagging",
+        "Confirm the issue linking gap: verify that neither MCP 
+search_jira_using_jql, get_jira_issue (show_links), nor TWG surfaces expose a
+way to CREATE issue links (not just read them) — this determines whether 
+jira_link_issues requires direct REST API integration",
+        "Document which MCP tool supports adding Confluence page 
+labels/properties (e.g., 'ai-generated' tag) — or whether this requires a 
+separate Confluence REST API call"
+      ],
+      "scope": "Covers tool capability investigation for all existing 
+Atlassian MCP and TWG write tools — the foundation for deciding what the new 
+tools wrap vs build from scratch",
+      "priority": "CRITICAL",
+      "priority_reason": "The new tools are designed to wrap existing 
+capabilities with AI PgM constraints. Without knowing exactly what the MCP and
+TWG tools already support (especially for labels, fields, and issue linking),
+the tool schemas will be designed incorrectly — either duplicating existing 
+capabilities or missing critical gaps.",
+      "priority_score": "4.8",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research the Jira Cloud Platform REST API v3 to 
+understand the endpoints, request formats, and authentication needed for 
+operations not covered by existing MCP tools — specifically issue linking 
+(POST /rest/api/3/issueLink), label management, and ownership/permission 
+enforcement. Research how to implement the AI PgM's write-access constraints:
+auto-applying `created-by-ai-pm` labels, detecting whether an issue is 
+AI-owned vs human-owned before allowing updates, and the available link types
+for cross-team dependency graphs (blocks, is-blocked-by, depends-on, 
+relates-to, etc.).",
+      "todos": [
+        "Research Jira Cloud REST API v3 POST /rest/api/3/issueLink endpoint —
+required fields (type, inwardIssue, outwardIssue), available link types 
+(Blocks, Cloners, Duplicate, Relates), custom link type creation, and how to 
+remove links",
+        "Research Jira Cloud REST API v3 label management — how labels are 
+applied during issue creation (via fields.labels) vs added/removed on existing
+issues (PUT /rest/api/3/issue/{issueIdOrKey} with labels field), and whether 
+label enforcement can prevent removing the 'created-by-ai-pm' tag",
+        "Research how to determine issue ownership for the 'never modify 
+human-owned tickets' constraint — whether checking the reporter field, a 
+custom 'created-by' label, or the issue's creation metadata is the most 
+reliable approach",
+        "Research Jira Cloud API authentication options (OAuth 2.0, API 
+tokens, Connect app) and scope requirements for creating issues, updating 
+issues, and creating issue links — what minimal permissions are needed",
+        "Research Jira Cloud API rate limits and bulk operations — whether 
+creating multiple dependency links in a single API call is possible, or if 
+each link requires a separate request"
+      ],
+      "scope": "Covers Jira REST API research for the jira_link_issues tool 
+(primary gap) and the label/ownership enforcement logic needed by 
+jira_create_issue and jira_update_issue tools",
+      "priority": "CRITICAL",
+      "priority_reason": "Issue linking is the one confirmed gap in existing 
+tooling — no MCP or TWG tool exposes issue link creation. The AI PgM's 
+Dependency Graph Maintenance (§2 Priority 1, ~15% of capacity) depends 
+entirely on creating/maintaining issue links. The ownership detection logic is
+also a hard requirement from §8 Ethical Bright Line #5.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Research the Confluence Cloud REST API v2 for page 
+labeling, property management, and content format conventions needed by the 
+confluence_create_page and confluence_update_page tools. Investigate how to 
+auto-apply the `ai-generated` label to pages, how to add AI-disclosure footers
+to page content, and how Confluence page versioning/history can be used for 
+audit trails. Also research ADF (Atlassian Document Format) vs HTML content 
+approaches — the MCP tools use HTML file paths while TWG uses ADF — to 
+determine the best approach for the new tools.",
+      "todos": [
+        "Research Confluence Cloud REST API v2 page labels endpoint — how to 
+add labels during page creation vs as a separate POST 
+/wiki/api/v2/pages/{id}/labels call, and whether the 'ai-generated' label 
+needs to be a global label or page-specific",
+        "Research Confluence Cloud REST API v2 page properties — whether a 
+custom property (e.g., 'created-by-ai-pm': true) can be set to distinguish 
+AI-authored pages from human-authored pages for the 'never modify human 
+content' guardrail",
+        "Research content format conventions: compare the MCP tool's HTML-file
+approach (create_confluence_page takes a file path, converts to ADF 
+internally) vs TWG's direct ADF approach — determine which is more appropriate
+for the AI PgM's structured templates (status reports, risk registers, 
+decision logs)",
+        "Research Confluence page templates API — whether the AI PgM can 
+define and use page templates for consistent formatting of program status 
+pages, decision logs, and risk registers, or if templates should be embedded 
+in the SKILL.md as guidance",
+        "Research how AI-disclosure footers should be structured in Confluence
+pages — best practices for embedding 'This page was generated by AI Program 
+Manager' notices that persist through page updates and are visible but 
+non-intrusive"
+      ],
+      "scope": "Covers Confluence REST API research for page labeling, AI 
+ownership tracking, content format selection, and template approaches — 
+informing both confluence tools and the skill's Confluence guidance",
+      "priority": "HIGH",
+      "priority_reason": "While the MCP toolset already handles basic 
+Confluence create/update, the AI PgM requires specific labeling 
+(ai-generated), ownership tracking, and template-based content generation that
+need API-level understanding. The content format decision (HTML vs ADF) also 
+affects tool design.",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Investigate existing OpenStartup tool.json and SKILL.md
+patterns to understand the exact schema conventions, parameter structures, and
+documentation standards that the new Atlassian tools and 
+atlassian_pgm_authoring skill must follow. Examine how existing tools 
+(slack_send_message, twg) handle parameter validation, defaults, required 
+fields, and usage_guidance — then design the tool.json schemas for all 5 new 
+tools with AI PgM-specific constraints (auto-labeling defaults, ownership 
+checks, AI-disclosure requirements) built into the parameter definitions and 
+usage_guidance fields.",
+      "todos": [
+        "Catalog the tool.json schema pattern from slack_send_message and twg
+tools: document required fields (name, tool_type, category, description, 
+parameters, returns, examples), parameter object structure (name, type, 
+required, positional, description), and optional fields (usage_guidance)",
+        "Catalog the SKILL.md pattern from slack_actions, slack_search, and 
+twg skills: document YAML frontmatter fields (name, description, labels, 
+metadata.requires.env/tools), section conventions (Overview, Prerequisites, 
+Inputs, Action Groups/Workflow, Examples, Guidance, References)",
+        "Design parameter structures for jira_create_issue tool.json — how to
+make 'created-by-ai-pm' label a non-removable default in the fields parameter,
+whether project_url should be a required positional parameter or use the MCP 
+convention",
+        "Design parameter structures for jira_update_issue tool.json — how to
+encode the ownership check (only allow updates on AI-owned issues) as a 
+parameter constraint or usage_guidance rule, and whether to expose 
+transition/assignee changes or restrict to labels/comments/metadata only per 
+§6",
+        "Design parameter structures for jira_link_issues — required 
+parameters (source_issue, target_issue, link_type), available link_type enum 
+values, and how to handle bidirectional link semantics (blocks vs 
+is-blocked-by)",
+        "Design parameter structures for confluence_create_page and 
+confluence_update_page — how template_type (status_report, decision_log, 
+risk_register, retrospective) maps to content generation, auto-label 
+application, and AI-disclosure footer injection"
+      ],
+      "scope": "Covers tool.json and SKILL.md schema design conventions — the
+structural patterns all 5 tools and the skill must follow for consistency with
+the existing OpenStartup codebase",
+      "priority": "HIGH",
+      "priority_reason": "Consistent schema design is essential for the tools
+to integrate properly with the OpenStartup tool framework. The AI PgM-specific
+constraints (auto-labeling, ownership checks) must be encoded in parameter 
+defaults and usage_guidance, which requires understanding existing patterns 
+deeply.",
+      "priority_score": "3.7",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 5,
+      "description": "Research the domain knowledge needed to author the 
+atlassian_pgm_authoring SKILL.md — specifically: AI-disclosure and 
+transparency conventions for Jira tickets and Confluence pages, label 
+governance rules (`created-by-ai-pm` and `ai-generated` lifecycle management),
+structured templates for program status pages/decision logs/risk registers, 
+the §8 Ethical Bright Line #5 enforcement pattern (never modify human-owned 
+tickets), and cross-tool workflow orchestration patterns that combine Jira 
+writes, Confluence writes, and Slack notifications into coherent SOPs (standup
+facilitation → Confluence publish, risk escalation → Jira issue + Slack alert,
+weekly report → Confluence + email distribution).",
+      "todos": [
+        "Research AI transparency and disclosure best practices for enterprise
+project management tools — how organizations label AI-generated content in 
+Jira and Confluence, industry norms for AI attribution in automated ticket 
+creation, and regulatory considerations (EU AI Act disclosure requirements)",
+        "Research structured templates for program management Confluence 
+pages: status report template (Executive Summary → Milestones → Risks → 
+Decisions → Next Steps per §7 SOP 3), risk register template (risk ID, 
+category, severity, owner, mitigation, ROAM status per §2), decision log 
+template (decision, date, participants, rationale, status)",
+        "Research the 'never modify human-owned content' guardrail pattern — 
+how to implement ownership detection (label-based vs reporter-based vs 
+metadata-based), what constitutes 'modification' (field updates vs comments vs
+link additions), and whether adding a comment to a human-owned ticket violates
+the rule or is acceptable as a non-destructive interaction",
+        "Research cross-tool workflow orchestration patterns for the AI PgM's
+SOPs: SOP 1 step 5 (post-standup summary → Confluence publish), SOP 2 step 5 
+(risk escalation → Jira issue creation + Slack notification), SOP 2 step 6 
+(risk tracking → Jira update + Confluence risk register update) — design the 
+skill's workflow guidance for sequencing these multi-tool operations",
+        "Research label governance best practices: how to prevent accidental 
+removal of 'created-by-ai-pm' labels, how to track which Confluence pages are
+AI-authored vs human-authored for the write-access constraint, and how to 
+handle edge cases (human edits an AI-created page — does it lose AI 
+ownership?)"
+      ],
+      "scope": "Covers domain knowledge for the atlassian_pgm_authoring 
+SKILL.md: AI disclosure conventions, structured templates, ownership 
+guardrails, label governance, and cross-tool SOP workflows",
+      "priority": "CRITICAL",
+      "priority_reason": "The skill is the governance layer that ensures all 5
+tools are used correctly within the AI PgM's ethical and operational 
+constraints. Without researching the disclosure conventions, ownership rules,
+and workflow patterns, the skill would be a shallow tool reference rather than
+an actionable governance guide encoding §4, §6, §7, and §8 requirements.",
+      "priority_score": "4.3",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "The decomposition follows the natural structure of the 
+deliverables and the investigation/research split required by the task 
+context. Subtask 1 is the foundational investigation — it determines which 
+existing MCP/TWG capabilities can be wrapped vs which need new implementation,
+directly informing all tool.json designs. Subtasks 2 and 3 are independent API
+research tasks targeting the two Atlassian platforms (Jira and Confluence) 
+with focus on the capabilities NOT already in MCP tools (issue linking, label
+management, page labeling, content format decisions). Subtask 4 investigates 
+local codebase patterns for consistent schema design. Subtask 5 researches the
+domain knowledge that shapes the skill's governance content. The subtasks are
+ordered by dependency: 1 informs 2-4, while 5 is independent. Together they 
+cover: all 5 tools' API foundations, the schema design conventions, and the 
+skill's domain content — comprehensive coverage of every deliverable in the 
+original request.",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 103.4K/1M

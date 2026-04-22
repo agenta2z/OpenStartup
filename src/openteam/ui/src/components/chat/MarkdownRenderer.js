@@ -62,8 +62,9 @@ const detectLanguage = (code) => {
 const CodeComponent = ({ node, inline, className, children, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
   const codeContent = String(children).replace(/\n$/, '');
+  const isBlock = !inline && (node?.position?.start?.line !== node?.position?.end?.line || match || className);
 
-  if (!inline) {
+  if (isBlock) {
     const language = match ? match[1] : detectLanguage(codeContent);
 
     return (
@@ -141,6 +142,39 @@ const TableComponents = {
 };
 
 /**
+ * Normalize LLM output before markdown parsing.
+ *
+ * Two transforms:
+ * 1. Convert line-start Unicode bullet characters (•·‣⁃) to markdown list
+ *    markers (-). LLMs frequently use • instead of - for bullet lists, which
+ *    react-markdown does not recognize as a list marker.
+ *    Example: "  • Item text" → "- Item text"
+ *
+ * 2. Insert a blank line before list blocks that immediately follow a paragraph.
+ *    The CommonMark spec requires a blank line between a paragraph and a list;
+ *    without it the list is treated as a continuation of the paragraph.
+ *    Example: "Some text\n- item" → "Some text\n\n- item"
+ *
+ * Note: inline bullets on the same line (e.g. "Section • item1 • item2") are
+ * not converted — they are not at line-start and should remain as plain text.
+ */
+function preprocessContent(content) {
+  if (!content) return content;
+  let text = content;
+
+  // Convert line-start Unicode bullets to markdown list markers
+  text = text.replace(/^[ \t]*[•·‣⁃]\s+/gm, '- ');
+
+  // Ensure a blank line before list blocks that follow a non-list line.
+  // Uses ^([^-\n].*) to match only lines that don't already start with '-',
+  // preventing blank-line insertion between consecutive list items (which would
+  // create CommonMark "loose lists" and add unwanted <p> wrappers inside <li>).
+  text = text.replace(/^([^-\n].*)\n(- )/gm, '$1\n\n$2');
+
+  return text;
+}
+
+/**
  * Reusable Markdown renderer component
  * @param {object} props
  * @param {string} props.content - Markdown content to render
@@ -156,7 +190,7 @@ export function MarkdownRenderer({ content, components = {} }) {
         ...components,
       }}
     >
-      {content}
+      {preprocessContent(content)}
     </ReactMarkdown>
   );
 }

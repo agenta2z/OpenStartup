@@ -17,19 +17,21 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { useTheme } from '@mui/material/styles';
 
-export default function ApprovalWidget({ data }) {
+export default function ApprovalWidget({ data, onSubmit }) {
   const theme = useTheme();
   const { question, context, approve_label = 'Approve', reject_label = 'Reject' } = data || {};
   const [decision, setDecision] = useState(null); // 'approved' | 'rejected' | null
 
   const handleApprove = () => {
-    console.log('[ApprovalWidget] Approved:', question);
+    if (decision) return; // double-submit guard
     setDecision('approved');
+    onSubmit?.({ decision: 'approved', question });
   };
 
   const handleReject = () => {
-    console.log('[ApprovalWidget] Rejected:', question);
+    if (decision) return; // double-submit guard
     setDecision('rejected');
+    onSubmit?.({ decision: 'rejected', question });
   };
 
   const widgetBoxSx = {

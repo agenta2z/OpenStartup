@@ -60,24 +60,27 @@ class SessionStore:
         self._servers_dir = self._runtime_root / "servers"
         self._servers_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine server directory
-        if resume_server == "new":
+        # Determine server directory.
+        # Default (resume_server is None or "new"): always create a new server.
+        # --resume-latest-server → resume_server="latest" → resume most recent
+        # --resume-server <name> → resume_server="<name>" → resume specific server
+        if resume_server is None or resume_server == "new":
             self._server_dir = self._create_server_dir()
-        elif resume_server:
+        elif resume_server == "latest":
+            latest = self._find_latest_server()
+            if latest:
+                self._server_dir = latest
+                logger.info("Resuming latest server: %s", latest.name)
+            else:
+                logger.info("No existing server found, creating new")
+                self._server_dir = self._create_server_dir()
+        else:
             candidate = self._servers_dir / resume_server
             if candidate.is_dir():
                 self._server_dir = candidate
                 logger.info("Resuming server: %s", resume_server)
             else:
                 logger.warning("Server %s not found, creating new", resume_server)
-                self._server_dir = self._create_server_dir()
-        else:
-            # Resume latest server, or create new if none exist
-            latest = self._find_latest_server()
-            if latest:
-                self._server_dir = latest
-                logger.info("Resuming latest server: %s", latest.name)
-            else:
                 self._server_dir = self._create_server_dir()
 
         # Sessions directory under the server
@@ -123,12 +126,15 @@ class SessionStore:
         """Read full session data for a given session_id.
 
         Checks flat file first, then directory structure.
+        Backfills workflow_context for sessions created before workflow support.
         """
         # Try flat file: <sessions_dir>/<session_id>.json
         flat_file = self._session_path(session_id)
         if flat_file.is_file():
             try:
-                return json.loads(flat_file.read_text(encoding="utf-8"))
+                session = json.loads(flat_file.read_text(encoding="utf-8"))
+                self._backfill_workflow_context(session)
+                return session
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning("Failed to read %s: %s", flat_file, e)
                 return None
@@ -143,7 +149,9 @@ class SessionStore:
             return None
 
         try:
-            return json.loads(state_file.read_text(encoding="utf-8"))
+            session = json.loads(state_file.read_text(encoding="utf-8"))
+            self._backfill_workflow_context(session)
+            return session
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Failed to read session_state.json for %s: %s", session_id, e)
             return None
@@ -167,6 +175,7 @@ class SessionStore:
             "created_at": timestamp,
             "updated_at": timestamp,
             "server": self._server_dir.name,
+            "workflow_context": self._default_workflow_context(),
             "messages": [
                 {
                     "id": f"{session_id}-msg-001",
@@ -219,6 +228,100 @@ class SessionStore:
         session["updated_at"] = _iso_now()
         self._persist_session(session_id, session)
         return session
+
+    def update_workflow_context(
+        self, session_id: str, wc_dict: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Persist updated WorkflowContext dict back into session."""
+        return self.update_session(session_id, {"workflow_context": wc_dict})
+
+    def save_turn_data(
+        self, session_id: str, turn_number: int, turn_data: dict[str, Any]
+    ) -> None:
+        """Persist per-turn data to <session_dir>/turn_NNN/ directory (RankEvolve style).
+
+        Creates a directory with separate files for each data section:
+        - rendered_prompt.txt, template_source.txt, inference_response.txt, user_input.txt
+        - template_feed.json, template_config.json, api_payload.json
+        - metadata.json (catch-all for other keys)
+        - turn.json (combined, backward compat for get_turn_data)
+
+        NOTE: We unified the layout to `<session_dir>/turn_NNN/` (no `turns/` parent)
+        to match RankEvolve's structure and to co-locate per-turn JsonLogger output
+        and streaming cache files in the same directory.
+        """
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            logger.debug("save_turn_data: no session dir found for %s", session_id)
+            return
+        turn_dir = session_dir / f"turn_{turn_number:03d}"
+        turn_dir.mkdir(parents=True, exist_ok=True)
+
+        _TEXT_KEYS = {"rendered_prompt", "template_source", "inference_response", "user_input"}
+        _JSON_KEYS = {"template_feed", "template_config", "api_payload"}
+        other_meta: dict[str, Any] = {}
+
+        for key, value in turn_data.items():
+            if not value:
+                continue
+            if key in _TEXT_KEYS:
+                (turn_dir / f"{key}.txt").write_text(str(value), encoding="utf-8")
+            elif key in _JSON_KEYS:
+                self._atomic_write(turn_dir / f"{key}.json", value)
+            else:
+                other_meta[key] = value
+
+        if other_meta:
+            self._atomic_write(turn_dir / "metadata.json", other_meta)
+
+        # Combined turn.json for backward compat with get_turn_data
+        self._atomic_write(turn_dir / "turn.json", turn_data)
+
+        # Clean up old flat file at the legacy location if it exists.
+        old_flat = session_dir / "turns" / f"turn_{turn_number:03d}.json"
+        if old_flat.is_file():
+            old_flat.unlink()
+
+        logger.debug("Saved turn %d data for session %s → %s", turn_number, session_id, turn_dir)
+
+    def get_turn_data(
+        self, session_id: str, turn_number: int
+    ) -> dict[str, Any] | None:
+        """Load per-turn data from directory (new) or flat file (old format)."""
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return None
+
+        # Try new layout: <session_dir>/turn_NNN/turn.json (RankEvolve style)
+        for combined in (
+            session_dir / f"turn_{turn_number:03d}" / "turn.json",
+            session_dir / "turns" / f"turn_{turn_number:03d}" / "turn.json",  # legacy nested
+        ):
+            if combined.is_file():
+                try:
+                    return json.loads(combined.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError) as e:
+                    logger.warning("Failed to read turn data %s: %s", combined, e)
+                    return None
+
+        # Fallback to flat file (oldest format)
+        turn_file = session_dir / "turns" / f"turn_{turn_number:03d}.json"
+        if not turn_file.is_file():
+            return None
+        try:
+            return json.loads(turn_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Failed to read turn data %s: %s", turn_file, e)
+            return None
+
+    def get_session_dir(self, session_id: str) -> Path | None:
+        """Public accessor for the session's on-disk directory.
+
+        Wraps the private `_find_session_dir` so that callers (e.g.,
+        `data_service.get_session_dir`) don't need to depend on a private API.
+        Used for per-turn JsonLogger wiring and streaming cache placement.
+        """
+        return self._find_session_dir(session_id)
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session file or directory. Returns True if deleted, False if not found."""
@@ -352,6 +455,48 @@ class SessionStore:
     def _create_default_session(self) -> dict[str, Any]:
         """Create the initial default Orchestrator session."""
         return self.create_session(title="Orchestrator Session")
+
+    def _default_workflow_context(self) -> dict[str, Any]:
+        """Build a fresh WorkflowContext dict with the default workflow description."""
+        desc = self._load_workflow_description()
+        return {
+            "strategy": "default",
+            "workflow_description": desc,
+            "current_phase": "idle",
+            "phase_status": "idle",
+            "completed_phases": [],
+            "active_task_summary": "",
+            "active_workspace": "",
+            "iteration_count": 0,
+            "phase_outputs": {},
+        }
+
+    def _backfill_workflow_context(self, session: dict[str, Any]) -> None:
+        """Add workflow_context to sessions created before workflow support.
+
+        Mutates the in-memory dict AND persists to disk so the backfill
+        only happens once per session.
+        """
+        if "workflow_context" not in session:
+            session["workflow_context"] = self._default_workflow_context()
+            self._persist_session(session["id"], session)
+
+    def _load_workflow_description(self) -> str:
+        """Load the default workflow description from prompt templates."""
+        desc_file = (
+            Path(__file__).parent.parent
+            / "resources"
+            / "prompt_templates"
+            / "conversation"
+            / "main"
+            / "_variables"
+            / "workflow_description"
+            / "default.jinja2"
+        )
+        if desc_file.is_file():
+            return desc_file.read_text(encoding="utf-8")
+        logger.warning("Workflow description not found: %s", desc_file)
+        return ""
 
     def _persist_session(self, session_id: str, session: dict[str, Any]) -> None:
         """Persist session to disk — prefers directory, falls back to flat file."""

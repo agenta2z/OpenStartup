@@ -1,0 +1,648 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+Restoring session 'Untitled Session' with 18 messages
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+─── Failed to start built-in MCP server ────────────────────────────────────────
+Failed to connect to MCP server 'rovodev' at 
+https://api.atlassian.com/rovodev/v3/mcp. Tools from this server will not be 
+available. If you continue to see this error, please report it to the Rovo Dev
+team: 
+https://customerfeedback.atlassian.net/servicedesk/customer/portal/159/group/2
+20/create/3002
+────────────────────────────────────────────────────────────────────────────────
+⚠ Started 17 of 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me investigate the role document and existing tool/skill artifacts to
+understand the full context before decomposing.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (121 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (81 lines truncated)                                                         
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_send_message/:                                             
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/slack_unpin_message/:                                            
+   tool.json                                                                    
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/reso   
+   urces/tools/twg/:                                                            
+   tool.json                                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   /:                                                                           
+                                                                                
+   /Users/:                                                                     
+                                                                                
+   /Users/tchen7/:                                                              
+                                                                                
+   /Users/tchen7/MyProjects/:                                                   
+                                                                                
+   /Users/tchen7/MyProjects/CoreProjects/:                                      
+                                                                                
+   (23 lines truncated)                                                         
+   COMMANDS.md                                                                  
+   CONTROL-PLANE.md                                                             
+   FEDERATED-SURFACES.md                                                        
+   GLOBAL-CONTRACT.md                                                           
+   METAGRAPH.md                                                                 
+   NATIVE-SURFACES.md                                                           
+   PRODUCT-COLLECTIONS.md                                                       
+   PROJECTION-SURFACES.md                                                       
+   RELATION-AND-IDENTITY.md                                                     
+   ROUTING.md                                                                   
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me expand the critical sections of the role document and examine the
+existing TWG tool/skill artifacts and Bitbucket MCP toolset to understand
+current capabilities.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_code_chunks: 
+      • file_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/tools
+/create_role/_runt...
+      • line_ranges: "[[35, 72], [73, 106], [149, 182], [182, 225], [225, 272], 
+[361, 394]]"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/tools/twg/tool...
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketPullRequest"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketPipeline"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketRepoContent"
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md:            
+                                                                                
+                                                                                
+    # AI Program Manager — Role Responsibility Document                         
+                                                                                
+    > **Organization:** OpenStartup (AI-Powered Startup)                        
+   ...                                                                          
+    ---                                                                         
+                                                                                
+    ## 1. Role Overview                                                         
+                                                                                
+   ...                                                                          
+   (281 lines truncated)                                                        
+    ## Appendix C: Sources & References                                         
+                                                                                
+    ### Internal Sources                                                        
+    - AI Native Program Management — Atlassian CPO vision document              
+   ...                                                                          
+    ### Industry Frameworks                                                     
+    - **PMI PMBOK** (7th Edition) — Program management knowledge areas          
+   ...                                                                          
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/twg/tool.json:                                                      
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "twg",                                                            
+      "tool_type": "Action",                                                    
+      "category": "utility",                                                    
+      "description": "Query and manage Atlassian Teamwork Graph data (Jira,     
+   Confluence, Atlas, Loom, Bitbucket, Goog...                                  
+      "parameters": [                                                           
+        {                                                                       
+          "name": "command",                                                    
+          "type": "string",                                                     
+   (7 lines truncated)                                                          
+      "examples": [                                                             
+        "twg docs query --since 7d",                                            
+        "twg jira workitem get --id PROJ-123",                                  
+        "twg work query --scope me --since 7d",                                 
+        "twg confluence search query --cql 'type=page AND                       
+   contributor=currentUser() ORDER BY lastmodified DESC'",                      
+        "twg org-tree --name \"Jane Doe\" --up-only"                            
+      ]                                                                         
+    }                                                                           
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/SKILL.md:                                                      
+                                                                                
+                                                                                
+    ---                                                                         
+    name: twg                                                                   
+    description: >                                                              
+      Query and manage Atlassian Teamwork Graph data — Jira, Confluence,        
+   Atlas, Loom, Bitbucket,                                                      
+      Google Docs, Sharepoint and other work data. Use for cross-product        
+   activity, entity details,                                                    
+      team/user insights, and create/update actions.                            
+    labels:                                                                     
+      - atlassian                                                               
+      - teamwork-graph                                                          
+   (119 lines truncated)                                                        
+    - `references/FEDERATED-SURFACES.md` — cross-product surfaces               
+    - `references/PROJECTION-SURFACES.md` — work, context, and org hierarchy    
+    - `references/NATIVE-SURFACES.md` — product-specific surfaces               
+    - `references/RELATION-AND-IDENTITY.md` — user lookup and collaborators     
+    - `references/PRODUCT-COLLECTIONS.md` — which surfaces belong to which      
+   Atlassian product collections                                                
+    - `references/METAGRAPH.md` — Teamwork Graph schema exploration via         
+   Cypher                                                                       
+    - `references/ADF-SCHEMA.md` — compact ADF node/mark catalog, examples,     
+   pitfalls, and deep reference URLs                                            
+    - `references/CONTROL-PLANE.md` — setup/package commands the agent should   
+   mention when relevant, not run by default                                    
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me now check the TWG Bitbucket native surface references and the remaining
+MCP schemas to understand the full gap picture.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/skills/twg/ref...
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketRepository"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketDeployment"
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resourc
+es/tools/slack_se...
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/skills/twg/references/NATIVE-SURFACES.md:                                 
+                                                                                
+                                                                                
+    # Native Surfaces                                                           
+                                                                                
+    Use native surfaces for product-specific detail, richer actions, and        
+   writes.                                                                      
+                                                                                
+    > For how these surfaces map to Atlassian product collections (TWC,         
+   ServCo, StratCo, etc.), see `references/PROD...                              
+                                                                                
+    ## Main surfaces                                                            
+                                                                                
+    - `jira`                                                                    
+   (78 lines truncated)                                                         
+                                                                                
+    ```bash                                                                     
+    scripts/twg confluence search query --cql 'type=page AND title =            
+   "Runbook"'                                                                   
+    scripts/twg confluence search query --cql 'type=page AND title ~            
+   "Runbook"'                                                                   
+    ```                                                                         
+                                                                                
+    - Do **not** treat Confluence CQL as semantic content search. CQL is best   
+   for structured metadata filters and ti...                                    
+    - Semantic or fuzzy page-content search is not implemented here yet, so     
+   avoid implying that CQL provides that be...                                  
+                                                                                
+                                                                                
+                                                                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resour  
+  ces/tools/slack_send_message/tool.json:                                       
+                                                                                
+                                                                                
+    {                                                                           
+      "name": "slack_send_message",                                             
+      "tool_type": "Action",                                                    
+      "category": "communication",                                              
+      "description": "Send a message to a Slack channel or user.",              
+      "parameters": [                                                           
+        {"name": "to", "type": "string", "required": true, "description":       
+   "Target: channel ID (C123), user ID (U123)...                                
+        {"name": "content", "type": "string", "required": true,                 
+   "description": "Message text to send."},                                     
+        {"name": "--thread_ts", "type": "string", "description": "Thread        
+   timestamp to reply in a thread."}                                            
+      ],                                                                        
+      "returns": "JSON with channel, ts, and message details.",                 
+      "examples": ["slack_send_message channel:C123 \"Hello from the            
+   agent\""]                                                                    
+    }                                                                           
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a comprehensive picture. Let me synthesize my findings before
+producing the decomposition.
+
+Key findings from investigation:
+
+ 1 Existing Bitbucket MCP toolset provides:
+    • bitbucketPullRequest — list/get/diff PRs (with state filter, query
+      filter, pagination), but returns raw PR objects, not computed metrics
+      like age, review turnaround, or stalled-review detection
+    • bitbucketPipeline — list/get/steps/step.log for pipelines (with status,
+      branch, trigger filters), but no aggregated metrics like deployment
+      frequency or test pass rates
+    • bitbucketDeployment — list/get deployments (with environment, state
+      filters) — useful for deployment frequency but raw data only
+    • bitbucketRepoContent — commit.get (single commit by hash), files.get —
+      but no commit listing/counting endpoint
+    • bitbucketRepository — list/get repos, defaultReviewers
+ 2 TWG Bitbucket surface (twg bb) provides: repos, prs, pr <id>, pr <id> 
+   --approve, pr-create, pipeline <id> --logs — basic PR and pipeline access,
+   no analytics
+ 3 Gap analysis:
+    • PR metrics gap: No tool computes PR age, review turnaround time,
+      stalled-review detection, or merge conflict status. The MCP
+      bitbucketPullRequest list returns raw PR data with timestamps that could
+      be used to compute age/turnaround, but the tool would need to add
+      computation logic
+    • Commit activity gap: The MCP bitbucketRepoContent only has commit.get
+      (single commit), no listing. Bitbucket REST API has
+      /repositories/{workspace}/{repo}/commits endpoint but it's not exposed
+      in the MCP toolset
+    • CI/CD metrics gap: bitbucketPipeline list and bitbucketDeployment list
+      provide raw pipeline/deployment data but no aggregated metrics
+      (frequency, pass rates, health scoring). No GitHub Actions or Bamboo
+      tools exist at all
+    • Cross-source reconciliation: No existing tool handles the §9 requirement
+      to present conflicting signals with source attribution
+ 4 Tool.json schema pattern (from slack_send_message, twg): Simple JSON with
+   name, tool_type, category, description, parameters array, returns, examples
+ 5 SKILL.md pattern (from twg, slack_actions, slack_search): YAML frontmatter
+   (name, description, labels, metadata.requires.env/tools), then Overview,
+   Prerequisites, workflow sections, Common Patterns, Guidance, References
+
+
+
+                                   Analysis
+
+The task requires creating 3 new tools and 1 skill:
+
+Tools:
+
+ • (a) bitbucket_pr_metrics — wrapping Bitbucket MCP PR operations with
+   computed analytics (age, review turnaround, stalled detection, merge
+   conflicts)
+ • (b) bitbucket_commit_activity — commit listing/counting per repo or team
+   (gap: MCP only has single-commit get, needs Bitbucket REST API commits
+   endpoint)
+ • (c) cicd_pipeline_status — CI/CD pipeline health metrics (leveraging
+   Bitbucket Pipeline/Deployment MCP + potentially GitHub Actions API)
+
+Skill:
+
+ • delivery_signals — SKILL.md guiding the AI PgM to combine signals from all
+   three tools for blocker detection, release readiness, weekly status
+   reports, with cross-source reconciliation rules
+
+The decomposition needs to cover: (1) Bitbucket Cloud REST API capabilities
+beyond what MCP exposes, (2) existing MCP toolset capabilities for
+PR/pipeline/deployment data, (3) CI/CD platform API research, (4) tool.json
+schema design patterns, and (5) delivery signals domain knowledge for the
+skill.
+
+I'm structuring into 4 subtasks: two API-focused research subtasks (Bitbucket
+PR+commit APIs, and CI/CD pipeline APIs), one investigation subtask for the
+existing MCP/TWG toolset capabilities and tool.json patterns, and one research
+subtask for the delivery_signals skill domain knowledge (metrics computation,
+release readiness scoring, cross-source reconciliation).
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate the existing Bitbucket MCP toolset and TWG 
+Bitbucket native surface to discover exactly what PR, commit, pipeline, and 
+deployment data they already expose, then research the Bitbucket Cloud REST 
+API v2.0 documentation to identify additional endpoints needed for PR 
+aging/review-turnaround computation, commit listing/counting, and 
+merge-conflict detection. The existing MCP toolset has bitbucketPullRequest 
+(list/get/diff/comments), bitbucketPipeline (list/get/steps), 
+bitbucketDeployment (list/get), and bitbucketRepoContent (commit.get for 
+single commits only). TWG has 'bb prs', 'bb pr <id>', 'bb pipeline <id>'. This
+subtask must determine: (a) what fields the MCP PR list response includes 
+(created_on, updated_on, participants with approval timestamps, merge 
+conflicts indicator) to assess whether age and turnaround can be computed from
+existing data; (b) whether the Bitbucket REST API 
+/repositories/{workspace}/{repo}/commits endpoint (not exposed in MCP) 
+supports date-range filtering, author filtering, and pagination for 
+commit-activity tracking; (c) what the Bitbucket REST API 
+/repositories/{workspace}/{repo}/pullrequests/{id}/activity endpoint provides
+for stalled-review detection (last activity timestamp, pending reviewers). All
+findings must respect §6 'read access to metadata only; no source code content
+access'.",
+      "todos": [
+        "Research Bitbucket Cloud REST API v2.0 PR endpoints: GET 
+/repositories/{workspace}/{repo}/pullrequests — document all available filter
+parameters (state, created_on, updated_on, author), response fields 
+(created_on, updated_on, state, participants array with role/approved/state, 
+comment_count, task_count, merge_commit), and whether merge-conflict status is
+available in the response or requires a separate diffstat/merge-check 
+endpoint",
+        "Research Bitbucket Cloud REST API v2.0 PR activity endpoint: GET 
+/repositories/{workspace}/{repo}/pullrequests/{id}/activity — document what 
+events are returned (comments, approvals, status changes, updates) and whether
+timestamps can be used to compute review turnaround time (time from PR 
+creation to first review, time from review request to approval) and detect 
+stalled reviews (no activity for N days)",
+        "Research Bitbucket Cloud REST API v2.0 commits endpoint: GET 
+/repositories/{workspace}/{repo}/commits — document available query parameters
+for date-range filtering, branch filtering, author filtering, include/exclude
+parameters, and pagination — this endpoint is NOT in the MCP toolset and is 
+needed for the bitbucket_commit_activity tool",
+        "Research Bitbucket Cloud REST API v2.0 diffstat endpoint: GET 
+/repositories/{workspace}/{repo}/pullrequests/{id}/diffstat — determine if 
+this provides merge-conflict indicators or only file-change statistics, and 
+whether an alternative endpoint (e.g., merge check) better serves conflict 
+detection",
+        "Document which Bitbucket API scopes (repository:read, 
+pullrequest:read, pipeline:read) are needed for all read-only operations and 
+confirm they do NOT grant source code content access, satisfying §6 'no source
+code content access' constraint"
+      ],
+      "scope": "Covers the bitbucket_pr_metrics and bitbucket_commit_activity
+tools: all Bitbucket API and existing toolset capabilities needed for PR 
+analytics (age, review turnaround, stalled detection, merge conflicts) and 
+commit activity tracking (counts, frequency, date-range filtering)",
+      "priority": "CRITICAL",
+      "priority_reason": "Both bitbucket_pr_metrics and 
+bitbucket_commit_activity tools depend entirely on understanding the Bitbucket
+API surface. The existing MCP toolset has significant gaps (no commit listing,
+no PR activity/analytics). Without this research, tool schemas cannot be 
+accurately designed. This is the foundational API investigation for 2 of the 3
+new tools.",
+      "priority_score": "4.8",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Research CI/CD platform APIs to determine what build 
+status, deployment frequency, test pass rates, and release pipeline health 
+data can be retrieved read-only. The role document §6 lists 'CI/CD Pipelines 
+(e.g., Bamboo, GitHub Actions)' as core tools. The existing Bitbucket MCP 
+toolset already has bitbucketPipeline (list/get/steps with 
+status/branch/trigger filters) and bitbucketDeployment (list/get with 
+environment/state filters) — these may partially or fully cover CI/CD needs if
+OpenStartup uses Bitbucket Pipelines. Research GitHub Actions REST API 
+(workflow runs, jobs, artifacts) and Atlassian Bamboo REST API (plans, 
+results, deployments) to determine what additional capabilities each provides
+beyond Bitbucket Pipelines. Produce a recommendation on whether to create a 
+single cicd_pipeline_status tool wrapping Bitbucket Pipelines (already 
+available via MCP) or also support GitHub Actions/Bamboo. Key metrics to 
+support: deployment frequency (deployments per time period), build 
+success/failure rates, test pass rates (from pipeline step results), and 
+release pipeline health (last N builds status pattern).",
+      "todos": [
+        "Research GitHub Actions REST API: GET 
+/repos/{owner}/{repo}/actions/runs (workflow runs listing with 
+status/branch/event filters, timing data), GET 
+/repos/{owner}/{repo}/actions/runs/{id}/jobs (job-level details with step 
+conclusions and test output), and GET /repos/{owner}/{repo}/actions/workflows
+(workflow definitions) — document available filters, response fields for 
+computing deployment frequency and test pass rates, and required 
+authentication scopes (actions:read)",
+        "Research Atlassian Bamboo REST API: 
+/rest/api/latest/result/{projectKey}-{buildKey} (build results with state, 
+duration, test summary), /rest/api/latest/deploy/project/{id}/versions 
+(deployment versions and environments), 
+/rest/api/latest/result/{planKey}.json?expand=results.result (paginated build
+history) — document available filters and response fields for build success 
+rates, deployment tracking, and test pass rates",
+        "Evaluate whether the existing Bitbucket MCP bitbucketPipeline and 
+bitbucketDeployment tools already provide sufficient CI/CD signal coverage for
+OpenStartup's needs — specifically: can pipeline list+get provide build 
+pass/fail rates, can deployment list provide deployment frequency, and do 
+pipeline steps provide test result summaries?",
+        "Recommend whether to build one cicd_pipeline_status tool (wrapping 
+Bitbucket Pipelines MCP as primary, with optional GitHub Actions/Bamboo 
+backends) or separate platform-specific tools — consider the role document's 
+use of 'e.g., Bamboo, GitHub Actions' suggesting these are illustrative not 
+prescriptive",
+        "Document the read-only API scopes needed for each platform 
+(Bitbucket: pipeline:read; GitHub: actions:read; Bamboo: READ permission) and
+confirm none expose source code content"
+      ],
+      "scope": "Covers the cicd_pipeline_status tool: CI/CD platform API 
+capabilities across Bitbucket Pipelines, GitHub Actions, and Bamboo for build
+status, deployment frequency, test pass rates, and release pipeline health",
+      "priority": "CRITICAL",
+      "priority_reason": "The cicd_pipeline_status tool is essential for §2 
+Release Readiness Scoring, §5 deployment frequency KPIs, and §7 SOP 3 weekly 
+report generation. The platform selection decision (Bitbucket Pipelines vs 
+GitHub Actions vs Bamboo) directly shapes the tool's architecture. This 
+research also determines whether the existing Bitbucket MCP 
+pipeline/deployment tools already cover most needs.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Investigate the existing OpenStartup tool.json schema 
+patterns and SKILL.md conventions by reading local artifacts, then design the
+tool.json interfaces for all three new tools (bitbucket_pr_metrics, 
+bitbucket_commit_activity, cicd_pipeline_status) following established 
+conventions. Examine how existing tools (slack_send_message, twg) define 
+parameters, returns, examples, and usage_guidance. Also investigate how the 
+TWG tool's Bitbucket surface commands ('bb prs', 'bb pr', 'bb pipeline') 
+overlap with the MCP toolset to determine whether the new tools should wrap 
+the MCP tools, the TWG CLI, or the Bitbucket REST API directly. This subtask 
+also investigates the existing SKILL.md structure (twg, slack_actions, 
+slack_search) to understand conventions for the delivery_signals skill — YAML
+frontmatter fields, section organization, tool references, workflow patterns,
+and guidance sections.",
+      "todos": [
+        "Read and catalog the tool.json schema pattern from slack_send_message
+and twg tools — document the fields (name, tool_type, category, description, 
+parameters array with name/type/required/positional/description, returns, 
+examples, usage_guidance), parameter naming conventions, and how read-only 
+constraints are expressed",
+        "Read and catalog the SKILL.md pattern from twg, slack_actions, and 
+slack_search skills — document YAML frontmatter structure (name, description,
+labels, metadata.requires.env, metadata.requires.tools), section organization
+(Overview, Prerequisites, workflow tables, Common Patterns, Guidance, 
+References), and how skills reference their underlying tools",
+        "Investigate the TWG Bitbucket surface commands ('bb repos', 'bb prs',
+'bb pr <id>', 'bb pipeline <id> --logs') by examining NATIVE-SURFACES.md and 
+running --help if possible — determine what these commands return and whether
+they overlap with or complement the MCP bitbucket tools, to inform whether new
+tools should use MCP, TWG, or direct REST API",
+        "Draft the parameter design for bitbucket_pr_metrics tool.json: 
+workspace, repo (optional for cross-repo), state filter, age_threshold_days 
+(for stalled detection), time_range (for turnaround computation), 
+include_reviewers flag — ensuring all parameters enforce read-only metadata 
+access",
+        "Draft the parameter design for bitbucket_commit_activity tool.json: 
+workspace, repo, branch (optional), author (optional), since/until date range,
+group_by (day/week/sprint) — ensuring commit content is never returned, only 
+counts and metadata",
+        "Draft the parameter design for cicd_pipeline_status tool.json: 
+workspace, repo, pipeline_type (bitbucket/github/bamboo), branch filter, 
+status filter, time_range, include_test_results flag — ensuring read-only 
+access"
+      ],
+      "scope": "Covers tool.json schema design for all 3 new tools and 
+SKILL.md structural conventions for delivery_signals — the interface design 
+and existing pattern investigation layer",
+      "priority": "HIGH",
+      "priority_reason": "Consistent tool.json schemas and SKILL.md structure
+are essential for integration with the OpenStartup agent framework. Without 
+understanding existing conventions, the new tools and skill could use 
+incompatible patterns. However, the API research subtasks (1,2) can proceed 
+independently, making this HIGH rather than CRITICAL.",
+      "priority_score": "3.7",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Research the domain knowledge needed to author the 
+delivery_signals SKILL.md — the skill that guides the AI PgM on combining 
+Bitbucket PR/commit signals with CI/CD pipeline signals for three key 
+workflows: (1) blocker detection (stalled PRs, failing pipelines, unresolved 
+review comments per §2 Blocker Surfacing), (2) release readiness scoring (test
+coverage, open P1 bugs, unmerged PRs, documentation status per §2 Release 
+Readiness Scoring), and (3) weekly status report data synthesis (PR/deployment
+metrics aggregation per §7 SOP 3 step 1). The skill must also encode the §9 
+Cross-Source Data Reconciliation rule: 'present both signals with source 
+attribution; never synthesize conflicting data into a single narrative.' 
+Research DORA metrics framework (deployment frequency, lead time, change 
+failure rate, MTTR) as the industry standard for the delivery metrics the 
+skill computes (§3 Metric Computation, §5 Delivery Effectiveness Metrics), and
+research best practices for release readiness checklists and go/no-go scoring
+models.",
+      "todos": [
+        "Research DORA (DevOps Research and Assessment) metrics framework — 
+specifically: how to compute deployment frequency from pipeline/deployment 
+data (deployments per day/week), lead time for changes from first commit to 
+production deploy, change failure rate from pipeline failure patterns, and 
+mean time to recovery — map each metric to the Bitbucket and CI/CD data 
+sources the tools will provide",
+        "Research best practices for release readiness scoring models — how to
+weight and combine criteria (test pass rate, open P1/P2 bugs, unmerged 
+critical PRs, documentation completion, pipeline stability) into a go/no-go 
+score with RAG (Red/Amber/Green) classification, including threshold 
+calibration approaches per §2 Release Readiness Scoring",
+        "Research best practices for cross-source data reconciliation in 
+program management — specifically how to handle conflicting signals (e.g., 
+Jira ticket status says 'in progress' but Bitbucket shows no commits in 5 
+days; CI/CD shows green but PR has unresolved review comments) — document 
+heuristic conflict detection patterns and the 'present both signals with 
+source attribution' approach required by §9",
+        "Research stalled PR detection heuristics used in engineering 
+organizations — what thresholds define 'stalled' (no reviewer activity for N 
+days, approved but not merged for N days, requested changes not addressed for
+N days), how to distinguish genuinely stalled PRs from intentionally paused 
+ones, and best practices for alert formatting that avoids surveillance 
+perception per §9",
+        "Research how to structure a delivery signals workflow that combines 
+data from multiple tools (bitbucket_pr_metrics, bitbucket_commit_activity, 
+cicd_pipeline_status) with Jira data (from TWG) for comprehensive blocker 
+detection — document the signal combination logic, severity scoring for 
+delivery blockers, and the recommended cadence for each signal type 
+(continuous vs daily vs weekly)"
+      ],
+      "scope": "Covers the delivery_signals SKILL.md domain content: DORA 
+metrics computation, release readiness scoring, blocker detection workflows, 
+cross-source reconciliation rules, and signal combination patterns for weekly
+status reports",
+      "priority": "CRITICAL",
+      "priority_reason": "The delivery_signals skill is the integrating layer
+that makes the three new tools actionable for the AI PgM's core 
+responsibilities. Without the domain knowledge for metrics computation (§3, 
+§5), release readiness scoring (§2), and cross-source reconciliation (§9), the
+skill would be a shallow tool reference rather than the operational guidance 
+the AI PgM needs.",
+      "priority_score": "4.3",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "The decomposition follows the natural structure of the 
+deliverables: two API research subtasks covering the data sources (subtask 1 
+for Bitbucket PR/commit APIs, subtask 2 for CI/CD platform APIs), one 
+investigation subtask for existing codebase patterns and tool interface design
+(subtask 3), and one domain research subtask for the delivery_signals skill 
+content (subtask 4). Subtasks 1 and 2 are fully independent — they research 
+different API platforms. Subtask 3 is independent but complementary — it 
+investigates local patterns that will shape how findings from subtasks 1-2 get
+encoded into tool.json schemas. Subtask 4 is independent but its output is 
+enriched by understanding what data the tools can provide (from subtasks 1-2).
+The split between Bitbucket APIs (subtask 1) and CI/CD APIs (subtask 2) 
+reflects the genuine architectural boundary: Bitbucket PRs and commits come 
+from one API surface, while CI/CD signals may come from Bitbucket Pipelines, 
+GitHub Actions, or Bamboo — requiring a separate platform-selection research 
+effort. Subtask 3 consolidates the pattern investigation (tool.json + SKILL.md
+conventions) into one subtask because the patterns are consistent across the 
+codebase and reviewing them together provides the design framework for all 
+deliverables. Subtask 4 consolidates the domain research because DORA metrics,
+release readiness, and cross-source reconciliation are deeply interconnected 
+concerns that feed into the same SKILL.md.",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 104.7K/1M
+

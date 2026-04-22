@@ -1,0 +1,511 @@
+Working in /Users/tchen7/MyProjects/CoreProjects/OpenStartup/children/breakdown
+Jira projects: https://hello.atlassian.net/browse/CTSC
+
+[?2004hINTERNAL USE: Your prompts will be recorded to help us improve answer quality. 
+Turn off prompt collection with the logging.enablePromptCollection flag in the 
+config file.
+
+✔ Using model: anthropic:claude-opus-4-6
+✔ Started 18 MCP servers
+
+─── Response ───────────────────────────────────────────────────────────────────
+I'll start by investigating the referenced files and tools to understand the
+full context before decomposing the task.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called open_files: 
+      • file_paths: 
+"['/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/too
+ls/create_role/_r...
+      • _intent: "Read the role definition document"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/skills/twg"
+      • _intent: "Explore TWG skill structure"
+  ⬢ Called expand_folder: 
+      • folder_path: 
+"/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/resources
+/tools/twg"
+      • _intent: "Explore TWG tool structure"
+                                                                                
+  Error calling tool 'open_files': Error opening                                
+  /Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/to  
+  ols/create_role/_runtime/20260415_153712/outputs/role_document.md: Path       
+  '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/test/openteam/resources/t  
+  ools/create_role/_runtime/20260415_153712/outputs/role_document.md' is        
+  outside both the workspace directory and whitelisted paths                    
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   Error calling tool 'expand_folder': Path                                     
+   '/Users/tchen7/MyProjects/CoreProjects/OpenStartup/src/openteam/server/r..   
+   .                                                                            
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me explore the workspace to find the relevant files.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called expand_folder: 
+      • folder_path: "."
+      • _intent: "Explore workspace root structure"
+                                                                                
+                                                                                
+   artifacts/:                                                                  
+                                                                                
+   checkpoints/:                                                                
+                                                                                
+   outputs/:                                                                    
+                                                                                
+                                                                                
+  ⬢ Called bash: 
+      • command: "find . -type f -name \"*.md\" -o -name \"*.json\" -o -name 
+\"*.yaml\" -o -name \"*.yml\" 2>/dev/nul...
+  ⬢ Called bash: 
+      • command: "find . -type f 2>/dev/null | head -50"
+                                                                                
+                                                                                
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceArgs/202   
+   60419_140605_resume_d37283da.json                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceArgs/202   
+   60419_140605_resume_e28da67d.json                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceArgs/202   
+   60419_140605_resume_e920b3c7.json                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceArgs/202   
+   60419_140605_resume_8775772b.json                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140759_success_c354ad81.json                                       
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140838_return_code_323059be.json                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140811_return_code_0747e890.json                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140831_success_ae5c3b1e.json                                       
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140838_success_c234390f.json                                       
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceResponse   
+   /20260419_140811_success_7e043862.json                                       
+   (27 lines truncated)                                                         
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceArgs/202   
+   60419_235204_resume_f3abc550.json                                            
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceArgs/202   
+   60419_235204_resume_c70d4ce5.json                                            
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceArgs/202   
+   60420_001241_resume_093da1a8.json                                            
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260419_235402_success_4ad4230e.json                                       
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260419_235552_success_ee0be27c.json                                       
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260419_235552_return_code_2b60fc51.json                                   
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260420_001445_return_code_450fc670.json                                   
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260420_001445_success_7b6fbdbb.json                                       
+   ./logs/session/RovoDevCliInferencer-24385772.jsonl.parts/InferenceResponse   
+   /20260419_235402_return_code_806e0544.json                                   
+   ./logs/session/RovoDevCliInferencer-2410eac4.jsonl.parts/InferenceArgs/202   
+   60420_030925_resume_9fbfaf4d.json                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_ccf2f9fa.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_860d91ca.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_fa525075.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/InferenceInput/20   
+   260419_140605_cd67a491.txt                                                   
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_6fd763b4.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_1ce9448b.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_072649c6.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/StreamingConfig/2   
+   0260419_140605_ffa5236b.txt                                                  
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/Async/20260419_14   
+   0831_e17c8394.txt                                                            
+   ./logs/session/RovoDevCliInferencer-d41c6f23.jsonl.parts/Async/20260419_14   
+   0759_94dc4fdd.txt                                                            
+   (30 lines truncated)                                                         
+   ./logs/session/RovoDevCliInferencer-b0f5c9bb.jsonl.parts/InferenceInput/20   
+   260420_030925_e63deae4.txt                                                   
+   ./logs/session/RovoDevCliInferencer-b0f5c9bb.jsonl.parts/StreamingConfig/2   
+   0260420_030925_7bc53f7a.txt                                                  
+   ./logs/session/RovoDevCliInferencer-b0f5c9bb.jsonl.parts/InferenceArgs/202   
+   60420_030925_resume_ad9e082c.json                                            
+   ./logs/session/RovoDevCliInferencer-b0f5c9bb.jsonl.parts/CacheOpen/2026042   
+   0_030925_a453cf2f.txt                                                        
+   ./logs/session/RovoDevCliInferencer-b0f5c9bb.jsonl                           
+   ./logs/session/RovoDevCliInferencer-469e7cce.jsonl.parts/InferenceInput/20   
+   260419_184851_0f5a4a9d.txt                                                   
+   ./logs/session/RovoDevCliInferencer-469e7cce.jsonl.parts/InferenceInput/20   
+   260419_184851_d0c0d036.txt                                                   
+   ./logs/session/RovoDevCliInferencer-469e7cce.jsonl.parts/InferenceInput/20   
+   260419_201420_7782566a.txt                                                   
+   ./logs/session/RovoDevCliInferencer-469e7cce.jsonl.parts/InferenceInput/20   
+   260419_201702_0a12ef06.txt                                                   
+   ./logs/session/RovoDevCliInferencer-469e7cce.jsonl.parts/InferenceInput/20   
+   260419_201420_0559f8d6.txt                                                   
+                                                                                
+                                                                                
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me look at the available TWG tool schemas and explore existing skill/tool
+patterns to understand the capabilities I need to investigate.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_work_summary_for_given_user"
+      • _intent: "Explore TWG work summary capabilities"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_context_for_work_item"
+      • _intent: "Explore TWG work item context capabilities"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_activities_linked_to_project_v2"
+      • _intent: "Explore TWG project activities capabilities"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_user_created_entities_v2"
+      • _intent: "Explore TWG user entities capabilities"
+
+─── Response ───────────────────────────────────────────────────────────────────
+Let me also check the remaining TWG tool schemas relevant to this task, and
+the Jira/Bitbucket tool schemas.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_ranked_work_summary_for_given_user"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_related_repos_for_work_item"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_team_spaces"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_nl2cypher_query"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "search_jira_using_jql"
+  ⬢ Called atlassian:get_tool_schema: 
+      • tool_name: "get_jira_issue"
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now let me check the Bitbucket tool schemas and a few more TWG tools to
+understand deployment/commit data availability.
+────────────────────────────────────────────────────────────────────────────────
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketPipeline"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketDeployment"
+  ⬢ Called bitbucket:get_tool_schema: 
+      • tool_name: "bitbucketPullRequest"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_user_updated_entities_v2"
+  ⬢ Called teamwork_graph:get_tool_schema: 
+      • tool_name: "get_execute_cypher_query"
+
+─── Response ───────────────────────────────────────────────────────────────────
+Now I have a thorough understanding of the available tools and their
+capabilities. Let me analyze and produce the decomposition.
+
+Key findings from my investigation:
+
+ 1 TWG (Teamwork Graph) tools provide:
+    • get_work_summary_for_given_user / get_ranked_work_summary_for_given_user
+      — user work activity over time periods (assigned issues,
+      authored/reviewed PRs, etc.)
+    • get_context_for_work_item — comprehensive context for Jira work items
+      including PRs, commits, branches
+    • get_activities_linked_to_project_v2 — project activities including PRs,
+      repos, deployments, builds, branches
+    • get_user_created_entities_v2 / get_user_updated_entities_v2 — entities
+      created/updated by user (including JiraIssue, GraphPullRequest,
+      GraphDeployment, GraphCommit)
+    • get_nl2cypher_query — natural language to Cypher query execution
+    • get_execute_cypher_query — raw Cypher query execution against TWG graph
+      DB
+    • get_team_spaces — team's Jira projects and Confluence spaces
+ 2 Jira MCP tools provide:
+    • search_jira_using_jql — JQL queries for issues with filtering
+    • get_jira_issue — detailed issue data
+ 3 Bitbucket MCP tools provide:
+    • bitbucketPullRequest — list/get PRs with state filtering
+    • bitbucketPipeline — list/get pipeline runs with status filtering
+    • bitbucketDeployment — list/get deployments with environment/state
+      filtering
+ 4 Notable gap: TWG doesn't appear to have direct sprint-level data surfaces
+   (no explicit sprint boundary, velocity, or burndown endpoints). Sprint data
+   would need to be derived from JQL queries or Cypher queries against the
+   graph.
+
+
+
+                                   Analysis
+
+The task is to create an engineering_metrics skill (a SKILL.md file providing
+domain guidance) that instructs the AI Program Manager on how to compute,
+trend, and interpret 9 categories of engineering metrics using existing TWG,
+Jira, and Bitbucket tools.
+
+The decomposition needs to address:
+
+ 1 Data source investigation — What can TWG, Jira JQL, and Bitbucket tools
+   actually provide for sprint/velocity/deployment data?
+ 2 Metric computation design — How to compute each of the 9 metric categories
+   from available data
+ 3 DORA metrics research — Industry-standard framework that maps to several
+   requested metrics
+ 4 Existing skill/tool pattern investigation — How are existing skills
+   structured to guide tool usage?
+
+I'm grouping the 9 metric categories into logical clusters based on their data
+source dependencies and computational similarity:
+
+ • Sprint-based metrics (velocity, predictability, carryover, capacity) — all
+   depend on sprint-level Jira data
+ • Flow metrics (cycle time, schedule drift, timeline projections) — depend on
+   issue state transitions and dates
+ • Deployment/release metrics (deployment frequency, defect density) — depend
+   on Bitbucket and Jira defect data
+ • Cross-cutting concerns — DORA framework, alerting thresholds, trend
+   detection patterns
+
+```json
+{
+  "subtasks": [
+    {
+      "subtask_id": 1,
+      "description": "Investigate TWG Jira surfaces and JQL capabilities for 
+sprint-level data extraction. Determine exactly which TWG tools 
+(get_work_summary_for_given_user, get_context_for_work_item, 
+get_execute_cypher_query, get_nl2cypher_query, search_jira_using_jql) can 
+provide sprint boundaries, story point values, sprint membership of issues, 
+issue state transitions with timestamps, and planned vs. delivered scope. Test
+specific Cypher queries and JQL patterns to discover what sprint-related data
+exists in the Teamwork Graph schema. This is the foundational investigation —
+velocity, predictability, carryover, and capacity analysis all depend on 
+understanding what sprint data is actually accessible.",
+      "todos": [
+        "Investigate whether TWG's Cypher graph schema contains Sprint 
+nodes/relationships and what properties they expose (start/end dates, sprint 
+goals, committed points)",
+        "Test JQL patterns for extracting sprint-level data: 'sprint in 
+openSprints()', 'sprint in closedSprints()', sprint-specific issue lists with
+story point fields",
+        "Investigate get_execute_cypher_query for querying issue-to-sprint 
+relationships, state transition timestamps, and story point values from the 
+TWG graph",
+        "Test get_nl2cypher_query with sprint-related natural language queries
+to discover available sprint data patterns",
+        "Investigate how get_jira_issue extra_fields can expose sprint 
+membership, story points (customfield_10016 or similar), and status change 
+history",
+        "Document the complete data access pattern for: (a) listing sprints 
+with their date ranges, (b) getting issues per sprint with points, (c) getting
+issue state transition history with timestamps"
+      ],
+      "scope": "TWG and Jira data surfaces for sprint-level metrics — the 
+foundational data layer for velocity, predictability, carryover, and capacity
+computations",
+      "priority": "CRITICAL",
+      "priority_reason": "5 of the 9 metric categories (velocity, 
+predictability, carryover, capacity, schedule drift) depend entirely on 
+sprint-level data access. Without confirming what data is available, no 
+workflow designs can be finalized.",
+      "priority_score": "5.0",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 2,
+      "description": "Investigate TWG Bitbucket surfaces and Bitbucket MCP 
+tools for deployment, pipeline, PR merge, and commit metrics. Determine what 
+data is available from get_activities_linked_to_project_v2 (which lists 
+deployments, builds, branches, PRs), bitbucketPipeline (pipeline runs with 
+status), bitbucketDeployment (deployment events with environment/state), and 
+bitbucketPullRequest (PR listing with state/date filtering). Also investigate
+get_user_created_entities_v2 with GraphDeployment, GraphCommit, and 
+GraphPullRequest entity types. Map these to deployment frequency, lead time 
+for changes, and change failure rate computations.",
+      "todos": [
+        "Investigate get_activities_linked_to_project_v2 output structure: 
+what deployment, build, and PR data fields are returned and how they can be 
+aggregated by time period",
+        "Investigate bitbucketDeployment list action: what fields are returned
+(timestamps, environment, state), how to filter by environment (production vs
+staging), and how to compute deployment frequency",
+        "Investigate bitbucketPipeline list action: what fields indicate 
+success/failure, how to compute change failure rate from pipeline data",
+        "Investigate bitbucketPullRequest list action with state='MERGED': 
+what merge timestamp and cycle data is available for lead time computation",
+        "Test get_user_created_entities_v2 with 
+createdEntityTypes=['GraphDeployment', 'GraphCommit', 'GraphPullRequest'] to 
+see what deployment/commit data TWG surfaces",
+        "Document the complete data access pattern for: (a) deployment 
+frequency per time period, (b) PR merge frequency, (c) commit activity trends,
+(d) pipeline success/failure rates"
+      ],
+      "scope": "Bitbucket and TWG data surfaces for deployment frequency, 
+release metrics, CI/CD pipeline data, and PR merge patterns",
+      "priority": "CRITICAL",
+      "priority_reason": "Deployment frequency and defect density metrics 
+require confirmed Bitbucket data access patterns. This is also essential for 
+DORA metrics computation which is explicitly requested.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 3,
+      "description": "Research DORA metrics framework, engineering metrics 
+computation best practices, and statistical methods needed for the skill's 
+analytical workflows. Cover: (1) DORA four key metrics definitions and how to
+compute them from Jira+Bitbucket data; (2) velocity computation best practices
+— rolling averages (3-sprint, 5-sprint), trend detection algorithms (linear 
+regression, moving average crossover), anomaly detection; (3) cycle time 
+analysis — percentile calculations (p50, p85, p95), control charts, issue type
+segmentation; (4) sprint predictability scoring — commitment reliability 
+formulas, Say/Do ratio industry benchmarks; (5) schedule drift detection — 
+earned value management principles, variance threshold alerting (>10%); (6) 
+capacity analysis — allocation detection heuristics, over/under-allocation 
+thresholds.",
+      "todos": [
+        "Research DORA four key metrics (deployment frequency, lead time for 
+changes, change failure rate, time to restore service) and how each maps to 
+Jira + Bitbucket data available via TWG",
+        "Research velocity computation best practices: rolling average window
+sizes, trend detection methods (simple moving average, weighted moving 
+average, linear regression slope), when to flag velocity changes as 
+significant",
+        "Research cycle time analysis methods: how to compute p50/p85/p95 
+percentiles, control chart upper/lower bounds, how to segment by issue type 
+(story vs bug vs task)",
+        "Research sprint predictability formulas: planned-vs-delivered ratio,
+commitment reliability percentage, industry benchmarks for healthy vs 
+concerning Say/Do ratios",
+        "Research schedule drift and earned value management: planned value vs
+earned value computation, schedule variance formulas, >10% threshold alerting
+best practices, velocity-based milestone projection methods",
+        "Research capacity analysis heuristics: how to detect 
+over/under-allocation from sprint assignment data, team allocation mapping 
+approaches, recommendation patterns for rebalancing"
+      ],
+      "scope": "Domain knowledge research for all 9 metric categories — DORA 
+framework, statistical methods, computation formulas, thresholds, and industry
+benchmarks",
+      "priority": "CRITICAL",
+      "priority_reason": "The skill must encode correct domain knowledge for 
+metric computation. Without researched formulas, thresholds, and best 
+practices, the skill would produce unreliable guidance.",
+      "priority_score": "4.5",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 4,
+      "description": "Investigate existing skill file patterns (SKILL.md 
+structure, tool.json definitions) in the codebase to understand how the 
+engineering_metrics skill should be structured. Examine the existing TWG 
+skill, slack_actions skill, and slack_search skill to discover: (1) How skills
+reference and orchestrate underlying tools; (2) What sections a SKILL.md 
+contains (overview, workflows, tool usage patterns, decision trees, 
+templates); (3) How skills encode multi-step workflows that combine multiple 
+tool calls; (4) How skills handle conditional logic, thresholds, and alerting
+patterns. Also investigate how the TWG tool is defined and what its interface
+looks like for the skill to reference.",
+      "todos": [
+        "Read the existing TWG skill SKILL.md to understand how it guides 
+users on querying Teamwork Graph data, what workflow patterns it encodes, and
+what tool invocation templates it provides",
+        "Read the slack_actions and slack_search skill SKILL.md files to 
+understand the general skill structure pattern — sections, formatting, tool 
+reference conventions",
+        "Investigate the TWG tool definition (tool.json or equivalent) to 
+understand how the engineering_metrics skill should reference TWG tool 
+invocations",
+        "Identify patterns for encoding multi-step analytical workflows in 
+skills — how to guide the AI through: query data → compute metric → compare to
+threshold → generate alert/report",
+        "Document the required SKILL.md structure and conventions that the 
+engineering_metrics skill must follow"
+      ],
+      "scope": "Existing skill/tool patterns, SKILL.md structure conventions,
+and TWG tool interface for the engineering_metrics skill to follow and 
+reference",
+      "priority": "HIGH",
+      "priority_reason": "Understanding existing patterns ensures the new 
+skill integrates properly with the system. Without this, the skill might use 
+incorrect conventions or miss required sections.",
+      "priority_score": "3.5",
+      "args": {"task_preamble": "skill_tool_creation_investigation"},
+      "subtask_dependencies": []
+    },
+    {
+      "subtask_id": 5,
+      "description": "Research reusable templates, report formats, and 
+alerting patterns for engineering metrics dashboards and status reports. This
+covers: (1) Metric report templates — how to format velocity trends, cycle 
+time distributions, sprint health scorecards for Slack/Confluence output; (2)
+Alerting templates — threshold-based alert messages for schedule drift >10%, 
+velocity drops, carryover spikes; (3) Trend visualization descriptions — how 
+to describe trends in text when charts aren't available (e.g., 'Velocity 
+trending down 15% over last 3 sprints'); (4) Decision criteria — when to 
+escalate metrics (red/amber/green thresholds), what questions each metric 
+answers for stakeholders; (5) Carryover analysis templates — sprint-to-sprint
+rollover tracking, pattern identification (chronic carryover items, scope 
+creep indicators).",
+      "todos": [
+        "Research engineering metrics dashboard templates: what metrics are 
+grouped together, how they're presented for executive vs. team audiences, 
+standard scorecard formats",
+        "Research alerting and threshold patterns: industry-standard 
+thresholds for velocity deviation, cycle time degradation, sprint 
+predictability drops, and deployment frequency changes",
+        "Design text-based trend description templates for Slack messages: how
+to convey velocity trends, cycle time changes, and sprint health without 
+charts",
+        "Research red/amber/green (RAG) status classification criteria for 
+each metric category: what values constitute healthy, warning, and critical 
+states",
+        "Research carryover analysis patterns: how to identify chronic 
+carryover items, scope creep indicators, and sprint planning accuracy 
+improvement recommendations",
+        "Research defect density reporting templates: bugs-per-feature ratios,
+P1/P2 trend formatting, quality trend narratives"
+      ],
+      "scope": "Templates, report formats, alerting patterns, RAG thresholds,
+and presentation guidance for all 9 metric categories",
+      "priority": "HIGH",
+      "priority_reason": "The skill needs actionable templates and thresholds
+to be operationally useful. This subtask ensures the skill can generate 
+meaningful reports and alerts, not just raw numbers.",
+      "priority_score": "3.0",
+      "args": {"task_preamble": "skill_tool_creation_research"},
+      "subtask_dependencies": []
+    }
+  ],
+  "reasoning": "The decomposition follows the data-computation-presentation 
+pipeline: Subtasks 1-2 investigate what data is actually available (Jira 
+sprint data via TWG/JQL, Bitbucket deployment data); Subtask 3 researches the
+domain knowledge needed to correctly compute metrics from that data; Subtask 4
+investigates how to structure the skill artifact itself; Subtask 5 researches
+output templates and alerting patterns. Subtasks 1-3 are CRITICAL because 
+without confirmed data access and correct computation formulas, the skill 
+would be speculative. Subtasks 4-5 are HIGH because they ensure the skill is 
+properly structured and operationally useful. All subtasks are independent — 
+they can be executed in parallel. The aggregator will synthesize findings from
+all 5 into the final SKILL.md, mapping data access patterns (1-2) through 
+computation logic (3) to output templates (5), all structured per existing 
+conventions (4).",
+  "coverage_complete": true,
+  "gaps": "none"
+}
+```
+
+────────────────────────────────────────────────────────────────────────────────Session context: ▮▮▮▮▮▮▮▮▮▮ 48K/1M
+

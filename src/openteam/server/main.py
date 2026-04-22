@@ -41,9 +41,34 @@ from openteam.server.services.intelligence_service import MockIntelligenceServic
 logger = logging.getLogger(__name__)
 
 
+def _load_env_file(path: Path) -> None:
+    """Load key=value pairs from a .env file into os.environ.
+
+    Skips blank lines and comments. Does NOT override existing env vars
+    so shell exports (e.g. from ~/.zshrc) always take precedence.
+    """
+    import os
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'\"")  # strip optional quotes
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Initialize services at startup, cleanup at shutdown."""
+    # Load .env from server directory (RovoChat credentials, Slack tokens, etc.)
+    _env_file = Path(__file__).parent / ".env"
+    if _env_file.is_file():
+        _load_env_file(_env_file)
+        logger.info("Loaded environment from %s", _env_file)
+
     fixtures_dir = Path(__file__).parent / "fixtures"
     mode = getattr(app.state, "mode", "mock")
 
@@ -59,6 +84,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             session_store = SessionStore(
                 real_sessions_dir, resume_server=resume_server
             )
+
+            # Persist all logs to server workspace for post-mortem analysis.
+            # Each server run gets its own server.log alongside session/turn/task data.
+            _log_file = session_store.server_dir / "server.log"
+            _file_handler = logging.FileHandler(str(_log_file), encoding="utf-8")
+            _file_handler.setFormatter(logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            ))
+            _file_handler.setLevel(logging.DEBUG)
+            logging.getLogger().addHandler(_file_handler)
+            app.state._log_file_handler = _file_handler  # for cleanup on shutdown
+            logger.info("Server log file: %s", _log_file)
+
             data_svc = RealSessionDataService(fixtures_dir, session_store)
 
             # Initialize conversation service
@@ -88,6 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 llm_backend=llm_backend,
                 working_dir=working_dir,
                 cache_dir=cache_dir,
+                session_store=session_store,
             )
             app.state.conversation_service = conversation_svc
 
@@ -110,6 +149,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("OpenStartup API started in %s mode", mode)
     yield
     logger.info("OpenStartup API shutting down")
+    # Remove file handler to avoid handler accumulation on restart
+    _handler = getattr(app.state, "_log_file_handler", None)
+    if _handler:
+        logging.getLogger().removeHandler(_handler)
+        _handler.close()
 
 
 # Create FastAPI app
@@ -158,6 +202,9 @@ app.include_router(session_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(role_skill_router, prefix="/api/role-skills", tags=["role-skills"])
 app.include_router(manager_ws_router, prefix="/ws", tags=["websocket"])
 app.include_router(org_router, prefix="/api/orgs", tags=["organizations"])
+
+from openteam.server.routes.view_routes import router as view_router
+app.include_router(view_router, prefix="/api", tags=["file-viewer"])
 
 
 # SPA fallback — only enabled when the build directory exists (production).

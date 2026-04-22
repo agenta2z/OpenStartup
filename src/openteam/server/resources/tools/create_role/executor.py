@@ -481,3 +481,91 @@ def build_create_role_inferencer(
         max_concurrency=None,
         workspace_root=workspace_root,
     )
+
+
+# ---------------------------------------------------------------------------
+# Generic executor entry point — called by ToolDispatcher
+# ---------------------------------------------------------------------------
+
+async def execute(
+    arguments: dict,
+    session_context: dict,
+) -> "ToolExecutionResult":
+    """Generic entry point for ToolDispatcher.
+
+    Arguments (from LLM tool call):
+        role_description (str, required): High-level description of the role.
+        --output-path (str, optional): Path to write the generated role document.
+        --max-facets (int, optional): Max research facets (default 8).
+
+    session_context keys used:
+        cloud_id, uct_token, email, working_dir
+    """
+    from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+        ToolExecutionResult,
+    )
+
+    import agent_foundation.common.configs.registered_targets  # noqa: register BTA targets
+    from rich_python_utils.config_utils import load_config, instantiate
+
+    role_description = arguments.get("role_description", "")
+    max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
+
+    # working_dir is the BTA workspace root (per-task dir under server runtime).
+    working_dir = session_context.get("working_dir")
+
+    # Resolve YAML config co-located with the executor
+    yaml_path = Path(__file__).parent / "create_role_bta.yaml"
+
+    # Build minimal overrides — workspace_root drives all child workspace paths.
+    # RovoChat auth (cloud_id/uct_token) is read from environment variables automatically.
+    overrides: dict = {"max_breakdown": max_facets}
+
+    # Resolve prompt_templates absolute path — the YAML uses relative "prompt_templates"
+    # which resolves against CWD (src/openteam/server/), but templates live at
+    # src/openteam/server/resources/prompt_templates/
+    # Path: executor.py → create_role/ → tools/ → resources/ → resources/prompt_templates
+    overrides["_template_manager.templates"] = str(
+        Path(__file__).resolve().parent.parent.parent / "prompt_templates"
+    )
+
+    if working_dir:
+        overrides["workspace_root"] = str(working_dir)
+
+    cfg = load_config(str(yaml_path), overrides=overrides)
+    inferencer = instantiate(cfg)
+
+    # Attach graph reporter for UI visualization (task panel graph view)
+    interactive = session_context.get("interactive")
+    task_id = session_context.get("task_id", "")
+    import logging as _log
+    _log.getLogger(__name__).info(
+        "[create_role] graph reporter setup: interactive=%s task_id=%s",
+        type(interactive).__name__ if interactive else None, task_id
+    )
+    if interactive is not None and task_id:
+        from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
+        inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
+        _log.getLogger(__name__).info("[create_role] WebSocketGraphReporter attached")
+
+    result_text = await inferencer.ainfer(role_description)
+
+    # Include workspace + document path in context_updates so:
+    # 1. The LLM knows where to find the role document for Phase 1b review
+    # 2. tool_dispatcher can pass document_path in task_completed WS message
+    context_updates = {}
+    if working_dir:
+        context_updates["role_document_working_dir"] = str(working_dir)
+        doc_path = str(Path(working_dir) / "outputs" / "role_document.md")
+        if Path(doc_path).exists():
+            context_updates["role_document_path"] = doc_path
+        else:
+            # Fallback: BTA may write directly to workspace_root
+            alt_path = str(Path(working_dir) / "role_document.md")
+            if Path(alt_path).exists():
+                context_updates["role_document_path"] = alt_path
+
+    return ToolExecutionResult(
+        result=str(result_text),
+        context_updates=context_updates,
+    )

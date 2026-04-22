@@ -12,13 +12,34 @@ import { Psychology as ThinkingIcon } from '@mui/icons-material';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 /**
- * Strip ```json ToolsToInvoke ... ``` blocks from content.
- * Also strips unclosed blocks during streaming.
+ * Strip tool invocation blocks from content.
+ * Handles all formats the LLM may produce:
+ * 1. ```json ToolsToInvoke ... ``` (standard format)
+ * 2. ```json ... ``` containing "type":"conversation"/"action" (no ToolsToInvoke label)
+ * 3. Raw JSON lines with "type":"conversation"/"action" (no code fences)
+ * 4. <ConversationTools>...</ConversationTools> (legacy)
  */
 export function stripToolsToInvoke(text) {
   if (!text) return text;
+  // 1. ToolsToInvoke code blocks (completed + unclosed)
   let result = text.replace(/```json\s+ToolsToInvoke\n[\s\S]*?```/g, '');
   result = result.replace(/```json\s+ToolsToInvoke\n[\s\S]*$/g, '');
+  // 2. Any ```json...``` block containing conversation/action tool JSON
+  result = result.replace(/```json\s*\n[\s\S]*?```/g, (match) => {
+    if (/"type"\s*:\s*"(?:conversation|action)"/.test(match)) return '';
+    return match;  // Keep normal code blocks
+  });
+  // 3. Unclosed ```json blocks with tool JSON (streaming)
+  result = result.replace(/```json\s*\n[\s\S]*$/g, (match) => {
+    if (/"type"\s*:\s*"(?:conversation|action)"/.test(match)) return '';
+    return match;
+  });
+  // 4. Raw conversation/action tool JSON lines (no code fences)
+  result = result.replace(/^\s*\{"type"\s*:\s*"(?:conversation|action)"[^\n]*$/gm, '');
+  // 5. Legacy <ConversationTools> tags
+  result = result.replace(/<ConversationTools>[\s\S]*?<\/ConversationTools>/g, '');
+  // 6. Collapse excessive blank lines
+  result = result.replace(/\n{3,}/g, '\n\n');
   return result.trim();
 }
 

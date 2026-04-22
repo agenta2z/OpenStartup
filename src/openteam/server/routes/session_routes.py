@@ -57,7 +57,34 @@ async def delete_session(request: Request, session_id: str):
         raise HTTPException(400, "Session deletion not available in mock mode")
     if not svc.delete_session(session_id):
         raise HTTPException(404, f"Session {session_id} not found")
+    # Evict per-session inferencer to free memory
+    conv_svc = getattr(request.app.state, "conversation_service", None)
+    if conv_svc and hasattr(conv_svc, "evict_session_inferencer"):
+        conv_svc.evict_session_inferencer(session_id)
     return {"data": {"deleted": True}}
+
+
+@router.get("/{session_id}/turns/{turn_number}")
+async def get_turn_data(request: Request, session_id: str, turn_number: int):
+    """Fetch per-turn prompt metadata (template, feed, rendered prompt).
+
+    Used by the frontend "View Prompt" button for history messages.
+    turn_number is 1-based (first assistant message = turn 1).
+    """
+    svc = request.app.state.data_service
+    if not hasattr(svc, "get_turn_data"):
+        raise HTTPException(400, "Turn data not available in mock mode")
+    data = svc.get_turn_data(session_id, turn_number)
+    # Welcome message (turn 1) and other non-LLM turns have no saved prompt data.
+    # Return graceful empty payload instead of 404 so the UI can show a friendly
+    # "no prompt data" message rather than a console error.
+    if data is None:
+        return {"data": {
+            "rendered_prompt": "",
+            "template_source": "",
+            "note": f"No prompt data for turn {turn_number} (likely a welcome or non-LLM turn)",
+        }}
+    return {"data": data}
 
 
 @router.post("/{session_id}/messages")

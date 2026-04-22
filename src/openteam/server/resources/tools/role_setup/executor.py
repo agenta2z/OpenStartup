@@ -516,11 +516,15 @@ def _build_inner_bta(
             rovodev_worker_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
             if streaming_cache_dir:
                 rovodev_worker_kwargs["cache_folder"] = streaming_cache_dir
+            if inferencer_logger is not None:
+                rovodev_worker_kwargs["logger"] = inferencer_logger
             worker_inf = RovoDevCliInferencer(**rovodev_worker_kwargs)
         else:
             _logger.info("  Inner worker %d (RESEARCH/%s): %.60s...", index, preamble_name, sub_query)
             worker_inf = _make_rovochat(**inner_rovo_kwargs)
             worker_inf.debug_mode = True
+            if inferencer_logger is not None:
+                worker_inf.logger = inferencer_logger
 
         # Set template attrs directly on the worker inferencer
         worker_inf.template_manager = tm
@@ -557,6 +561,8 @@ def _build_inner_bta(
         )
         if streaming_cache_dir:
             agg_kwargs["cache_folder"] = streaming_cache_dir
+        if inferencer_logger is not None:
+            agg_kwargs["logger"] = inferencer_logger
         inner_aggregator = RovoDevCliInferencer(**agg_kwargs)
     else:
         inner_aggregator = _make_rovochat(**inner_rovo_kwargs)
@@ -596,11 +602,12 @@ def _build_inner_bta(
             task_preamble="",
             input=agg_input,
             task_instructions=inner_synthesis_instructions,
-            output_path=f"skill_tool_spec_worker_{index}.md",
+            output_path=f"artifacts/skill_tool_spec_worker_{index}.md",
             round_index=1,
         )
 
     bta_kwargs: dict[str, Any] = dict(
+        name=f"inner_bta_{index}",
         breakdown_inferencer=breakdown_inf,
         breakdown_parser=parse_inner_breakdown_response,
         worker_factory=inner_worker_factory,
@@ -615,9 +622,22 @@ def _build_inner_bta(
         max_concurrency=None,
         breakdown_only=breakdown_only,
         debug_mode=True,
+        # output_path enables _finalize_response to copy aggregator
+        # deliverables (e.g. SKILL.md) from children/aggregator/outputs/
+        # to the root workspace outputs/.
+        output_path=f"skill_tool_spec_worker_{index}.md",
     )
     if workspace_root:
-        bta_kwargs["workspace_root"] = workspace_root
+        # Use a full InferencerWorkspace (not bare workspace_root) so that
+        # use_final_deliverables_folder=True is honoured — deliverables (skills/,
+        # tools/) go to outputs/final_deliverables/ instead of outputs/ directly.
+        from agent_foundation.common.inferencers.inferencer_workspace import (
+            InferencerWorkspace,
+        )
+        bta_kwargs["workspace"] = InferencerWorkspace(
+            root=workspace_root,
+            use_final_deliverables_folder=True,
+        )
     if inferencer_logger is not None:
         bta_kwargs["logger"] = inferencer_logger
     return BreakdownThenAggregateInferencer(**bta_kwargs)
@@ -744,6 +764,7 @@ def build_role_setup_inferencer(
             aggregator_type=aggregator_type,
             aggregator_working_dir=aggregator_working_dir,
             streaming_cache_dir=streaming_cache_dir,
+            inferencer_logger="auto",
         )
 
     # === Outer Aggregator ===
@@ -754,6 +775,8 @@ def build_role_setup_inferencer(
         )
         if streaming_cache_dir:
             outer_agg_kwargs["cache_folder"] = streaming_cache_dir
+        # NOTE: build_role_setup_inferencer does not receive inferencer_logger
+        # yet; when it does, add: outer_agg_kwargs["logger"] = inferencer_logger
         outer_aggregator = RovoDevCliInferencer(**outer_agg_kwargs)
     else:
         outer_aggregator = _make_rovochat(**rovo_kwargs)
@@ -805,6 +828,7 @@ def build_role_setup_inferencer(
 
     # === Wire the outer BTA ===
     outer_bta = BreakdownThenAggregateInferencer(
+        name="outer_bta",
         breakdown_inferencer=outer_breakdown,
         breakdown_parser=parse_breakdown_response,
         worker_factory=outer_worker_factory,
@@ -862,8 +886,15 @@ def build_subtask_breakdown_only(
     import json as _json
     import re as _re
 
-    # 1. Read and parse the outer breakdown output
-    breakdown_text = Path(breakdown_file).read_text(encoding="utf-8")
+    # 1. Read and parse the outer breakdown output.
+    # The checkpoint file is a JSON object with a "raw_output" key — decode it first
+    # so that escaped sequences (\\n, \") are resolved before regex matching.
+    _raw_file = Path(breakdown_file).read_text(encoding="utf-8")
+    try:
+        _parsed = _json.loads(_raw_file)
+        breakdown_text = _parsed.get("raw_output", _raw_file) if isinstance(_parsed, dict) else _raw_file
+    except _json.JSONDecodeError:
+        breakdown_text = _raw_file
 
     # Extract JSON from <Response> tags or raw text
     subtasks = []
@@ -1127,3 +1158,97 @@ def build_inner_research_only(
     )
 
     return bta, sub_queries
+
+
+# ---------------------------------------------------------------------------
+# Generic executor entry point — called by ToolDispatcher
+# ---------------------------------------------------------------------------
+
+async def execute(
+    arguments: dict,
+    session_context: dict,
+) -> "ToolExecutionResult":
+    """Generic entry point for ToolDispatcher — yaml-driven outer BTA pipeline.
+
+    Arguments (from LLM tool call):
+        role_document_path (str, required): Path to the role responsibility document.
+        --max-facets (int, optional): Max outer facets (default 8).
+        --max-inner-facets (int, optional): Max inner facets (default 5).
+
+    session_context keys used:
+        cloud_id, uct_token, email, working_dir, interactive, task_id
+    """
+    import functools
+
+    from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+        ToolExecutionResult,
+    )
+    import agent_foundation.common.configs.registered_targets  # noqa: F401
+    from rich_python_utils.config_utils import load_config, instantiate
+
+    role_document_path = arguments.get("role_document_path", "")
+    max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
+    max_inner_facets = int(
+        arguments.get("--max-inner-facets", arguments.get("max_inner_facets", 5))
+    )
+
+    working_dir = session_context.get("working_dir")
+    yaml_path = Path(__file__).parent / "role_setup.yaml"
+
+    overrides: dict = {
+        "max_breakdown": max_facets,
+        "worker_factory.skill_tool_creation.max_breakdown": max_inner_facets,
+        "_template_manager.templates": str(
+            Path(__file__).resolve().parent.parent.parent / "prompt_templates"
+        ),
+    }
+    if working_dir:
+        overrides["workspace.root"] = str(working_dir)
+
+    cfg = load_config(str(yaml_path), overrides=overrides)
+    inferencer = instantiate(cfg)
+
+    # Attach graph reporter for UI visualization
+    interactive = session_context.get("interactive")
+    task_id = session_context.get("task_id", "")
+    if interactive is not None and task_id:
+        from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
+        inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
+
+    # Read role document and inject runtime context into breakdown + worker partials
+    role_doc_text = Path(role_document_path).read_text(encoding="utf-8") if role_document_path else ""
+    role_name = role_doc_text.split("\n")[0].strip("# ").strip() if role_doc_text else ""
+    role_doc_path = str(Path(role_document_path).resolve()) if role_document_path else ""
+
+    available_tools_text = format_available_tools_and_skills(
+        extra_tool_dirs=[_APP_TOOLS_DIR], extra_skill_dirs=[_APP_SKILLS_DIR]
+    )
+
+    inferencer.template_extra_feed.update({
+        "role_name": role_name,
+        "role_doc_path": role_doc_path,
+        "available_tools_skills": available_tools_text,
+    })
+
+    result_text = await inferencer.ainfer(role_doc_text)
+
+    context_updates = {}
+    if working_dir:
+        context_updates["role_setup_working_dir"] = str(working_dir)
+        report_path = Path(working_dir) / "outputs" / "role_setup_report.md"
+        if report_path.exists():
+            context_updates["role_setup_report_path"] = str(report_path)
+        skills_dir = Path(working_dir) / "outputs" / "skills"
+        tools_dir = Path(working_dir) / "outputs" / "tools"
+        if skills_dir.exists():
+            context_updates["skills_dir"] = str(skills_dir)
+        if tools_dir.exists():
+            context_updates["tools_dir"] = str(tools_dir)
+        association_path = Path(working_dir) / "outputs" / "role_tool_association.json"
+        if association_path.exists():
+            context_updates["role_tool_association_path"] = str(association_path)
+
+    return ToolExecutionResult(
+        result=str(result_text),
+        context_updates=context_updates,
+    )

@@ -1,0 +1,372 @@
+{
+  "role": "ai-program-manager",
+  "skills": [
+    {
+      "name": "twg",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Status Reporting",
+        "§2 Dependency Graph Maintenance",
+        "§2 Blocker Surfacing",
+        "§2 Metrics & Trend Analysis",
+        "§3 Data Aggregation",
+        "§4 Jira/Confluence read",
+        "§6 Tools & Technologies (Jira, Confluence, Bitbucket, Atlas/Goals)",
+        "SOP 7.1 Status Aggregation Step 1-3 (pull Jira workitems, Confluence updates, Bitbucket PR/commit activity)",
+        "SOP 7.2 Dependency Graph Refresh Step 1-2 (fetch issue links, blocked-by chains, project rollups)",
+        "SOP 7.3 Blocker Sweep Step 1 (search blocked/at-risk issues across spaces)",
+        "SOP 7.4 Metrics Roll-up Step 1-2 (collect goal updates, project health, work activity)"
+      ],
+      "notes": "Single CLI/skill surface that fully covers Jira, Confluence, Bitbucket, Atlas, Goals, projects, teams, plus federated docs/videos/meetings/spaces and projection surfaces (work, context, org-tree). Use federated surfaces for cross-product PgM aggregation, native surfaces for product-specific reads/writes, and projection surfaces for stakeholder/contributor identification. Replaces need for any standalone Jira/Confluence/Bitbucket/Atlas tool."
+    },
+    {
+      "name": "slack_search",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Status Reporting (collect async signals)",
+        "§2 Blocker Surfacing (mine blocker discussions)",
+        "§3 Data Aggregation (channel/thread context)",
+        "§4 Communication: Slack (read side)",
+        "§6 Tools & Technologies (Slack)",
+        "SOP 7.1 Status Aggregation Step 2 (collect async standup posts, channel signals)",
+        "SOP 7.3 Blocker Sweep Step 2 (search prior blocker/escalation threads)"
+      ],
+      "notes": "Bundles 8 read-side Slack tools (search messages/files, list channels, find channel/DM, get thread/history/DMs). Use to mine conversational signals before composing reports."
+    },
+    {
+      "name": "slack_actions",
+      "relevance": "high",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution (Slack channel)",
+        "§4 Communication: Slack (write side)",
+        "§6 Tools & Technologies (Slack)",
+        "SOP 7.1 Status Aggregation Step 4 (post aggregated digest)",
+        "SOP 7.3 Blocker Sweep Step 3 (notify owners/escalation channel)",
+        "SOP 7.4 Metrics Roll-up Step 4 (broadcast trend summary, pin authoritative report)"
+      ],
+      "notes": "Bundles 13 write-side Slack tools (send/edit/delete message, react, pin/unpin, member info, emoji list). Pair with slack_search to first locate channels/threads, then post or pin authoritative updates."
+    }
+  ],
+  "tools": [
+    {
+      "name": "twg",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Status Reporting",
+        "§2 Dependency Graph Maintenance (Jira issuelinks, blocks/blocked-by, parent/child)",
+        "§2 Blocker Surfacing (search at-risk/blocked work)",
+        "§2 Metrics & Trend Analysis (goal/project rollups, work projection)",
+        "§3 Data Aggregation",
+        "§4 Jira/Confluence read",
+        "§6 Tools: Jira, Confluence, Bitbucket, Atlas/Goals",
+        "SOP 7.1 Step 1 (twg jira workitem search/get for current sprint)",
+        "SOP 7.1 Step 2 (twg confluence page get/search for status pages)",
+        "SOP 7.1 Step 3 (twg bitbucket pr/commit list for delivery signal)",
+        "SOP 7.2 Step 1 (twg jira workitem get with --include links)",
+        "SOP 7.4 Step 1 (twg goals/projects rollup, twg work projection)"
+      ],
+      "notes": "Backing CLI for the twg skill. Single tool covers all four §6 work-graph data sources via federated, native, and projection surfaces."
+    },
+    {
+      "name": "slack_search_messages",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Status Reporting",
+        "§2 Blocker Surfacing",
+        "§3 Data Aggregation",
+        "SOP 7.1 Step 2 (find async standup posts)",
+        "SOP 7.3 Step 2 (locate blocker/risk discussions)"
+      ]
+    },
+    {
+      "name": "slack_search_files",
+      "relevance": "low",
+      "responsibilities": [
+        "§3 Data Aggregation (occasional artifact lookup)",
+        "SOP 7.1 Step 2 (locate shared status decks/screenshots)"
+      ]
+    },
+    {
+      "name": "slack_get_thread",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Blocker Surfacing (read full blocker thread)",
+        "§3 Data Aggregation",
+        "SOP 7.3 Step 2 (read full blocker/escalation thread before summarizing)"
+      ]
+    },
+    {
+      "name": "slack_get_channel_history",
+      "relevance": "high",
+      "responsibilities": [
+        "§2 Status Reporting",
+        "§3 Data Aggregation",
+        "SOP 7.1 Step 2 (read team channel for standup signals)",
+        "SOP 7.4 Step 2 (collect week's channel activity for trend baseline)"
+      ]
+    },
+    {
+      "name": "slack_get_dm_messages",
+      "relevance": "medium",
+      "responsibilities": [
+        "§4 Communication: Slack",
+        "SOP 7.3 Step 2 (review private blocker escalations)"
+      ]
+    },
+    {
+      "name": "slack_read_messages",
+      "relevance": "medium",
+      "responsibilities": [
+        "§3 Data Aggregation",
+        "SOP 7.1 Step 2 (read specific message by ts referenced in a Jira/Confluence link)"
+      ]
+    },
+    {
+      "name": "slack_list_channels",
+      "relevance": "medium",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution (channel discovery)",
+        "§4 Communication: Slack",
+        "SOP 7.1 Step 4, SOP 7.4 Step 4 (resolve distribution channel set)"
+      ]
+    },
+    {
+      "name": "slack_find_channel",
+      "relevance": "high",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution",
+        "§4 Communication: Slack",
+        "SOP 7.1 Step 4, SOP 7.3 Step 3, SOP 7.4 Step 4 (resolve channel name → ID before posting)"
+      ]
+    },
+    {
+      "name": "slack_find_dm_channel",
+      "relevance": "medium",
+      "responsibilities": [
+        "§4 Communication: Slack",
+        "SOP 7.3 Step 3 (open DM with blocker owner for direct surfacing)"
+      ]
+    },
+    {
+      "name": "slack_send_message",
+      "relevance": "high",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution",
+        "§4 Communication: Slack",
+        "SOP 7.1 Step 4 (post status digest)",
+        "SOP 7.3 Step 3 (post blocker notice)",
+        "SOP 7.4 Step 4 (post trend/metrics summary)"
+      ]
+    },
+    {
+      "name": "slack_edit_message",
+      "relevance": "medium",
+      "responsibilities": [
+        "§4 Communication: Slack",
+        "SOP 7.1 Step 4, SOP 7.4 Step 4 (refresh/correct posted status in place)"
+      ]
+    },
+    {
+      "name": "slack_delete_message",
+      "relevance": "low",
+      "responsibilities": [
+        "§4 Communication: Slack",
+        "SOP 7.1 Step 4 (retract erroneous broadcasts — use cautiously)"
+      ]
+    },
+    {
+      "name": "slack_pin_message",
+      "relevance": "medium",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution (pin authoritative artifact)",
+        "SOP 7.1 Step 4 (pin weekly digest for visibility)",
+        "SOP 7.4 Step 4 (pin trend report for the week)"
+      ]
+    },
+    {
+      "name": "slack_unpin_message",
+      "relevance": "low",
+      "responsibilities": [
+        "SOP 7.1 Step 4, SOP 7.4 Step 4 (rotate pinned status)"
+      ]
+    },
+    {
+      "name": "slack_list_pins",
+      "relevance": "low",
+      "responsibilities": [
+        "§3 Data Aggregation (review pinned decisions / authoritative status)",
+        "SOP 7.1 Step 1 (gather prior pinned status posts as context)"
+      ]
+    },
+    {
+      "name": "slack_react",
+      "relevance": "medium",
+      "responsibilities": [
+        "§4 Communication: Slack (lightweight acks)",
+        "SOP 7.1 Step 4 (acknowledge standup posts with status emoji)"
+      ]
+    },
+    {
+      "name": "slack_remove_reaction",
+      "relevance": "low",
+      "responsibilities": [
+        "SOP 7.1 Step 4 (cleanup of incorrect status emoji)"
+      ]
+    },
+    {
+      "name": "slack_remove_own_reactions",
+      "relevance": "low",
+      "responsibilities": [
+        "SOP 7.1 Step 4 (bulk cleanup of own reactions)"
+      ]
+    },
+    {
+      "name": "slack_list_reactions",
+      "relevance": "low",
+      "responsibilities": [
+        "§2 Metrics & Trend Analysis (gauge engagement on status posts)",
+        "SOP 7.4 Step 2 (engagement signal as a trend input)"
+      ]
+    },
+    {
+      "name": "slack_member_info",
+      "relevance": "medium",
+      "responsibilities": [
+        "§4 Communication: Slack (resolve owner identity)",
+        "SOP 7.3 Step 3 (look up blocker owner profile for accurate @mention)"
+      ]
+    },
+    {
+      "name": "slack_emoji_list",
+      "relevance": "low",
+      "responsibilities": [
+        "SOP 7.1 Step 4 (use workspace-specific status emoji)"
+      ]
+    },
+    {
+      "name": "knowledge",
+      "relevance": "high",
+      "responsibilities": [
+        "§3 Data Aggregation (persistent context across runs)",
+        "§2 Dependency Graph Maintenance (remember program/team graph, owners, RACI)",
+        "§2 Metrics & Trend Analysis (carry baselines/thresholds across weeks)",
+        "SOP 7.1 Step 1 (recall sprint cadence, channel map, stakeholder list)",
+        "SOP 7.2 Step 1 (recall canonical dependency graph for diffing)",
+        "SOP 7.4 Step 1 (recall prior-week metrics baseline)"
+      ],
+      "notes": "Use add/search/load to keep durable program context (charters, RACI, cadence, escalation matrix, metric baselines) across sessions."
+    },
+    {
+      "name": "clarification",
+      "relevance": "high",
+      "responsibilities": [
+        "§3 Data Aggregation (clarify sprint window, scope, audience)",
+        "§4 Communication (clarify target audience / format)",
+        "SOP 7.1 Step 1 (clarify which programs/teams to aggregate)",
+        "SOP 7.3 Step 2 (clarify blocker severity/owner before surfacing)"
+      ],
+      "notes": "Used whenever PgM input is ambiguous — owner, severity, audience, deadline, scope."
+    },
+    {
+      "name": "confirmation",
+      "relevance": "high",
+      "responsibilities": [
+        "§4 Communication (gate before broadcast)",
+        "SOP 7.1 Step 4 (confirm before posting status digest)",
+        "SOP 7.3 Step 3 (confirm before surfacing/escalating a blocker publicly)",
+        "SOP 7.4 Step 4 (confirm trend report before broadcast)",
+        "Any twg write op (Jira transitions, Confluence publish, goal updates)"
+      ],
+      "notes": "Mandatory gate before any irreversible/high-visibility distribution or work-graph mutation."
+    },
+    {
+      "name": "single_choice",
+      "relevance": "medium",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution (pick a single primary channel)",
+        "SOP 7.3 Step 3 (pick blocker escalation surface: leadership DM vs incident channel vs goal update)",
+        "SOP 7.1 Step 3 (pick status report template)"
+      ]
+    },
+    {
+      "name": "multiple_choice",
+      "relevance": "medium",
+      "responsibilities": [
+        "§3 Multi-Channel Distribution (select stakeholder channel set)",
+        "SOP 7.1 Step 4 (choose distribution surfaces: Slack channels + Confluence)",
+        "SOP 7.4 Step 4 (choose which metrics to highlight in the digest)"
+      ]
+    },
+    {
+      "name": "task",
+      "relevance": "medium",
+      "responsibilities": [
+        "§2 Status Reporting (planned end-to-end reporting run with reviewer gate)",
+        "SOP 7.1 Steps 1-4 (proposer/reviewer loop for weekly status)",
+        "SOP 7.4 Steps 1-4 (proposer/reviewer loop for trend analysis)"
+      ],
+      "notes": "Dual-agent proposer/reviewer loop — useful when PgM action set is large, irreversible, or needs an automated second opinion before broadcast."
+    },
+    {
+      "name": "research_propose",
+      "relevance": "medium",
+      "responsibilities": [
+        "§2 Metrics & Trend Analysis (deep-dive into a recurring trend or anomaly)",
+        "§2 Blocker Surfacing (root-cause investigation across products)",
+        "Quarterly review: decompose a program question into research subtasks"
+      ],
+      "notes": "Use for ambiguous, multi-source program questions that benefit from decomposition + parallel research + synthesized proposal."
+    },
+    {
+      "name": "view",
+      "relevance": "low",
+      "responsibilities": [
+        "§4 Communication (preview drafted Confluence/Slack message before confirmation)",
+        "SOP 7.1 Step 4, SOP 7.4 Step 4 (preview rendered digest)"
+      ],
+      "notes": "User-facing artifact preview surface — pair with confirmation prompts to preview generated reports/pages."
+    },
+    {
+      "name": "understand_codebase",
+      "relevance": "low",
+      "responsibilities": [
+        "§2 Blocker Surfacing (when a blocker hinges on code/architecture context the PgM must summarize for non-engineering stakeholders)"
+      ],
+      "notes": "Edge case — PgM is not an engineer, but may invoke when translating a technical blocker for executive reporting."
+    }
+  ],
+  "gaps": [
+    {
+      "area": "Email Distribution",
+      "description": "No first-party email send tool registered. §3 Multi-Channel Distribution currently covers Slack + Confluence (via twg) but not direct email blast to executives or external stakeholders."
+    },
+    {
+      "area": "Calendar / Meeting Scheduling",
+      "description": "No calendar/availability tool registered for the role. Status review meetings, blocker triage syncs, and metrics retros have no native scheduling coverage. Federated 'meetings' surface in twg is read-only."
+    },
+    {
+      "area": "CI/CD & Delivery Health Metrics",
+      "description": "Bitbucket access via twg covers PR/commit/branch metadata but there is no dedicated tool for pipeline status, build health, deployment frequency, or DORA metrics — needed for §2 Metrics & Trend Analysis on engineering delivery KPIs."
+    },
+    {
+      "area": "Program Analytics / Dashboarding",
+      "description": "No tool aggregates cross-program KPIs (cycle time, throughput, blocker-burn-down, on-time delivery %) into a structured analytics surface. §2 Metrics & Trend Analysis must currently be hand-rolled from twg query outputs."
+    },
+    {
+      "area": "Templated Status / Report Rendering",
+      "description": "No templating tool for rendering status reports, exec summaries, or RAG dashboards. §2 Status Reporting requires composing Markdown/ADF inline before publishing via twg confluence or slack_send_message."
+    },
+    {
+      "area": "Dependency Graph Visualization",
+      "description": "twg returns issue links as data; there is no tool to render a visual dependency graph or critical-path view. §2 Dependency Graph Maintenance is currently text/JSON only."
+    },
+    {
+      "area": "Survey / Feedback Collection",
+      "description": "No survey/poll tool — feedback loops on program health, retro signals, stakeholder NPS (continuous_improvement principle) are not directly supported."
+    },
+    {
+      "area": "Document Generation (Google Docs / PDF)",
+      "description": "twg can read federated docs (Google Docs, SharePoint) but cannot create/edit them. Executive-facing artifacts that live outside Confluence have no creation path."
+    }
+  ]
+}
