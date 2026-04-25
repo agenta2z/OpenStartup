@@ -226,6 +226,8 @@ async def manager_websocket(websocket: WebSocket) -> None:
             "content": text,
             "timestamp": _make_timestamp(),
         }
+        if data.get("is_auto_advance"):
+            user_msg["metadata"] = {"is_auto_advance": True}
         session = data_svc.append_message(sid, user_msg)
         if session is None:
             await send_safe({"type": "error", "message": f"Session {sid} not found"})

@@ -204,7 +204,7 @@ export function useManagerChat(sessionId) {
             }),
             '```]',
           ].filter(Boolean).join(' ');
-          wsRef.current.send(JSON.stringify({ type: 'message', content: parts }));
+          wsRef.current.send(JSON.stringify({ type: 'message', content: parts, is_auto_advance: true }));
         }
         break;
       }
@@ -457,6 +457,8 @@ export function useManagerChat(sessionId) {
         if (data.messages) {
           let agentTurnCount = 0;
           setMessages(data.messages.map((msg, i) => {
+            // Hide auto-advance system messages (RankEvolve pattern)
+            if (msg.metadata?.is_auto_advance) return null;
             const isAgent = msg.role === 'assistant' || msg.role === 'agent';
             if (isAgent) agentTurnCount += 1;
             const base = {
@@ -491,7 +493,7 @@ export function useManagerChat(sessionId) {
               }
             }
             return base;
-          }));
+          }).filter(Boolean));
           // Sync turnCountRef so live messages continue from the right turn number
           turnCountRef.current = agentTurnCount;
         }

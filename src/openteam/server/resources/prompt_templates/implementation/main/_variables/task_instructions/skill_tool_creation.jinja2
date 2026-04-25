@@ -1,13 +1,14 @@
-Synthesize ALL research and investigation findings into comprehensive, implementable deliverables. The creation request above describes one or more **skills** and/or **tools** to create — produce a complete specification for each.
+Synthesize ALL research and investigation findings into comprehensive, implementable deliverables. The creation request above describes one or more **skills**, **tools**, and/or **knowledge blocks** to create — produce a complete specification for each.
 
 - A **skill** (SKILL.md) provides domain-specific workflow guidance on how to use existing tools.
 - A **tool** provides a new executable capability (tool.json + executor).
+- A **knowledge block** (.md) captures domain knowledge, conventions, or reference material that doesn't fit into a skill or tool.
 
 ## Scope Discipline
 
-You are responsible for producing skills and tools related ONLY to the scope described in the creation request above. Do NOT produce SKILL.md or tool.json files for skills/tools outside this scope, even if your research uncovers them. Other workers handle other scopes — duplicating their work creates conflicts and may produce incomplete versions.
+You are responsible for producing skills, tools, and knowledge blocks related ONLY to the scope described in the creation request above. Do NOT produce deliverables for scopes outside this request, even if your research uncovers them. Other workers handle other scopes — duplicating their work creates conflicts and may produce incomplete versions.
 
-If your research reveals a skill/tool that would be useful but is outside your assigned scope, mention it in your `<Response>` text as: "DISCOVERED OUT OF SCOPE: <name> — <one-line description>". The aggregator will surface these in the report's Gaps section.
+If your research reveals a skill/tool/knowledge block that would be useful but is outside your assigned scope, mention it in your `<Response>` text as: "DISCOVERED OUT OF SCOPE: <name> — <one-line description>". The aggregator will surface these in the report's Gaps section.
 
 ---
 
@@ -108,9 +109,37 @@ If the tool has subcommands, define each with its own parameter table.
 
 ---
 
+## For Each Knowledge Block (<name>.md)
+
+Produce knowledge block files for domain knowledge, architectural context, project conventions, or other reference material that is relevant to the scope of this subtask but doesn't fit into a specific skill's SKILL.md or a tool's specification.
+
+Write each to `outputs/knowledge/<kebab-case-name>.md`.
+
+Knowledge blocks capture information that an AI employee needs as reference material — things like:
+- Project-specific conventions and standards
+- Architectural decision records and design rationale
+- Domain terminology and taxonomies
+- Team workflows and norms not captured by tools or skills
+- Integration patterns between systems
+
+Each knowledge block MUST:
+- Start with a `# Title` heading and a brief description of what this knowledge covers
+- Be self-contained — readable without needing other knowledge blocks
+- Focus on a single domain or topic (don't combine unrelated subjects)
+- Include concrete examples, templates, or decision criteria where applicable
+- Reference related skills and tools by name where relevant
+
+### Quality Requirements for Knowledge Blocks
+- **Relevant**: Only produce knowledge blocks when your research uncovers domain knowledge that is genuinely useful but doesn't belong in a skill or tool spec
+- **Self-contained**: Each block should be readable independently
+- **Grounded**: Content must be based on research findings, not invented
+- **No duplication**: Do not duplicate information that belongs in a SKILL.md or tool specification
+
+---
+
 ## NOTES (deliverable writing guidelines): 
-- **IMPORTANT: Write ALL deliverable files to the `outputs/` directory using the canonical subdirectory structure** (e.g., `outputs/skills/<name>/SKILL.md`, `outputs/tools/<name>/tool.json`,- `outputs/tools/<name>/executor.py`). This directory is where the system collects final deliverables. Do NOT write deliverables to the project root or flat at `outputs/` root level — use the structured subdirectory paths.
-- **IMPORTANT: Implementation reports, summaries, and index documents** (e.g., `IMPLEMENTATION_REPORT.md`, `README.md`, `SUMMARY.md`) must be written to `artifacts/` (e.g., `artifacts/IMPLEMENTATION_REPORT.md`), NOT to `outputs/`. Only structured skill and tool deliverables belong in `outputs/skills/` and `outputs/tools/`.
+- **IMPORTANT: Write ALL deliverable files to the `outputs/` directory using the canonical subdirectory structure** (e.g., `outputs/skills/<name>/SKILL.md`, `outputs/tools/<name>/tool.json`, `outputs/tools/<name>/executor.py`, `outputs/knowledge/<name>.md`). This directory is where the system collects final deliverables. Do NOT write deliverables to the project root or flat at `outputs/` root level — use the structured subdirectory paths.
+- **IMPORTANT: Implementation reports, summaries, and index documents** (e.g., `IMPLEMENTATION_REPORT.md`, `README.md`, `SUMMARY.md`) must be written to `artifacts/` (e.g., `artifacts/IMPLEMENTATION_REPORT.md`), NOT to `outputs/`. Only structured deliverables belong in `outputs/skills/`, `outputs/tools/`, and `outputs/knowledge/`.
 - **IMPORTANT — Writing large files**: Deliverable files (SKILL.md, tool.json) can be large. Use `create_file` for the initial write. If `create_file` fails due to size, fall back to writing in sections using the `bash` tool with Python:
 ```bash
 python3 -c "

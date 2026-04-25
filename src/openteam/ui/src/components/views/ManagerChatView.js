@@ -120,7 +120,7 @@ function CommittedWidgetMessage({ message, onView, onViewFolder }) {
       : (response?.custom_text || JSON.stringify(response));
     statusText = `Selected: ${label}`;
     statusColor = 'primary.main';
-  } else if (widgetType === 'multiple_choices') {
+  } else if (widgetType === 'multiple_choice' || widgetType === 'multiple_choices') {
     const opts = message.inputMode?.options || [];
     const sels = response?.selections || [];
     const labels = sels.map(s =>

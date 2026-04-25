@@ -17,7 +17,8 @@ const WIDGET_REGISTRY = {
   'free_text': TextInputWidget,
   'text_input': TextInputWidget,
   'single_choice': SingleChoiceWidget,
-  'multiple_choices': MultipleChoiceWidget,
+  'multiple_choice': MultipleChoiceWidget,
+  'multiple_choices': MultipleChoiceWidget,  // alias
 
   // widget_type in metadata (used by ConversationToolWidget)
   'confirmation': ConfirmationWidget,

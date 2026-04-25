@@ -41,6 +41,12 @@ const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
 const GHOST_SIZE = 32;
+const GROUP_THRESHOLD = 6;
+const DOTS_PER_ROW = 6;
+const DOT_SIZE = 24;
+const DOT_STRIDE = DOT_SIZE + 2;
+const MINI_CARD_H = 30;
+const GROUP_HEADER_H = 26;
 
 const STATUS_CONFIG = {
   pending:   { color: '#666', chipColor: 'default',  icon: null },
@@ -89,9 +95,7 @@ function computeLayout(nodes, edges, dims) {
     });
   });
   const totalW = PADDING * 2 + columns.length * nodeW + Math.max(0, columns.length - 1) * COL_GAP;
-  const totalH = PADDING * 2 + Math.max(...columns.map(col =>
-    col.length * nodeH + Math.max(0, col.length - 1) * rowGap
-  ));
+  // totalH recalculated after groupedColumns is built (see below)
   const edgePaths = (edges || []).map(e => {
     const src = positions[e.source];
     const tgt = positions[e.target];
@@ -100,7 +104,29 @@ function computeLayout(nodes, edges, dims) {
     const cp = (tx - sx) * 0.5;
     return { key: `${e.source}-${e.target}`, d: `M ${sx} ${sy} C ${sx + cp} ${sy}, ${tx - cp} ${ty}, ${tx} ${ty}` };
   }).filter(Boolean);
-  return { columns, positions, totalW, totalH, edgePaths };
+  // Detect columns with >GROUP_THRESHOLD nodes → grouped rendering
+  const groupedColumns = {};
+  columns.forEach((col, ci) => {
+    if (col.length > GROUP_THRESHOLD) {
+      const running = col.filter(n => n.status === 'running');
+      const others = col.filter(n => n.status !== 'running');
+      const runH = running.length * MINI_CARD_H;
+      const dotRows = Math.ceil(others.length / DOTS_PER_ROW);
+      const dotsH = dotRows * DOT_STRIDE + 8;
+      const groupH = GROUP_HEADER_H + runH + dotsH + 12;
+      const colX = PADDING + ci * (nodeW + COL_GAP);
+      const groupW = Math.max(nodeW, DOTS_PER_ROW * DOT_STRIDE + 12);
+      groupedColumns[ci] = {
+        x: colX, y: PADDING, w: groupW, h: groupH,
+        nodeIds: new Set(col.map(n => n.id)),
+        nodes: col,
+      };
+    }
+  });
+  const totalH = PADDING * 2 + Math.max(...columns.map((col, ci) =>
+    groupedColumns[ci] ? groupedColumns[ci].h : (col.length * nodeH + Math.max(0, col.length - 1) * rowGap)
+  ));
+  return { columns, positions, totalW, totalH, edgePaths, groupedColumns };
 }
 
 /**
@@ -117,6 +143,7 @@ function computeUnifiedLayout(rootNodes, rootEdges, subGraphs, dims, focusedPath
   const positions = { ...rootLayout.positions };
   const edgePaths = [...rootLayout.edgePaths];
   const subGraphBounds = {};
+  const subGroupedColumns = {};
   let maxW = rootLayout.totalW;
   let maxH = rootLayout.totalH;
 
@@ -143,6 +170,18 @@ function computeUnifiedLayout(rootNodes, rootEdges, subGraphs, dims, focusedPath
           cx: offsetX + sp.cx, cy: offsetY + sp.cy,
         };
         allNodes.push({ ...sn, id: qid, _qualifiedId: qid, _depth: 1, _parentId: parentId });
+      }
+
+      // Collect sub-graph grouped columns with offset
+      for (const [colIdx, group] of Object.entries(subLayout.groupedColumns || {})) {
+        const gcKey = `${parentId}/${colIdx}`;
+        subGroupedColumns[gcKey] = {
+          ...group,
+          x: offsetX + group.x,
+          y: offsetY + group.y,
+          nodeIds: new Set([...group.nodeIds].map(id => `${parentId}/${id}`)),
+          nodes: group.nodes.map(n => ({ ...n, id: `${parentId}/${n.id}`, _qualifiedId: `${parentId}/${n.id}`, _depth: 1, _parentId: parentId })),
+        };
       }
 
       for (const ep of subLayout.edgePaths) {
@@ -187,7 +226,89 @@ function computeUnifiedLayout(rootNodes, rootEdges, subGraphs, dims, focusedPath
     }
   }
 
-  return { allNodes, positions, edgePaths, totalW: maxW, totalH: Math.max(maxH, PADDING * 2), subGraphBounds };
+  return { allNodes, positions, edgePaths, totalW: maxW, totalH: Math.max(maxH, PADDING * 2), subGraphBounds, groupedColumns: subGroupedColumns };
+}
+
+function StatusDot({ node, cx, cy, r, selected, onClick }) {
+  const cfg = STATUS_CONFIG[node.status] || STATUS_CONFIG.pending;
+  const isContainer = node.is_container;
+  return (
+    <g onClick={(e) => { e.stopPropagation(); onClick(node._qualifiedId || node.id); }} style={{ cursor: 'pointer' }}>
+      <title>{node.label} — {node.status || 'pending'}</title>
+      {isContainer ? (
+        <rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} rx={4}
+          fill={cfg.color} opacity={selected ? 1 : 0.7}
+          stroke={selected ? '#fff' : 'none'} strokeWidth={selected ? 2 : 0} />
+      ) : (
+        <circle cx={cx} cy={cy} r={r} fill={cfg.color} opacity={selected ? 1 : 0.7}
+          stroke={selected ? '#fff' : 'none'} strokeWidth={selected ? 2 : 0} />
+      )}
+    </g>
+  );
+}
+
+function MiniCard({ node, y, width, selected, onClick }) {
+  const cfg = STATUS_CONFIG[node.status] || STATUS_CONFIG.pending;
+  return (
+    <g onClick={(e) => { e.stopPropagation(); onClick(node._qualifiedId || node.id); }} style={{ cursor: 'pointer' }}>
+      <rect x={4} y={y} width={width} height={MINI_CARD_H - 4} rx={4}
+        fill={selected ? 'rgba(25,118,210,0.2)' : 'rgba(255,255,255,0.05)'}
+        stroke={selected ? '#1976d2' : cfg.color} strokeWidth={1} />
+      {cfg.icon === 'spinner' && (
+        <circle cx={16} cy={y + (MINI_CARD_H - 4) / 2} r={4}
+          fill="none" stroke={cfg.color} strokeWidth={1.5} strokeDasharray="6 4">
+          <animateTransform attributeName="transform" type="rotate"
+            from={`0 16 ${y + (MINI_CARD_H - 4) / 2}`} to={`360 16 ${y + (MINI_CARD_H - 4) / 2}`}
+            dur="1s" repeatCount="indefinite" />
+        </circle>
+      )}
+      {cfg.icon === 'check' && (
+        <text x={14} y={y + (MINI_CARD_H - 4) / 2 + 4} fontSize={10} fill={cfg.color}>✓</text>
+      )}
+      <text x={28} y={y + (MINI_CARD_H - 4) / 2 + 4} fontSize={10} fill="rgba(255,255,255,0.85)"
+        clipPath={`inset(0 0 0 0)`}>
+        <title>{node.label}</title>
+        {node.label?.length > 18 ? node.label.slice(0, 17) + '…' : node.label}
+      </text>
+      {node.is_container && (
+        <text x={width - 8} y={y + (MINI_CARD_H - 4) / 2 + 3} fontSize={8} fill="rgba(255,255,255,0.4)">⊞</text>
+      )}
+    </g>
+  );
+}
+
+function GroupedColumn({ nodes, selectedId, onSelect, x, y, width, height }) {
+  const running = nodes.filter(n => n.status === 'running');
+  const pending = nodes.filter(n => n.status === 'pending');
+  const completed = nodes.filter(n => n.status !== 'running' && n.status !== 'pending');
+  [running, pending, completed].forEach(arr => arr.sort((a, b) => (a.id || '').localeCompare(b.id || '')));
+
+  const dotStartY = GROUP_HEADER_H + running.length * MINI_CARD_H + 8;
+  const allDots = [...completed, ...pending];
+
+  return (
+    <Box sx={{ position: 'absolute', left: x, top: y, width, height }}>
+      <svg width={width} height={height} style={{ overflow: 'visible' }}>
+        <rect width={width} height={height} rx={8} fill="rgba(255,255,255,0.03)"
+          stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+        <text x={8} y={16} fontSize={10} fill="rgba(255,255,255,0.5)" fontFamily="sans-serif">
+          {nodes.length} nodes
+          {'  '}✅{completed.length} ⏳{running.length} ⏸{pending.length}
+        </text>
+        {running.map((node, i) => (
+          <MiniCard key={node.id} node={node} y={GROUP_HEADER_H + i * MINI_CARD_H}
+            width={width - 8} selected={selectedId === (node._qualifiedId || node.id)} onClick={onSelect} />
+        ))}
+        {allDots.map((node, i) => (
+          <StatusDot key={node.id} node={node}
+            cx={DOT_SIZE / 2 + 4 + (i % DOTS_PER_ROW) * DOT_STRIDE}
+            cy={dotStartY + Math.floor(i / DOTS_PER_ROW) * DOT_STRIDE}
+            r={DOT_SIZE / 2 - 2}
+            selected={selectedId === (node._qualifiedId || node.id)} onClick={onSelect} />
+        ))}
+      </svg>
+    </Box>
+  );
 }
 
 function NodeBox({ node, position, isSelected, isExpandable, compact, dims, opacity, badge, onClick }) {
@@ -325,13 +446,13 @@ export function GraphFlowView({
 
   const isFocusContext = viewMode === 'focus-context' && subGraphs;
 
-  const { allNodes: unifiedNodes, positions: unifiedPositions, edgePaths: unifiedEdgePaths, totalW: unifiedTotalW, totalH: unifiedTotalH, subGraphBounds } = useMemo(() => {
-    if (!isFocusContext) return { allNodes: [], positions: {}, edgePaths: [], totalW: 0, totalH: 0, subGraphBounds: {} };
+  const { allNodes: unifiedNodes, positions: unifiedPositions, edgePaths: unifiedEdgePaths, totalW: unifiedTotalW, totalH: unifiedTotalH, subGraphBounds, groupedColumns: unifiedGroupedColumns } = useMemo(() => {
+    if (!isFocusContext) return { allNodes: [], positions: {}, edgePaths: [], totalW: 0, totalH: 0, subGraphBounds: {}, groupedColumns: {} };
     return computeUnifiedLayout(nodes, edges, subGraphs, dims, focusedPath);
   }, [isFocusContext, nodes, edges, subGraphs, dims, focusedPath]);
 
-  const { positions: pageSwitchPositions, totalW: psTotalW, totalH: psTotalH, edgePaths: psEdgePaths } = useMemo(() => {
-    if (isFocusContext) return { positions: {}, totalW: 0, totalH: 0, edgePaths: [] };
+  const { positions: pageSwitchPositions, totalW: psTotalW, totalH: psTotalH, edgePaths: psEdgePaths, groupedColumns: psGroupedColumns } = useMemo(() => {
+    if (isFocusContext) return { positions: {}, totalW: 0, totalH: 0, edgePaths: [], groupedColumns: {} };
     return computeLayout(nodes, edges, dims);
   }, [isFocusContext, nodes, edges, dims]);
 
@@ -433,6 +554,16 @@ export function GraphFlowView({
   }, [onFocusChange]);
 
   const expandable = expandableNodeIds instanceof Set ? expandableNodeIds : new Set(expandableNodeIds || []);
+  const activeGroupedColumns = isFocusContext
+    ? (unifiedGroupedColumns || {})
+    : (psGroupedColumns || {});
+  const groupedNodeIds = useMemo(() => {
+    const ids = new Set();
+    for (const g of Object.values(activeGroupedColumns)) {
+      if (g.nodeIds) g.nodeIds.forEach(id => ids.add(id));
+    }
+    return ids;
+  }, [activeGroupedColumns]);
 
   // Determine which node dims to use for each node
   const getNodeDims = useCallback((node) => {
@@ -482,20 +613,68 @@ export function GraphFlowView({
         transition: animating ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : (dragRef.current?.dragging ? 'none' : 'transform 0.15s ease-out'),
       }}>
         <svg style={{ position: 'absolute', top: 0, left: 0, width: totalW, height: totalH, pointerEvents: 'none' }}>
-          {activeEdgePaths.map(ep => {
-            const edgeOpacity = isFocusContext && focusedPath.length > 0
-              ? (ep._parentId && focusedPath.join('/') === ep._parentId ? 1 : (ep._isConnector && focusedPath[0] === ep._parentId ? 0.4 : 0.1))
-              : 1;
-            return (
-              <path key={ep.key} d={ep.d} fill="none" stroke={theme.palette.divider} strokeWidth={ep._depth > 0 || compact ? 1 : 1.5}
-                style={{ opacity: edgeOpacity, transition: 'opacity 0.3s ease' }}
-                strokeDasharray={ep._isConnector ? '4 3' : undefined} />
-            );
-          })}
+          {(() => {
+            // Build nodeId → group lookup for edge rerouting
+            const nodeToGroup = {};
+            for (const g of Object.values(activeGroupedColumns)) {
+              if (g.nodeIds) g.nodeIds.forEach(id => { nodeToGroup[id] = g; });
+            }
+            // Deduplicate edges between same group pairs
+            const seen = new Set();
+            return activeEdgePaths.map(ep => {
+              const [srcId, tgtId] = ep.key.split('-');
+              const srcGrp = nodeToGroup[srcId];
+              const tgtGrp = nodeToGroup[tgtId];
+              if (srcGrp && tgtGrp && srcGrp === tgtGrp) return null; // skip intra-group
+              const dedupKey = `${srcGrp ? 'g' + srcGrp.x : srcId}-${tgtGrp ? 'g' + tgtGrp.x : tgtId}`;
+              if (srcGrp || tgtGrp) {
+                if (seen.has(dedupKey)) return null;
+                seen.add(dedupKey);
+              }
+              // Reroute endpoints to group box center
+              let d = ep.d;
+              if (srcGrp || tgtGrp) {
+                const src = activePositions[srcId];
+                const tgt = activePositions[tgtId];
+                if (src && tgt) {
+                  const sx = srcGrp ? srcGrp.x + srcGrp.w : src.x + (dims?.nodeW || NORMAL.nodeW);
+                  const sy = srcGrp ? srcGrp.y + srcGrp.h / 2 : src.cy;
+                  const tx = tgtGrp ? tgtGrp.x : tgt.x;
+                  const ty = tgtGrp ? tgtGrp.y + tgtGrp.h / 2 : tgt.cy;
+                  const cp = (tx - sx) * 0.5;
+                  d = `M ${sx} ${sy} C ${sx + cp} ${sy}, ${tx - cp} ${ty}, ${tx} ${ty}`;
+                }
+              }
+              const edgeOpacity = isFocusContext && focusedPath.length > 0
+                ? (ep._parentId && focusedPath.join('/') === ep._parentId ? 1 : (ep._isConnector && focusedPath[0] === ep._parentId ? 0.4 : 0.1))
+                : 1;
+              return (
+                <path key={ep.key} d={d} fill="none" stroke={theme.palette.divider}
+                  strokeWidth={(srcGrp || tgtGrp) ? 2 : (ep._depth > 0 || compact ? 1 : 1.5)}
+                  style={{ opacity: edgeOpacity, transition: 'opacity 0.3s ease' }}
+                  strokeDasharray={ep._isConnector ? '4 3' : undefined} />
+              );
+            }).filter(Boolean);
+          })()}
         </svg>
 
+        {/* Grouped columns */}
+        {Object.entries(activeGroupedColumns).map(([colIdx, group]) => (
+          <Box key={`group-${colIdx}`} data-node>
+            <GroupedColumn
+              nodes={group.nodes}
+              selectedId={selectedNodeId}
+              onSelect={onNodeClick}
+              x={group.x} y={group.y}
+              width={group.w} height={group.h}
+            />
+          </Box>
+        ))}
+
+        {/* Individual nodes (skip those in grouped columns) */}
         {(isFocusContext ? unifiedNodes : nodes).map(node => {
           const nodeId = node._qualifiedId || node.id;
+          if (groupedNodeIds.has(nodeId)) return null;
           const pos = activePositions[nodeId];
           if (!pos) return null;
           const nodeDims = getNodeDims(node);
