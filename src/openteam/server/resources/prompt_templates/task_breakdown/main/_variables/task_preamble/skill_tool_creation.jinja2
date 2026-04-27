@@ -23,6 +23,14 @@ Each subtask MUST be classified as one of:
 - Deep-dive into local artifacts (existing SKILL.md files, tool.json definitions, reference docs, code) to discover what existing tools can already do for the user reqeust (e.g. a specific workflow or operation that can fulfil part of the user request).
   * Good: "Investigate the project tracking tool's capabilities by reading its SKILL.md and reference docs to discover all available commands for creating and updating risk register entries"
   * Bad: "Look at existing tools" (too vague)
+- Also investigate **domain operational artifacts** relevant to the role — the primary knowledge sources that the role routinely consults. These vary by domain but the pattern is consistent: every role has a set of reference materials that encode how work is actually done. Look for and investigate:
+  * **Runbooks & playbooks** — step-by-step operational procedures for common tasks the role owns (e.g. training runbooks, incident runbooks, release checklists, onboarding procedures)
+  * **Evaluation & quality frameworks** — criteria and workflows used to assess outputs (e.g. model evaluation frameworks, code review standards, SLO/SLA definitions, quality gates)
+  * **Primary platform query patterns** — common queries, dashboards, or data access patterns used for the role's top use cases (e.g. typical SQL/metric queries, monitoring dashboards, data pipeline configs)
+  * **Templates & standards** — reusable documents the role regularly produces (e.g. PRD templates, design docs, postmortem templates, experiment tracking sheets)
+  * **Domain reference materials** — canonical docs, internal wikis, or knowledge bases the role relies on (e.g. architecture decision records, API references, team conventions docs)
+  * Good: "Investigate the ML platform's model evaluation runbook and experiment tracking conventions to understand the standard evaluation workflow and metrics the MLE skill must encode"
+  * Bad: "Look at domain knowledge" (too vague)
 
 ### What to Decompose Into
 
