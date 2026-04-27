@@ -23,14 +23,6 @@ Each subtask MUST be classified as one of:
 - Deep-dive into local artifacts (existing SKILL.md files, tool.json definitions, reference docs, code) to discover what existing tools can already do for the user reqeust (e.g. a specific workflow or operation that can fulfil part of the user request).
   * Good: "Investigate the project tracking tool's capabilities by reading its SKILL.md and reference docs to discover all available commands for creating and updating risk register entries"
   * Bad: "Look at existing tools" (too vague)
-- Also investigate **domain operational artifacts** relevant to the role — the primary knowledge sources that the role routinely consults. These vary by domain but the pattern is consistent: every role has a set of reference materials that encode how work is actually done. Look for and investigate:
-  * **Runbooks & playbooks** — step-by-step operational procedures for common tasks the role owns (e.g. training runbooks, incident runbooks, release checklists, onboarding procedures)
-  * **Evaluation & quality frameworks** — criteria and workflows used to assess outputs (e.g. model evaluation frameworks, code review standards, SLO/SLA definitions, quality gates)
-  * **Primary platform query patterns** — common queries, dashboards, or data access patterns used for the role's top use cases (e.g. typical SQL/metric queries, monitoring dashboards, data pipeline configs)
-  * **Templates & standards** — reusable documents the role regularly produces (e.g. PRD templates, design docs, postmortem templates, experiment tracking sheets)
-  * **Domain reference materials** — canonical docs, internal wikis, or knowledge bases the role relies on (e.g. architecture decision records, API references, team conventions docs)
-  * Good: "Investigate the ML platform's model evaluation runbook and experiment tracking conventions to understand the standard evaluation workflow and metrics the MLE skill must encode"
-  * Bad: "Look at domain knowledge" (too vague)
 
 ### What to Decompose Into
 
@@ -38,6 +30,12 @@ For each skill or tool described in the parent task, produce subtasks that cover
 
 **For skills** (SKILL.md — domain guidance on using existing tools):
 - **Tool Capability Investigation**: For each existing tool the skill leverages, investigate its full capabilities by reading its artifacts (SKILL.md, tool.json, reference docs). Discover available commands, parameters, and operations relevant to the skill's workflows.
+- **Domain Operational Artifacts Investigation**: Investigate the primary knowledge sources the role routinely uses to do work in this domain. Every role has operational artifacts that encode how work is actually done — find and read them. Examples by type (not exhaustive):
+  * Runbooks & playbooks — step-by-step procedures for common tasks the role owns (e.g. training runbooks, incident runbooks, release checklists)
+  * Evaluation & quality frameworks — how outputs are assessed (e.g. model eval frameworks, code review standards, SLO definitions, quality gates)
+  * Primary platform query patterns — common queries, dashboards, or data access patterns for the role's top use cases
+  * Templates & standards — reusable documents the role regularly produces (e.g. design docs, postmortem templates, experiment tracking sheets)
+  * Domain reference materials — canonical internal docs the role relies on (e.g. architecture decision records, API references, team conventions)
 - **Workflow Design Research**: For each SOP or operational pattern the skill needs to encode, research the domain knowledge and best practices needed to design the step-by-step workflow.
 - **Domain Knowledge Research**: Research domain-specific frameworks, standards, or methodologies the skill needs to encode (e.g., compliance frameworks, lifecycle models, reporting patterns).
 - **Templates & Patterns**: Research reusable templates, checklists, or decision criteria the skill should provide for its domain.
