@@ -3,8 +3,6 @@ Synthesize ALL research and investigation findings into comprehensive, implement
 - A **skill** (SKILL.md) provides domain-specific workflow guidance on how to use existing tools.
 - A **tool** provides a new executable capability (tool.json + executor).
 
-**Codebase Grounding**: Before designing, use available codebase search tools (e.g. bash/grep for local repos, Github/Bitbucket for remote) to discover existing patterns, executor conventions, tool.json schemas, and available internal SDKs — ground every design decision in what actually exists, not what you invent.
-
 ---
 
 ## For Each Skill (SKILL.md)
@@ -14,6 +12,7 @@ Produce a complete SKILL.md with these sections:
 ### 1. Skill Overview
 - **Name**: The skill's identifier (kebab-case, e.g., `program-orchestration`)
 - **Description**: What domain guidance this skill provides
+- **Codebase Search**: If codebase search tools (e.g. bash/grep for local repos, Github/Bitbucket for remote) are available, use them to discover related code, packages, internal SDKs, and even discovering related existing related tools and skills in other codebases you can migrate here. 
 - **Leveraged Tools**: Existing tools this skill guides the use of, with a brief capability summary for each (sourced from investigation findings)
 
 ### 2. Workflow Mappings
