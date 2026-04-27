@@ -13,13 +13,14 @@ Each subtask MUST be classified as one of:
 
 **Research** 
 — `"args": {"task_preamble": "skill_tool_creation_research"}`:
-- Search external sources (online documentation, API references, domain literature, best practices) to gather knowledge needed for a **specific** feature or capability of the skill/tool being created. Each research subtask must name the concrete capability it targets.
+- Search external sources (online documentation, API references, related primary codebases, domain literature, best practices) to gather knowledge needed for a **specific** feature or capability of the skill/tool being created. Each research subtask must name the concrete capability it targets.
   * Good: "Research tools, platforms, APIs, and frameworks that can be used to define the specific activities and artifacts required for compliance checklists"
   * Bad: "Research compliance frameworks" (too vague)
+- For an engineering role, if codebase search tools (e.g. Github, Bitbucket) are available, include one or more subtasks to research if there is any codebases related to the user request, and understand how skills or tools could be best created to fulfil the user request.
 
 **Investigation**
 — `"args": {"task_preamble": "skill_tool_creation_investigation"}`:
-- Deep-dive into local artifacts (existing SKILL.md files, tool.json definitions, reference docs, code) to discover what existing tools can already do for a **specific** workflow or operation.
+- Deep-dive into local artifacts (existing SKILL.md files, tool.json definitions, reference docs, code) to discover what existing tools can already do for the user reqeust (e.g. a specific workflow or operation that can fulfil part of the user request).
   * Good: "Investigate the project tracking tool's capabilities by reading its SKILL.md and reference docs to discover all available commands for creating and updating risk register entries"
   * Bad: "Look at existing tools" (too vague)
 
