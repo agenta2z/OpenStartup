@@ -3,28 +3,7 @@ Synthesize ALL research and investigation findings into comprehensive, implement
 - A **skill** (SKILL.md) provides domain-specific workflow guidance on how to use existing tools.
 - A **tool** provides a new executable capability (tool.json + executor).
 
----
-
-## Codebase Investigation (Required Before Designing Any Tool or Skill)
-
-Before producing any specification, **explore the relevant codebase(s)** to ground your design in what actually exists. Do not invent patterns, parameter names, or dependencies — discover them.
-
-**Step 1 — Identify relevant repos**: Based on the creation request, determine which codebases contain related tools, patterns, or integration points.
-
-**Step 2 — Deep-dive each repo** using tools in order of preference:
-1. `bash` / `ls` / `grep` for locally cloned repos (fastest)
-2. Bitbucket MCP (`files.get`) for remote repos not locally available
-3. Confluence/Jira search for architectural docs, ADRs, or API references
-
-**Step 3 — Specifically look for**:
-- **Existing tools with similar functionality** — avoid reinventing; extend or compose instead
-- **Executor patterns** — how existing executors are structured (function signatures, error handling, return types)
-- **tool.json schema** — field names, types, and conventions used by existing tools
-- **Available internal SDKs and libraries** — what's already importable and battle-tested
-- **Integration points** — how tools connect to external APIs, authenticate, and handle failures
-- **Test patterns** — how existing tools are tested (unit vs integration, fixtures, mocks)
-
-**Step 4 — Ground your spec**: Every parameter name, executor pattern, dependency, and design decision must reference a concrete finding from your codebase investigation. If you can't point to a precedent, flag it explicitly.
+**Codebase Grounding**: Before designing, use available codebase search tools (e.g. bash/grep for local repos, Github/Bitbucket for remote) to discover existing patterns, executor conventions, tool.json schemas, and available internal SDKs — ground every design decision in what actually exists, not what you invent.
 
 ---
 
