@@ -20,14 +20,11 @@ Carefully analyze the following aspects of the role and achieve the above goal.
 1. **Compare** each needed capability against the **Available Tools/Skills** list.
 2. **Classify** each needed capability into one of three categories:
    - **Associate** — an existing tool/skill fully covers the need. This becomes an **association subtask** to document the mapping.
-   - **Extend** — an existing tool partially covers the need but requires modification or new features to fully serve the role. This becomes an **enhancement subtask**.
    - **Create** — no existing tool covers the need. This becomes a **creation subtask**.
 3. **Group creation subtasks** by platform or domain, with judgment on granularity:
    - It is OK for one subtask to produce **multiple related tools** from the same platform, as long as they share infrastructure (e.g., auth, API client). For example, "Slack file search" and "Slack message search" are distinct enough to be separate tools but can be created in one subtask since they share the same Slack API client.
    - Do NOT split too finely within the same functional area — e.g., "Slack DM message search" and "Slack channel message search" are too granular and should be grouped under one subtask.
    - Do NOT merge unrelated capabilities just because they happen to share a platform — use clear **responsibility boundaries** as the grouping criterion.
-4. **Keep enhancement subtasks separate** from creation subtasks. Enhancement tasks involve analyzing existing tool code, understanding its current interface, and designing additions — this is fundamentally different from creating a new tool from scratch. Each enhancement subtask should reference the specific existing tool being extended.
-
 ### Subtask Scope Discipline
 
 Each subtask MUST have a NON-OVERLAPPING scope. Two subtasks should never both claim responsibility for the same skill or tool. Overlap creates duplicate deliverables that waste worker effort and produce conflicting versions.
@@ -46,15 +43,6 @@ Each subtask should use `args` to specify its `task_preamble` variant, and inclu
   * For each new **skill**: state which existing tools it can leverage, and what additional tools may be needed. A skill is domain-specific guidance (SKILL.md) on how to use tools for a particular workflow — only propose a new tool if no existing tool covers the needed operations.
 - Always include a research requirement to discover and evaluate available platforms, APIs, and CLIs that could serve the need — the role document may hint at relevant options but is often incomplete. 
 - Reference the specific parts of the role document that drive each new skill or tool.
-
-**Skill/Tool Extension Subtask**
-— `"args": {"task_preamble": "skill_tool_enhancement"}`:
-- A subtask can extend one or more existing skills and/or tools. For each enhancement:
-  * Which existing skill or tool is being extended (by name) and what it currently does.
-  * What new capabilities, parameters, or behaviors are needed and why the current version is insufficient for the role.
-  * What the extended skill or tool should be able to do after the enhancement.
-- Include a research requirement to investigate the existing implementation and discover the best approach for the enhancement.
-- Reference the parts of the role document that drive the enhancement need.
 
 **Skill/Tool Association Subtask** (exactly one, mandatory)
 — `"args": {"task_preamble": "skill_tool_association"}`:
