@@ -493,79 +493,88 @@ async def execute(
 ) -> "ToolExecutionResult":
     """Generic entry point for ToolDispatcher.
 
+    Implementation: thin shim over `/task`'s `_run_topology()`. Loads the existing
+    `create_role_bta.yaml` and applies runtime overrides to swap RovoChat/RovoDevCLI
+    leaves to ClaudeCodeCli (so it works on machines without the Atlassian CLIs).
+    Equivalent to `/task --agent-config <create_role_bta.yaml> "<role_description>"`
+    plus the leaf-swap overrides.
+
+    The original YAML is unchanged; environments with RovoChat/RovoDevCLI installed
+    can still use it directly via `load_config + instantiate` (see
+    `test_create_role_through_yaml.py`).
+
     Arguments (from LLM tool call):
         role_description (str, required): High-level description of the role.
-        --output-path (str, optional): Path to write the generated role document.
         --max-facets (int, optional): Max research facets (default 8).
 
     session_context keys used:
-        cloud_id, uct_token, email, working_dir
+        working_dir (per-task subdir from dispatcher), task_id, interactive.
     """
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
-
-    import agent_foundation.common.configs.registered_targets  # noqa: register BTA targets
-    from rich_python_utils.config_utils import load_config, instantiate
+    from openteam.server.resources.tools.task.executor import (
+        _run_topology, _resolve_workspace,
+    )
 
     role_description = arguments.get("role_description", "")
     max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
 
-    # working_dir is the BTA workspace root (per-task dir under server runtime).
-    working_dir = session_context.get("working_dir")
-
-    # Resolve YAML config co-located with the executor
     yaml_path = Path(__file__).parent / "create_role_bta.yaml"
+    templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
-    # Build minimal overrides — workspace_root drives all child workspace paths.
-    # RovoChat auth (cloud_id/uct_token) is read from environment variables automatically.
-    overrides: dict = {"max_breakdown": max_facets}
+    # Pre-allocate workspace so per-slot ClaudeCodeCli `target_path` overrides have
+    # the concrete path. _run_topology will reuse this dir via the safe-hint heuristic.
+    task_id = session_context.get("task_id") or "create_role"
+    workspace = _resolve_workspace(session_context, task_id)
+    # Bake the resolved path back into session_context so _run_topology picks it up.
+    session_context = {**session_context, "working_dir": str(workspace)}
 
-    # Resolve prompt_templates absolute path — the YAML uses relative "prompt_templates"
-    # which resolves against CWD (src/openteam/server/), but templates live at
-    # src/openteam/server/resources/prompt_templates/
-    # Path: executor.py → create_role/ → tools/ → resources/ → resources/prompt_templates
-    overrides["_template_manager.templates"] = str(
-        Path(__file__).resolve().parent.parent.parent / "prompt_templates"
+    overrides: dict = {
+        "max_breakdown": max_facets,
+        "_template_manager.templates": str(templates_path),
+    }
+    # Curated Rovo* → ClaudeCodeCli swap — mirrors the proven set in
+    # test_create_role_through_yaml_claude.py:97-119. Required because the
+    # original YAML targets RovoChat (breakdown + workers) and RovoDevCLI
+    # (aggregator), neither of which is installed on Windows. Per-slot
+    # target_path is essential — ClaudeCodeCli defaults to cwd otherwise.
+    for slot in ("breakdown_inferencer", "worker_factory", "aggregator_inferencer"):
+        overrides.update({
+            f"{slot}._target_": "ClaudeCodeCLI",
+            f"{slot}.model_name": "opus[1m]",
+            f"{slot}.target_path": str(workspace),
+            f"{slot}.idle_timeout_seconds": 300,
+            f"{slot}.permission_mode": "bypassPermissions",
+        })
+
+    # Delegate to /task's core. Respects session_context["working_dir"] (already
+    # set above to the pre-allocated dir), attaches WebSocketGraphReporter, runs,
+    # normalizes result.
+    result = await _run_topology(
+        source=("file", yaml_path),
+        request=role_description,
+        overrides=overrides,
+        session_context=session_context,
     )
 
-    if working_dir:
-        overrides["workspace_root"] = str(working_dir)
-
-    cfg = load_config(str(yaml_path), overrides=overrides)
-    inferencer = instantiate(cfg)
-
-    # Attach graph reporter for UI visualization (task panel graph view)
-    interactive = session_context.get("interactive")
-    task_id = session_context.get("task_id", "")
-    import logging as _log
-    _log.getLogger(__name__).info(
-        "[create_role] graph reporter setup: interactive=%s task_id=%s",
-        type(interactive).__name__ if interactive else None, task_id
-    )
-    if interactive is not None and task_id:
-        from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
-        inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
-        _log.getLogger(__name__).info("[create_role] WebSocketGraphReporter attached")
-
-    result_text = await inferencer.ainfer(role_description)
-
-    # Include workspace + document path in context_updates so:
-    # 1. The LLM knows where to find the role document for Phase 1b review
-    # 2. tool_dispatcher can pass document_path in task_completed WS message
-    context_updates = {}
-    if working_dir:
-        context_updates["role_document_working_dir"] = str(working_dir)
-        doc_path = str(Path(working_dir) / "outputs" / "role_document.md")
-        if Path(doc_path).exists():
-            context_updates["role_document_path"] = doc_path
-        else:
-            # Fallback: BTA may write directly to workspace_root
-            alt_path = str(Path(working_dir) / "role_document.md")
-            if Path(alt_path).exists():
-                context_updates["role_document_path"] = alt_path
+    # Re-key context_updates to the original schema so downstream LLM context +
+    # the dispatcher's UI hooks (which key on `role_document_path` first) work
+    # bit-for-bit identically to the pre-shim implementation.
+    ctx = dict(result.context_updates) if result.context_updates else {}
+    ws = ctx.get("workspace_path")
+    if ws:
+        ctx["role_document_working_dir"] = ws
+    # /task's _discover_artifacts emits `doc_path` for outputs/role_document.md.
+    # Mirror it as `role_document_path`. Also fall back to workspace-root alt path.
+    if "doc_path" in ctx:
+        ctx["role_document_path"] = ctx["doc_path"]
+    elif ws:
+        alt = Path(ws) / "role_document.md"
+        if alt.is_file():
+            ctx["role_document_path"] = str(alt)
 
     return ToolExecutionResult(
-        result=str(result_text),
-        context_updates=context_updates,
+        result=str(result.result),
+        context_updates=ctx,
     )

@@ -160,6 +160,34 @@ def _allocate_workspace(task_id: str) -> Path:
     return ws
 
 
+def _resolve_workspace(session_context: Optional[dict], task_id: str) -> Path:
+    """R1.3 — respect dispatcher-provided working_dir IF it looks like a per-task subdir,
+    else allocate a fresh one under server/_runtime/tasks/.
+
+    The agent-path dispatcher (tool_dispatcher.py) pre-allocates `server_dir/tasks/<id>`
+    and passes via session_context["working_dir"]; respecting it avoids double-allocation
+    and aligns the WS `task_completed.workspace` field with the actual run dir.
+
+    The slash-path dispatcher (manager_websocket_routes.py) currently passes the server
+    source dir — UNSAFE. The heuristic below rejects it and falls through to allocation.
+    """
+    sc = session_context or {}
+    candidate = sc.get("working_dir", "")
+    if candidate:
+        try:
+            posix = Path(candidate).as_posix()
+        except Exception:
+            posix = ""
+        # Per-task subdir heuristic: path contains /tasks/ or /_runtime/.
+        # The slash dispatcher's `working_dir = tools_dir.parent.parent` (= openteam/server/)
+        # has neither, so it falls through to _allocate_workspace and gets the safety dir.
+        if "/tasks/" in posix or "/_runtime/" in posix:
+            ws = Path(candidate)
+            ws.mkdir(parents=True, exist_ok=True)
+            return ws
+    return _allocate_workspace(task_id)
+
+
 def _apply_resume(path_str: str, *, copy_workspace: bool, in_place: bool) -> Path:
     """R5.1 — validate + (optionally) copy the resume workspace; return effective path."""
     src = Path(path_str)
@@ -273,36 +301,40 @@ def _error(msg: str):
 # Entry point
 # ──────────────────────────────────────────────────────────────────────
 
-async def execute(arguments: dict, session_context: dict):
-    """Slash + agent entry point — see module docstring for the 10-stage pipeline."""
+async def _run_topology(
+    *,
+    source: tuple,                              # ("file", Path) | ("inline", dict)
+    request: str,
+    overrides: Optional[dict] = None,           # dotted-key → already-typed value (NO string parsing)
+    model: Optional[str] = None,
+    no_dual: bool = False,
+    mode: str = "full",
+    analysis: bool = False,
+    multi_iter: bool = False,
+    max_iter: int = 3,
+    init_plan_path: Optional[str] = None,       # absolute path; PTI uses native initial_plan_file
+    resume_workspace: Optional[str] = None,     # absolute path; takes precedence over auto-allocation
+    session_context: Optional[dict] = None,
+):
+    """Programmatic core — Stages 3-10 of the slash pipeline.
+
+    Both `execute()` (slash entry) and tool shims (e.g. /create_role, /role_setup)
+    call this. Accepts `overrides` as a Python `dict[str, Any]` (already-typed) —
+    no string→YAML round-trip required for programmatic callers.
+
+    Workspace decision:
+      - `resume_workspace` (if set) is used as-is (and surfaced as `resume_workspace`
+        override to PTI for native resume detection).
+      - Else: `_resolve_workspace(session_context, task_id)` — respects safe
+        dispatcher-provided `working_dir` hint, falls through to `_allocate_workspace`.
+    """
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
 
-    # Stage 1 — Parse arguments
-    request = (arguments.get("request") or "").strip()
-    mode = arguments.get("mode") or _derive_mode_from_flags(arguments) or "full"
-    spec = arguments.get("agent-config") or arguments.get("agent_config") or "pti"
-    overrides = _parse_overrides(arguments.get("override", []))
-    model = arguments.get("model")
-    no_dual = bool(arguments.get("no-dual"))
-    analysis = bool(arguments.get("analysis"))
-    multi_iter = bool(arguments.get("multi-iter"))
-    max_iter = int(arguments.get("max-iterations", 3))
-    resume = arguments.get("resume")
-    copy_ws = bool(arguments.get("copy-workspace"))
-    in_place = bool(arguments.get("in-place", True))
-    init_plan = arguments.get("initial-plan")
-    task_id = session_context.get("task_id") or f"task-{uuid.uuid4().hex[:8]}"
-
-    if sum(bool(arguments.get(f)) for f in ("plan", "execute", "full", "confirm")) > 1:
-        return _error("Multiple mode flags provided; use only one of --plan/--execute/--full/--confirm.")
-
-    # Stage 2 — Resolve --agent-config
-    try:
-        source = _resolve_agent_config(spec, _TOPOLOGIES_DIR)
-    except ValueError as e:
-        return _error(str(e))
+    sc = session_context or {}
+    overrides = dict(overrides) if overrides else {}
+    task_id = sc.get("task_id") or f"task-{uuid.uuid4().hex[:8]}"
 
     # Stage 3 — PTI-only flag validation
     is_pti = _topology_is_pti(source)
@@ -313,41 +345,38 @@ async def execute(arguments: dict, session_context: dict):
             f"Use --agent-config pti or --agent-config pti-simple."
         )
 
-    # Stage 4 — Resume + workspace allocation
-    resume_workspace_override = None
-    if resume:
-        try:
-            working_dir = _apply_resume(resume, copy_workspace=copy_ws, in_place=in_place)
-            resume_workspace_override = str(working_dir)
-        except FileNotFoundError as e:
-            return _error(str(e))
+    # Stage 4 — Workspace decision
+    if resume_workspace:
+        working_dir = Path(resume_workspace)
+        working_dir.mkdir(parents=True, exist_ok=True)
     else:
-        working_dir = _allocate_workspace(task_id)
+        working_dir = _resolve_workspace(sc, task_id)
 
-    # Stage 5 — Initial plan handling (PTI native field)
-    initial_plan_override = None
-    if init_plan:
-        plan_abs = Path(init_plan).resolve()
+    # Stage 5 — Initial-plan validation (file-IO done by caller; we just consume the path)
+    if init_plan_path:
+        plan_abs = Path(init_plan_path).resolve()
         if not plan_abs.is_file():
-            return _error(f"--initial-plan file not found: {init_plan}")
-        initial_plan_override = str(plan_abs)
+            return _error(f"--initial-plan file not found: {init_plan_path}")
+        init_plan_path = str(plan_abs)
 
-    # Stage 6 — Build override map. Each field is filtered with a warning by
+    # Stage 6 — Build override map. Each field filtered with a warning by
     # _filter_attrs_keys when the target doesn't accept it, so setting all three
     # is safe — they reach the right slot per topology kind:
     #   - workspace_root → BTA / MultiFlow root
     #   - workspace_path → PTI root
     #   - target_path    → ClaudeCodeCLI root (single.yaml)
-    # NOTE: do NOT set "workspace.root" — that resolves to nested {workspace: {root: ...}}
-    # which ClaudeCodeCli interprets as a plain-dict workspace field and crashes
-    # with AttributeError on instantiation.
+    # NOTE: do NOT set "workspace.root" here — that resolves to nested
+    # {workspace: {root: ...}} which ClaudeCodeCli interprets as a plain-dict
+    # workspace field and crashes with AttributeError on instantiation.
+    # (Shims that target BTA-rooted YAMLs CAN pass workspace.root via overrides;
+    # BTA's `workspace` field takes precedence over `workspace_root` per BTA:348-349.)
     overrides.setdefault("workspace_root", str(working_dir))
     overrides.setdefault("workspace_path", str(working_dir))
     overrides.setdefault("target_path", str(working_dir))
-    if resume_workspace_override:
-        overrides["resume_workspace"] = resume_workspace_override
-    if initial_plan_override and is_pti:
-        overrides["initial_plan_file"] = initial_plan_override
+    if resume_workspace:
+        overrides["resume_workspace"] = str(working_dir)
+    if init_plan_path and is_pti:
+        overrides["initial_plan_file"] = init_plan_path
     if mode == "plan":
         overrides["enable_implementation"] = False
     if mode == "execute":
@@ -369,10 +398,9 @@ async def execute(arguments: dict, session_context: dict):
         if source[0] == "file":
             cfg = load_config(str(source[1]), overrides=overrides)
         else:
-            from omegaconf import OmegaConf as _OC
-            cfg = _OC.merge(_OC.create(source[1]), _OC.create(overrides))
+            cfg = OmegaConf.merge(OmegaConf.create(source[1]), OmegaConf.create(overrides))
     except Exception as exc:
-        return _error(f"load_config failed for spec '{spec}': {exc}")
+        return _error(f"load_config failed for source {source}: {exc}")
 
     # OmegaConf -> plain dict for safe walk-and-mutate, then back to DictConfig
     # for instantiate() (which requires an OmegaConf config object).
@@ -390,9 +418,9 @@ async def execute(arguments: dict, session_context: dict):
     cfg = OmegaConf.create(cfg)
 
     # For non-PTI topologies, prepend an initial plan to the request as a fallback
-    if initial_plan_override and not is_pti:
+    if init_plan_path and not is_pti:
         try:
-            plan_text = Path(initial_plan_override).read_text(encoding="utf-8")
+            plan_text = Path(init_plan_path).read_text(encoding="utf-8")
             request = f"Plan (preloaded):\n{plan_text}\n\nRequest: {request}"
             _logger.warning("--initial-plan with non-PTI topology: prepending plan to request")
         except OSError:
@@ -405,7 +433,7 @@ async def execute(arguments: dict, session_context: dict):
         keys = list(cfg.keys()) if isinstance(cfg, dict) else "(non-dict cfg)"
         return _error(f"Instantiation failed: {exc}\nTopology root keys: {keys}")
 
-    interactive = session_context.get("interactive")
+    interactive = sc.get("interactive")
     if interactive is not None and task_id:
         try:
             from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
@@ -414,10 +442,11 @@ async def execute(arguments: dict, session_context: dict):
         except Exception as exc:
             _logger.warning("[task] graph_reporter attach failed: %s", exc)
 
-    # /task-confirm: PTI's enable_checkpoint_plan_review (set above) routes to async-native
-    # checkpoint_plan_review which uses asend_response/aget_input — natively compatible
-    # with WebSocketInteractive. The single_choice (Approve/Modify/Reject) mode renders
-    # via the existing SingleChoiceWidget — no custom widget tagging needed.
+    # /task-confirm: PTI's enable_checkpoint_plan_review (set above) routes to
+    # async-native checkpoint_plan_review which uses asend_response/aget_input —
+    # natively compatible with WebSocketInteractive. The single_choice
+    # (Approve/Modify/Reject) mode renders via the existing SingleChoiceWidget —
+    # no custom widget tagging needed.
     if mode == "confirm" and hasattr(inferencer, "interactive") and interactive is not None:
         inferencer.interactive = interactive
 
@@ -442,4 +471,68 @@ async def execute(arguments: dict, session_context: dict):
     return ToolExecutionResult(
         result=_extract_result_text(result),
         context_updates=context_updates,
+    )
+
+
+async def execute(arguments: dict, session_context: dict):
+    """Slash + agent entry point — parses slash-command arguments then delegates to
+    `_run_topology()`. Programmatic callers (tool shims) should call `_run_topology`
+    directly with a Python dict to avoid the string→YAML round-trip.
+    """
+    # Stage 1 — Parse arguments
+    request = (arguments.get("request") or "").strip()
+    mode = arguments.get("mode") or _derive_mode_from_flags(arguments) or "full"
+    spec = arguments.get("agent-config") or arguments.get("agent_config") or "pti"
+    overrides = _parse_overrides(arguments.get("override", []))
+    model = arguments.get("model")
+    no_dual = bool(arguments.get("no-dual"))
+    analysis = bool(arguments.get("analysis"))
+    multi_iter = bool(arguments.get("multi-iter"))
+    max_iter = int(arguments.get("max-iterations", 3))
+    resume = arguments.get("resume")
+    copy_ws = bool(arguments.get("copy-workspace"))
+    in_place = bool(arguments.get("in-place", True))
+    init_plan = arguments.get("initial-plan")
+
+    if sum(bool(arguments.get(f)) for f in ("plan", "execute", "full", "confirm")) > 1:
+        return _error("Multiple mode flags provided; use only one of --plan/--execute/--full/--confirm.")
+
+    # Stage 2 — Resolve --agent-config
+    try:
+        source = _resolve_agent_config(spec, _TOPOLOGIES_DIR)
+    except ValueError as e:
+        return _error(str(e))
+
+    # Stage 4a — Slash-only file IO: --resume copy/in-place. Resolves to an absolute
+    # workspace path that _run_topology will use directly (overrides workspace decision).
+    resume_workspace_str = None
+    if resume:
+        try:
+            working_dir = _apply_resume(resume, copy_workspace=copy_ws, in_place=in_place)
+            resume_workspace_str = str(working_dir)
+        except FileNotFoundError as e:
+            return _error(str(e))
+
+    # Stage 5a — Slash-only file IO: --initial-plan path validation (file-IO inside
+    # _run_topology handles the read for non-PTI fallback).
+    init_plan_path = None
+    if init_plan:
+        plan_abs = Path(init_plan).resolve()
+        if not plan_abs.is_file():
+            return _error(f"--initial-plan file not found: {init_plan}")
+        init_plan_path = str(plan_abs)
+
+    return await _run_topology(
+        source=source,
+        request=request,
+        overrides=overrides,
+        model=model,
+        no_dual=no_dual,
+        mode=mode,
+        analysis=analysis,
+        multi_iter=multi_iter,
+        max_iter=max_iter,
+        init_plan_path=init_plan_path,
+        resume_workspace=resume_workspace_str,
+        session_context=session_context,
     )

@@ -287,6 +287,52 @@ def test_slash_enabled_formula_task():
     assert slash_enabled is True
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Phase 1 additions: _run_topology + workspace hint + template_feed via --override
+# ──────────────────────────────────────────────────────────────────────
+
+def test_resolve_workspace_respects_safe_dispatcher_hint(tmp_path=None):
+    """R1.3 — when session_context provides a working_dir under /tasks/ or /_runtime/,
+    _resolve_workspace SHOULD use it without re-allocating."""
+    import tempfile
+    safe_root = Path(tempfile.mkdtemp()) / "tasks" / "test"
+    safe_root.mkdir(parents=True)
+    sc = {"working_dir": str(safe_root)}
+    got = ex._resolve_workspace(sc, "test-id")
+    assert Path(got).resolve() == safe_root.resolve(), \
+        f"expected {safe_root}, got {got}"
+
+def test_resolve_workspace_unsafe_hint_falls_through():
+    """R1.3 — when session_context's working_dir does NOT look like a per-task subdir
+    (e.g. server source dir), _resolve_workspace should allocate a fresh one."""
+    sc = {"working_dir": "/some/server/dir"}
+    got = ex._resolve_workspace(sc, "test-id")
+    posix = Path(got).as_posix()
+    # Falls through to _allocate_workspace which creates under server/_runtime/tasks/
+    assert "/_runtime/tasks/" in posix, f"expected fallback, got {posix}"
+
+def test_resolve_workspace_no_hint_allocates():
+    """R1.3 — no working_dir hint → allocate fresh."""
+    got = ex._resolve_workspace({}, "test-id-no-hint")
+    posix = Path(got).as_posix()
+    assert "/_runtime/tasks/" in posix and "test-id-no-hint" in posix
+
+def test_template_feed_via_override_reaches_inferencer():
+    """A1#6 / R3.4 — proves --template-feed flag is unnecessary: BTA's
+    template_extra_feed is reachable via dotted-key --override."""
+    import asyncio
+    bta_yaml = ex._TOPOLOGIES_DIR / "bta.yaml"
+    cfg = load_config(str(bta_yaml), overrides={
+        "workspace_root": "/tmp/test_template_feed",
+        "template_extra_feed.role_name": "TestRole",
+        "template_extra_feed.role_doc_path": "/some/path",
+    })
+    inst = instantiate(cfg)
+    assert inst.template_extra_feed.get("role_name") == "TestRole", \
+        f"expected TestRole, got {inst.template_extra_feed}"
+    assert inst.template_extra_feed.get("role_doc_path") == "/some/path"
+
+
 if __name__ == "__main__":
     # Allow running directly without pytest
     import traceback

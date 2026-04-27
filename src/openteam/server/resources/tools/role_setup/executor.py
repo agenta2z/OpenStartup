@@ -1168,7 +1168,17 @@ async def execute(
     arguments: dict,
     session_context: dict,
 ) -> "ToolExecutionResult":
-    """Generic entry point for ToolDispatcher — yaml-driven outer BTA pipeline.
+    """Generic entry point for ToolDispatcher.
+
+    Implementation: thin shim over `/task`'s `_run_topology()`. Loads the existing
+    `role_setup.yaml` (which `_import_`s `role_setup_skill_tool_creation.yaml`) and
+    applies runtime overrides to swap the 7 RovoChat/RovoDevCLI leaves to ClaudeCodeCli
+    (proven set from `test_role_setup_through_yaml_claude.py`). Domain-specific
+    pre-processing (read role doc, extract role_name, enumerate registry tools/skills)
+    is retained — those values flow into `template_extra_feed.*` via dotted-key
+    override (verified in test_task_helpers.py::test_template_feed_via_override_reaches_inferencer).
+
+    The original YAML is unchanged.
 
     Arguments (from LLM tool call):
         role_document_path (str, required): Path to the role responsibility document.
@@ -1176,15 +1186,14 @@ async def execute(
         --max-inner-facets (int, optional): Max inner facets (default 5).
 
     session_context keys used:
-        cloud_id, uct_token, email, working_dir, interactive, task_id
+        working_dir (per-task subdir from dispatcher), task_id, interactive.
     """
-    import functools
-
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
-    import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from openteam.server.resources.tools.task.executor import (
+        _run_topology, _resolve_workspace,
+    )
 
     role_document_path = arguments.get("role_document_path", "")
     max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
@@ -1192,63 +1201,93 @@ async def execute(
         arguments.get("--max-inner-facets", arguments.get("max_inner_facets", 5))
     )
 
-    working_dir = session_context.get("working_dir")
-    yaml_path = Path(__file__).parent / "role_setup.yaml"
-
-    overrides: dict = {
-        "max_breakdown": max_facets,
-        "worker_factory.skill_tool_creation.max_breakdown": max_inner_facets,
-        "_template_manager.templates": str(
-            Path(__file__).resolve().parent.parent.parent / "prompt_templates"
-        ),
-    }
-    if working_dir:
-        overrides["workspace.root"] = str(working_dir)
-
-    cfg = load_config(str(yaml_path), overrides=overrides)
-    inferencer = instantiate(cfg)
-
-    # Attach graph reporter for UI visualization
-    interactive = session_context.get("interactive")
-    task_id = session_context.get("task_id", "")
-    if interactive is not None and task_id:
-        from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
-        inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
-
-    # Read role document and inject runtime context into breakdown + worker partials
+    # Domain pre-processing — exactly as before, just hoisted.
     role_doc_text = Path(role_document_path).read_text(encoding="utf-8") if role_document_path else ""
     role_name = role_doc_text.split("\n")[0].strip("# ").strip() if role_doc_text else ""
-    role_doc_path = str(Path(role_document_path).resolve()) if role_document_path else ""
-
+    role_doc_abs = str(Path(role_document_path).resolve()) if role_document_path else ""
     available_tools_text = format_available_tools_and_skills(
         extra_tool_dirs=[_APP_TOOLS_DIR], extra_skill_dirs=[_APP_SKILLS_DIR]
     )
 
-    inferencer.template_extra_feed.update({
-        "role_name": role_name,
-        "role_doc_path": role_doc_path,
-        "available_tools_skills": available_tools_text,
-    })
+    yaml_path = Path(__file__).parent / "role_setup.yaml"
+    templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
-    result_text = await inferencer.ainfer(role_doc_text)
+    # Pre-allocate workspace so per-slot ClaudeCodeCli `target_path` overrides have
+    # the concrete path (BTA's per-child workspace machinery doesn't auto-set it).
+    task_id = session_context.get("task_id") or "role_setup"
+    workspace = _resolve_workspace(session_context, task_id)
+    session_context = {**session_context, "working_dir": str(workspace)}
 
-    context_updates = {}
-    if working_dir:
-        context_updates["role_setup_working_dir"] = str(working_dir)
-        report_path = Path(working_dir) / "outputs" / "role_setup_report.md"
-        if report_path.exists():
-            context_updates["role_setup_report_path"] = str(report_path)
-        skills_dir = Path(working_dir) / "outputs" / "skills"
-        tools_dir = Path(working_dir) / "outputs" / "tools"
-        if skills_dir.exists():
-            context_updates["skills_dir"] = str(skills_dir)
-        if tools_dir.exists():
-            context_updates["tools_dir"] = str(tools_dir)
-        association_path = Path(working_dir) / "outputs" / "role_tool_association.json"
-        if association_path.exists():
-            context_updates["role_tool_association_path"] = str(association_path)
+    overrides: dict = {
+        "max_breakdown": max_facets,
+        "worker_factory.skill_tool_creation.max_breakdown": max_inner_facets,
+        "_template_manager.templates": str(templates_path),
+        # The inner BTA (imported via _import_) has its OWN _template_manager — patch
+        # it too, otherwise its breakdown/workers/aggregator silently fall back to
+        # rendering the literal token "prompt_templates" as the prompt
+        # (see role_setup runtime debugging session).
+        "worker_factory.skill_tool_creation._template_manager.templates": str(templates_path),
+        # role_setup.yaml has a top-level `workspace:` (InferencerWorkspace) block;
+        # set its `root` field. BTA:348-349 docs confirm `workspace` (object)
+        # takes precedence over `workspace_root` (convenience shorthand).
+        "workspace.root": str(workspace),
+        # template_extra_feed via load-config-time injection (proven by
+        # test_template_feed_via_override_reaches_inferencer). Replaces the
+        # post-instantiate dict update from the prior implementation.
+        "template_extra_feed.role_name": role_name,
+        "template_extra_feed.role_doc_path": role_doc_abs,
+        "template_extra_feed.available_tools_skills": available_tools_text,
+    }
+    # 7-slot Rovo* → ClaudeCodeCli swap covering both outer + inner BTA via _import_
+    # traversal. Mirrors the proven set from test_role_setup_through_yaml_claude.py.
+    for slot in (
+        "breakdown_inferencer",
+        "aggregator_inferencer",
+        "worker_factory.skill_tool_association",
+        "worker_factory.skill_tool_creation.breakdown_inferencer",
+        "worker_factory.skill_tool_creation.aggregator_inferencer",
+        "worker_factory.skill_tool_creation.worker_factory.skill_tool_creation_research",
+        "worker_factory.skill_tool_creation.worker_factory.skill_tool_creation_investigation",
+    ):
+        overrides.update({
+            f"{slot}._target_": "ClaudeCodeCLI",
+            f"{slot}.model_name": "opus[1m]",
+            f"{slot}.target_path": str(workspace),
+            f"{slot}.idle_timeout_seconds": 300,
+            f"{slot}.permission_mode": "bypassPermissions",
+        })
+
+    # Delegate to /task's core. _run_topology respects session_context["working_dir"]
+    # (we set it to the pre-allocated workspace above), wires WebSocketGraphReporter,
+    # runs, normalizes result.
+    result = await _run_topology(
+        source=("file", yaml_path),
+        request=role_doc_text,
+        overrides=overrides,
+        session_context=session_context,
+    )
+
+    # Re-key + augment context_updates to original schema. Adds role_setup-specific
+    # artifact paths (skills/, tools/, role_tool_association.json) that /task's
+    # generic _discover_artifacts doesn't surface.
+    ctx = dict(result.context_updates) if result.context_updates else {}
+    ws = ctx.get("workspace_path")
+    if ws:
+        ctx["role_setup_working_dir"] = ws
+        report = Path(ws) / "outputs" / "role_setup_report.md"
+        if report.is_file():
+            ctx["role_setup_report_path"] = str(report)
+        skills = Path(ws) / "outputs" / "skills"
+        tools = Path(ws) / "outputs" / "tools"
+        association = Path(ws) / "outputs" / "role_tool_association.json"
+        if skills.is_dir():
+            ctx["skills_dir"] = str(skills)
+        if tools.is_dir():
+            ctx["tools_dir"] = str(tools)
+        if association.is_file():
+            ctx["role_tool_association_path"] = str(association)
 
     return ToolExecutionResult(
-        result=str(result_text),
-        context_updates=context_updates,
+        result=str(result.result),
+        context_updates=ctx,
     )
