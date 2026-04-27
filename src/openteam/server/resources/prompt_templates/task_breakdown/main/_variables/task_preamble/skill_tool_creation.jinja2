@@ -28,32 +28,26 @@ Each subtask MUST be classified as one of:
 
 For each skill or tool described in the parent task, produce subtasks that cover the relevant dimensions below. Each subtask should be concrete — tied to a specific feature, workflow, or capability.
 
+**Shared (applies to both skills and tools)**:
+- **Domain Operational Artifacts Investigation**: Find and read the primary operational artifacts the role uses to do work — these are the source of truth for both what workflows to encode (skills) and what operations to automate (tools). Every role has them; examples by type:
+  * Runbooks & playbooks — procedures for common tasks (→ automation tools; → skill SOPs)
+  * Query & data access patterns — frequent queries, dashboards, platform APIs (→ query/retrieval tools; → skill lookup steps)
+  * Evaluation & quality frameworks — how outputs are assessed (→ validation tools; → skill quality gates)
+  * Templates & standards — reusable docs the role produces (→ structured output tools; → skill templates)
+  * Domain reference materials — ADRs, API refs, team conventions (→ skill domain knowledge)
+
 **For skills** (SKILL.md — domain guidance on using existing tools):
 - **Tool Capability Investigation**: For each existing tool the skill leverages, investigate its full capabilities by reading its artifacts (SKILL.md, tool.json, reference docs). Discover available commands, parameters, and operations relevant to the skill's workflows.
-- **Domain Operational Artifacts Investigation**: Investigate the primary knowledge sources the role routinely uses to do work in this domain. Every role has operational artifacts that encode how work is actually done — find and read them. Examples by type (not exhaustive):
-  * Runbooks & playbooks — step-by-step procedures for common tasks the role owns (e.g. training runbooks, incident runbooks, release checklists)
-  * Evaluation & quality frameworks — how outputs are assessed (e.g. model eval frameworks, code review standards, SLO definitions, quality gates)
-  * Primary platform query patterns — common queries, dashboards, or data access patterns for the role's top use cases
-  * Templates & standards — reusable documents the role regularly produces (e.g. design docs, postmortem templates, experiment tracking sheets)
-  * Domain reference materials — canonical internal docs the role relies on (e.g. architecture decision records, API references, team conventions)
-- **Workflow Design Research**: For each SOP or operational pattern the skill needs to encode, research the domain knowledge and best practices needed to design the step-by-step workflow.
-- **Domain Knowledge Research**: Research domain-specific frameworks, standards, or methodologies the skill needs to encode (e.g., compliance frameworks, lifecycle models, reporting patterns).
-- **Templates & Patterns**: Research reusable templates, checklists, or decision criteria the skill should provide for its domain.
+- **Workflow & Domain Research**: For each SOP or operational pattern the skill encodes, research the domain knowledge, best practices, frameworks, and standards needed to design it correctly (e.g. compliance frameworks, lifecycle models, reporting patterns).
 
 **For tools** (new executable capabilities):
-- **High-Value Operation Identification**: Identify the most frequent, high-value operations the role performs that could be directly automated as executable tools. Think action-first — what does the role *do* repeatedly that a tool could run directly? Examples by type (not exhaustive):
-  * Job launchers — tools that trigger jobs or workflows (e.g. launch a training run, kick off a data pipeline, trigger a deployment)
-  * Query & retrieval tools — tools that fetch or compute information the role regularly needs (e.g. query experiment results, fetch platform metrics, retrieve incident history, check deployment status)
-  * Validation & evaluation tools — tools that assess quality or correctness (e.g. run model evaluation, validate a config, check SLO compliance)
-  * Automation tools — tools that perform multi-step operational procedures in one call (e.g. create an incident ticket and page on-call, provision a new environment, rotate credentials)
-- **Domain Operational Artifacts Investigation**: Investigate the role's domain operational artifacts as a direct source of tool ideas — runbooks, query patterns, and eval frameworks are tools waiting to be automated. Find and read them to discover what should be built:
-  * Runbooks & playbooks → automation tools (each runbook step is a candidate tool action)
-  * Primary platform query patterns → query & retrieval tools (frequent queries become parameterised tool calls)
-  * Evaluation & quality frameworks → validation & evaluation tools (eval workflows become executable tools)
-  * Templates & checklists → structured output tools (standard doc generation or validation tools)
-- **Platform & API Investigation**: For each capability the tool needs, investigate what platforms, APIs, CLIs, or SDKs are available. Read their documentation to understand endpoints, auth, and data formats.
-- **Interface Design Research**: Research best practices for the tool's interface — parameters, return formats, error handling — based on similar tools and the target platform's conventions.
-- **Implementation Investigation**: Investigate existing tool implementations in the codebase to understand patterns, then research the specific libraries and integration approaches needed.
+- **High-Value Operation Identification**: Think action-first — what does the role *do* repeatedly that a tool could run directly? Target the highest-leverage operations:
+  * Job launchers — trigger jobs or workflows (e.g. launch a training run, kick off a pipeline, trigger a deployment)
+  * Query & retrieval — fetch information the role regularly needs (e.g. query experiment results, fetch platform metrics, check deployment status)
+  * Validation & evaluation — assess quality or correctness (e.g. run model eval, validate a config, check SLO compliance)
+  * Automation — execute multi-step operational procedures in one call (e.g. page on-call + create incident, provision an environment)
+- **Platform & API Investigation**: For each capability the tool needs, investigate available platforms, APIs, CLIs, or SDKs — endpoints, auth, and data formats.
+- **Implementation Investigation**: Investigate existing tool implementations in the codebase for patterns to follow, and research the specific libraries and integration approaches needed.
 
 ### Important
 - Every subtask must be a concrete **research** or **investigation** task targeting a specific feature or workflow — not a vague exploration. They produce findings, not final artifacts.
