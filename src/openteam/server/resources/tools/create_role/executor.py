@@ -534,19 +534,29 @@ async def execute(
         "max_breakdown": max_facets,
         "_template_manager.templates": str(templates_path),
     }
-    # Curated Rovo* → ClaudeCodeCli swap — mirrors the proven set in
-    # test_create_role_through_yaml_claude.py:97-119. Required because the
-    # original YAML targets RovoChat (breakdown + workers) and RovoDevCLI
-    # (aggregator), neither of which is installed on Windows. Per-slot
-    # target_path is essential — ClaudeCodeCli defaults to cwd otherwise.
-    for slot in ("breakdown_inferencer", "worker_factory", "aggregator_inferencer"):
-        overrides.update({
-            f"{slot}._target_": "ClaudeCodeCLI",
-            f"{slot}.model_name": "opus[1m]",
-            f"{slot}.target_path": str(workspace),
-            f"{slot}.idle_timeout_seconds": 300,
-            f"{slot}.permission_mode": "bypassPermissions",
-        })
+    # Curated Rovo* → ClaudeCodeCli swap — only applied when a working Claude
+    # Code CLI is actually available on this machine (checked via CLAUDE_CODE_COMMAND
+    # env var or PATH lookup). On machines with RovoChat/RovoDevCLI installed
+    # (e.g. Atlassian dev machines), the YAML's native targets are used instead —
+    # applying the override on those machines would silently produce empty output
+    # because ClaudeCodeCLI returns nothing when the `claude` binary is missing.
+    import shutil as _shutil
+    _claude_cmd = os.environ.get("CLAUDE_CODE_COMMAND") or "claude"
+    _claude_available = bool(_shutil.which(_claude_cmd))
+    if _claude_available:
+        _logger.info("[create_role] ClaudeCodeCLI found (%s) — using ClaudeCodeCLI for all slots", _claude_cmd)
+        for slot in ("breakdown_inferencer", "worker_factory", "aggregator_inferencer"):
+            overrides.update({
+                f"{slot}._target_": "ClaudeCodeCLI",
+                f"{slot}.model_name": "opus[1m]",
+                f"{slot}.target_path": str(workspace),
+                f"{slot}.idle_timeout_seconds": 300,
+                f"{slot}.permission_mode": "bypassPermissions",
+            })
+    else:
+        _logger.info(
+            "[create_role] ClaudeCodeCLI not found — using YAML-native RovoChat/RovoDevCLI targets"
+        )
 
     # Delegate to /task's core. Respects session_context["working_dir"] (already
     # set above to the pre-allocated dir), attaches WebSocketGraphReporter, runs,
