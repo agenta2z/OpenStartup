@@ -25,25 +25,32 @@ For each workflow or SOP the skill covers:
   * Where to communicate or persist results
 - **Example scenario**: A concrete end-to-end example showing the workflow in action
 
-### 3. Domain Guidance
-- **Templates and checklists**: Reusable templates for documents, reports, or checklists the role produces (sourced from research findings)
+### 3. Domain Operational Artifacts
+Document the key operational artifacts this skill encodes or references — sourced from the domain operational artifacts investigation:
+- **Runbooks & playbooks referenced**: Which runbooks or procedures this skill encodes as SOPs, with pointers to the source material
+- **Evaluation frameworks**: Quality criteria and assessment methods the skill applies
+- **Templates provided**: Reusable templates the skill surfaces for the role to use
+- **Reference materials**: Key docs, API references, or conventions the skill points to
+
+### 4. Domain Guidance
 - **Decision criteria**: Domain-specific judgment rules (e.g., escalation thresholds, priority scoring)
 - **Terminology**: Domain-specific terms and taxonomies the AI needs to understand
 - **Cadence patterns**: Recurring activities and schedules (if applicable)
 
-### 4. Integration Metadata
+### 5. Integration Metadata
 - **Tools referenced**: Complete list of tool names and specific commands/operations used
 - **Cross-tool patterns**: How multiple tools are composed in multi-step workflows (e.g., query data from one tool, write results via another)
 - **Autonomy levels**: Which operations are autonomous vs. require human confirmation
 
-### 5. Guardrails and Escalation
-- **Safety boundaries**: What the AI should NOT do autonomously in this domain
+### 6. Operational Boundaries
+- **Safety boundaries**: What the AI should NOT do autonomously in this skill's domain
 - **Escalation triggers**: Conditions that require human intervention
 - **Error handling**: What to do when tool calls fail or return unexpected results
 
 ### Quality Requirements for Skills
 - **Actionable**: Every workflow mapping must be concrete enough to follow without improvising — specific tool commands, parameters, and expected outputs
 - **Complete**: Cover ALL workflows and SOPs referenced in the creation request
+- **Domain-grounded**: Runbooks, eval frameworks, and query patterns from research findings must be explicitly encoded — do not leave operational knowledge implicit
 - **Grounded**: Every tool command reference must match capabilities discovered in investigation findings — do not invent operations that don't exist
 - **Traceable**: Reference which research or investigation finding supports each design decision
 
@@ -55,7 +62,7 @@ Produce a complete tool specification:
 
 ### 1. Tool Overview
 - **Name**: The tool's canonical name (snake_case)
-- **Description**: What the tool does
+- **Description**: What the tool does and which high-value operation or domain artifact it automates (e.g. "Automates the ML training launch runbook", "Executes the team's standard experiment query pattern")
 - **Category**: utility, workflow, knowledge, or session
 - **Tool Type**: Action or Conversation
 
@@ -85,4 +92,5 @@ If the tool has subcommands, define each with its own parameter table.
 - **Implementable**: Enough detail to write code directly
 - **Consistent**: Follow patterns established by existing tools in the codebase
 - **Complete**: tool.json must be valid and match the expected schema
+- **Domain-grounded**: Each tool must trace back to a concrete operational need — a runbook to automate, a query pattern to encode, an eval workflow to execute
 - **Grounded**: Every design decision must reference a research or investigation finding
