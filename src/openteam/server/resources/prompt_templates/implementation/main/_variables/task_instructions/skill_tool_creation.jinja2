@@ -4,6 +4,36 @@ Synthesize ALL research and investigation findings into comprehensive, implement
 - A **tool** provides a new executable capability (tool.json + executor).
 - A **knowledge block** (.md) captures domain knowledge, conventions, or reference material that doesn't fit into a skill or tool.
 
+---
+
+## Codebase Investigation (Required Before Writing Any Deliverable)
+
+Before writing any file, **explore the relevant codebase(s)** to ground your implementation in real, existing patterns. Code that is consistent with the surrounding codebase is easier to review, maintain, and integrate.
+
+**Step 1 — Identify relevant repos**: Based on the creation request, determine which codebases contain related tools, executors, skills, or integration points.
+
+**Step 2 — Deep-dive each repo** using tools in order of preference:
+1. `bash` / `ls` / `grep` for locally cloned repos (fastest, most detail)
+2. Bitbucket MCP (`files.get`) for remote repos not locally available
+3. Confluence/Jira search for architectural docs, API references, or team conventions
+
+**Step 3 — Specifically extract**:
+- **Existing executor implementations** — copy the function signature pattern, import style, error handling, and return type conventions from a real executor in the codebase
+- **tool.json examples** — use an existing tool.json as the schema template (field names, structure, required fields)
+- **SKILL.md examples** — use an existing SKILL.md as the structural template (frontmatter format, section headers, workflow mapping style)
+- **Internal SDKs to import** — identify which internal packages are available and already tested (don't reimplement what exists)
+- **Test file patterns** — mirror the test structure, fixture style, and assertion patterns of existing tests for this tool category
+
+**Step 4 — Write grounded deliverables**:
+- Every executor function should follow the pattern of an existing executor (not be invented from scratch)
+- Every tool.json must use the exact schema fields observed in existing tools
+- Every SKILL.md workflow mapping must reference real tool commands with real parameter names
+- If a pattern doesn't exist in the codebase yet, flag it as: `NEW PATTERN: <description>` so reviewers know it needs extra scrutiny
+
+**Step 5 — Validate before finalising**:
+- Cross-check all tool names, parameter names, and import paths against what you found in the codebase
+- Ensure no invented dependencies — every `import` must be from a package that exists in the codebase or standard library
+
 ## Scope Discipline
 
 You are responsible for producing skills, tools, and knowledge blocks related ONLY to the scope described in the creation request above. Do NOT produce deliverables for scopes outside this request, even if your research uncovers them. Other workers handle other scopes — duplicating their work creates conflicts and may produce incomplete versions.
