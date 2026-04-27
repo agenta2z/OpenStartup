@@ -1,0 +1,20 @@
+# BreakdownThenAggregate (BTA) — single ClaudeCodeCli per slot: 1 breakdown + N homogeneous workers + 1 aggregator.
+_target_: BTA
+breakdown_inferencer:
+  _target_: ClaudeCodeCLI
+  model_name: opus[1m]
+  permission_mode: bypassPermissions
+  idle_timeout_seconds: 300
+worker_factory:
+  __default__:
+    _target_: ClaudeCodeCLI
+    model_name: opus[1m]
+    permission_mode: bypassPermissions
+    idle_timeout_seconds: 300
+aggregator_inferencer:
+  _target_: ClaudeCodeCLI
+  model_name: opus[1m]
+  permission_mode: bypassPermissions
+  idle_timeout_seconds: 300
+breakdown_format: json_subtasks
+max_breakdown: 4

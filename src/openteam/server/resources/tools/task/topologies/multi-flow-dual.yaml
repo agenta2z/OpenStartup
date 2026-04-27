@@ -1,0 +1,44 @@
+# MultiFlowDual — Round 7: MultiFlow propose + Dual review/fix loop with self-review-avoidance + winner-as-fixer dispatch.
+# Default: 2 ClaudeCodeCli flows; review_inferencer is also ClaudeCodeCli (fixer_match_winner picks the winning flow).
+# base_inferencer is auto-constructed by MultiFlowDual from flow_configs — DO NOT declare it here.
+_target_: MultiFlowDual
+flow_configs:
+  - input: "{request}"
+    initial_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    followup_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    max_dynamic_steps: 1
+  - input: "{request}"
+    initial_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    followup_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    max_dynamic_steps: 1
+review_inferencer:
+  _target_: ClaudeCodeCLI
+  model_name: opus[1m]
+  permission_mode: bypassPermissions
+  idle_timeout_seconds: 300
+multi_flow_aggregator_inferencer:
+  _target_: ClaudeCodeCLI
+  model_name: opus[1m]
+  permission_mode: bypassPermissions
+  idle_timeout_seconds: 300
+consensus_config:
+  _target_: ConsensusConfig
+  max_iterations: 2
+visible_flows: all
+fixer_match_winner: true

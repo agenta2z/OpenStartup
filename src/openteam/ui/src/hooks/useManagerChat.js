@@ -63,6 +63,11 @@ export function useManagerChat(sessionId) {
   const submittedRef = useRef(false);      // double-submit guard
   const pendingInputRef = useRef(null);    // stable ref to current pendingInput (avoids stale closure)
   const turnCountRef = useRef(0);          // tracks current turn number for live messages
+  // Most-recent task_status task_id that is still in flight ("starting"/"running" but not
+  // "completed"/"error"/"cancelled"). Routed through cancelRequest + sendPendingInputResponse
+  // so dev-tool cancels and Approve/Reject widget responses reach the right per-task queue
+  // (see manager_websocket_routes.py Patch 3.4 / R9b).
+  const currentTaskIdRef = useRef(null);
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -123,6 +128,15 @@ export function useManagerChat(sessionId) {
     switch (data.type) {
       case 'task_status': {
         const { task_id, status, request, tool_name, error: taskError } = data;
+        // Track currently in-flight dev-tool task_id so cancelRequest +
+        // sendPendingInputResponse can route by task_id (manager_websocket_routes
+        // Patch 3.4 / R9b). Clear on terminal states.
+        if (status === 'starting' || status === 'running') {
+          currentTaskIdRef.current = task_id;
+        } else if (currentTaskIdRef.current === task_id &&
+                   (status === 'completed' || status === 'error' || status === 'cancelled')) {
+          currentTaskIdRef.current = null;
+        }
         if (status === 'starting') {
           const label = request || tool_name || 'Task';
           setTasks(prev => ({
@@ -577,14 +591,23 @@ export function useManagerChat(sessionId) {
     setPendingInput(null);
     pendingInputRef.current = null;
 
-    // Send to server
+    // Send to server. Include task_id so dev-tool widget responses route to the
+    // per-task input queue (manager_websocket_routes R9b); omitted task_id falls
+    // through to the conversation queue (existing behavior).
     const content = typeof response === 'string' ? response : JSON.stringify(response);
-    wsRef.current.send(JSON.stringify({ type: 'pending_input_response', content }));
+    const payload = { type: 'pending_input_response', content };
+    if (currentTaskIdRef.current) payload.task_id = currentTaskIdRef.current;
+    wsRef.current.send(JSON.stringify(payload));
   }, []);
 
   const cancelRequest = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'cancel' }));
+      // Include task_id so the dispatcher cancels the matching dev-tool task
+      // (manager_websocket_routes Patch 3.4); omitted falls through to
+      // active_task cancel (existing behavior).
+      const payload = { type: 'cancel' };
+      if (currentTaskIdRef.current) payload.task_id = currentTaskIdRef.current;
+      wsRef.current.send(JSON.stringify(payload));
     }
     setPendingInput(null);
     setIsStreaming(false);

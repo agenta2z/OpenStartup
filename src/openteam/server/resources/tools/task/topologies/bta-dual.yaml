@@ -1,0 +1,50 @@
+# BTA with Dual consensus per slot — role_setup-style: every breakdown/worker/aggregator runs proposer+reviewer consensus.
+_target_: BTA
+breakdown_inferencer:
+  _target_: Dual
+  base_inferencer:
+    _target_: ClaudeCodeCLI
+    model_name: opus[1m]
+    permission_mode: bypassPermissions
+    idle_timeout_seconds: 300
+  review_inferencer:
+    _target_: ClaudeCodeCLI
+    model_name: opus[1m]
+    permission_mode: bypassPermissions
+    idle_timeout_seconds: 300
+  consensus_config:
+    _target_: ConsensusConfig
+    max_iterations: 2
+worker_factory:
+  __default__:
+    _target_: Dual
+    base_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    review_inferencer:
+      _target_: ClaudeCodeCLI
+      model_name: opus[1m]
+      permission_mode: bypassPermissions
+      idle_timeout_seconds: 300
+    consensus_config:
+      _target_: ConsensusConfig
+      max_iterations: 2
+aggregator_inferencer:
+  _target_: Dual
+  base_inferencer:
+    _target_: ClaudeCodeCLI
+    model_name: opus[1m]
+    permission_mode: bypassPermissions
+    idle_timeout_seconds: 300
+  review_inferencer:
+    _target_: ClaudeCodeCLI
+    model_name: opus[1m]
+    permission_mode: bypassPermissions
+    idle_timeout_seconds: 300
+  consensus_config:
+    _target_: ConsensusConfig
+    max_iterations: 2
+breakdown_format: json_subtasks
+max_breakdown: 4

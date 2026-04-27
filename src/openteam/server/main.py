@@ -27,6 +27,7 @@ from openteam.server.routes.health_routes import router as health_router
 from openteam.server.routes.team_routes import router as team_router
 from openteam.server.routes.project_routes import router as project_router
 from openteam.server.routes.task_routes import router as task_router
+from openteam.server.routes.task_topology_routes import router as task_topology_router
 from openteam.server.routes.employee_routes import router as employee_router
 from openteam.server.routes.conversation_routes import router as conversation_router
 from openteam.server.routes.dashboard_routes import router as dashboard_router
@@ -193,6 +194,7 @@ app.include_router(health_router, prefix="/api", tags=["system"])
 app.include_router(team_router, prefix="/api/teams", tags=["teams"])
 app.include_router(project_router, prefix="/api/projects", tags=["projects"])
 app.include_router(task_router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(task_topology_router, prefix="/api/task", tags=["task"])
 app.include_router(employee_org_router, prefix="/api/employees", tags=["employee-org"])
 app.include_router(employee_router, prefix="/api/employees", tags=["employees"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])

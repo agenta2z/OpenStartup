@@ -227,13 +227,26 @@ class ToolDispatcher:
                     if result and result.result
                     else ""
                 )
+                # Patch 3.6 — generalized document_path fallback chain so /task's
+                # workspace_path / plan_path / impl_path artifacts surface in the UI
+                # via the same hook /create_role uses. role_document_path stays first
+                # so /create_role's existing UI behavior is unchanged.
+                _ctx = result.context_updates if (result and result.context_updates) else {}
+                _doc = (
+                    _ctx.get("role_document_path")
+                    or _ctx.get("plan_path")
+                    or _ctx.get("impl_path")
+                    or _ctx.get("doc_path")
+                    or _ctx.get("workspace_path")
+                )
                 await interactive_ref._send({
                     "type": "task_completed",
                     "task_id": task_id,
                     "tool_name": tool_name,
                     "result_summary": result_summary,
                     "workspace": task_working_dir,
-                    "document_path": result.context_updates.get("role_document_path") if result and result.context_updates else None,
+                    "document_path": _doc,
+                    "context_updates": dict(_ctx),
                 })
                 await interactive_ref.send_task_status(
                     task_id, "completed", tool_name=tool_name,

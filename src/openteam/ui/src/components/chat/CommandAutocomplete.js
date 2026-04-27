@@ -11,6 +11,7 @@
 
 import React from 'react';
 import { Paper, Typography, List, ListItemButton, ListItemText } from '@mui/material';
+import useTaskTopologies from '../../hooks/useTaskTopologies';
 
 const COMMANDS = [
   { command: '/mock_task', description: '[DEV] Run mocked BTA pipeline for graph visualization testing' },
@@ -18,14 +19,36 @@ const COMMANDS = [
   { command: '/mock_task --profile flat', description: '[DEV] 12 flat workers, no nesting' },
   { command: '/mock_task --profile error', description: '[DEV] One worker errors out (test error styling)' },
   { command: '/mock_task --profile slow', description: '[DEV] 60s sustained streaming test' },
+  { command: '/task', description: 'Run an agent topology on a request (default: PTI + Dual). Use --agent-config to switch topology.' },
+  { command: '/task-plan', description: 'Plan only (no implementation).' },
+  { command: '/task-execute', description: 'Execute directly (skip planning).' },
+  { command: '/task-full', description: 'Plan then implement (default).' },
+  { command: '/task-confirm', description: 'Plan, wait for user approval, then implement.' },
 ];
 
+// Match /task ... --agent-config <CURSOR>: when the user has typed `--agent-config `
+// (with trailing space) but no value yet, suggest preset names from /api/task/topologies.
+const _AGENT_CONFIG_TRAILING_RE = /^\/task[\w-]*\s+(?:.*\s+)?--agent-config\s*$/;
+
 export function CommandAutocomplete({ input, onSelect }) {
-  const query = input.toLowerCase();
-  const matches = COMMANDS.filter(cmd =>
+  const { topologies } = useTaskTopologies();
+  const query = (input || '').toLowerCase();
+
+  // Static command matches (prefix match)
+  const staticMatches = COMMANDS.filter(cmd =>
     cmd.command.toLowerCase().startsWith(query)
   );
 
+  // Dynamic --agent-config preset suggestions
+  let dynamicMatches = [];
+  if (_AGENT_CONFIG_TRAILING_RE.test(input || '')) {
+    dynamicMatches = (topologies || []).map(t => ({
+      command: `${input}${t.name}`,
+      description: t.description || `Topology preset: ${t.name}`,
+    }));
+  }
+
+  const matches = [...staticMatches, ...dynamicMatches];
   if (matches.length === 0) return null;
 
   return (
