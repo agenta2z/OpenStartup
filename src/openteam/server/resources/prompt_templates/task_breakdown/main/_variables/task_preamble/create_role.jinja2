@@ -17,21 +17,4 @@ Each subtask should target a **distinct facet** of the role that can be investig
 
 **AI-Specific Considerations**: This is a role for an AI employee, not a human. Consider how autonomy levels, guardrails, escalation policies, and human oversight requirements differ from a human equivalent.
 
-**For Engineering / Technical Roles — Codebase Intelligence**:
-If the role is engineering, data science, ML, or otherwise technical, include a dedicated subtask to build a **Tech Stack Map** via codebase deep-dive:
-- Identify the 2–3 primary codebases this role owns or contributes to (e.g. from the role description, team context, or Bitbucket/GitHub)
-- For each repo, use codebase exploration tools to deep-dive:
-  * **Structure**: top-level directories, module/namespace ownership, team boundaries
-  * **Stack**: primary languages, internal SDKs/libraries, key frameworks
-  * **Patterns**: CI/CD pipeline architecture, testing conventions, deployment model
-  * **Ownership surface**: which modules/services this role is directly responsible for
-- Use available tools in order of preference:
-  1. `bash` / `ls` / `grep` for locally cloned repos
-  2. Bitbucket MCP (`files.get`) for remote repos not locally available
-  3. Confluence/Jira search for architectural documentation and ADRs
-- Produce a **"Tech Stack Map"** section in the Role Responsibility Document summarising:
-  * Repos → module structure → ownership
-  * Key internal libraries and their purpose
-  * CI/CD and deployment patterns
-  * Testing standards and coverage expectations
-- This grounds the AI employee in real technical context before its first task — it should be able to answer "what does this codebase do and how is it structured?" without any additional onboarding.
+**For Engineering / Technical Roles**: Include one or more subtasks to research the team's primary codebases using available codebase search tools (e.g. Github, Bitbucket) to understand tech stack (e.g. platform, packages, tools), module ownership, and architectural patterns — so the AI employee has deeply grounded technical context from day one.
