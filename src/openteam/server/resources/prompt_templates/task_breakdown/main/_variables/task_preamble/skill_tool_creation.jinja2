@@ -46,6 +46,11 @@ For each skill or tool described in the parent task, produce subtasks that cover
   * Query & retrieval tools — tools that fetch or compute information the role regularly needs (e.g. query experiment results, fetch platform metrics, retrieve incident history, check deployment status)
   * Validation & evaluation tools — tools that assess quality or correctness (e.g. run model evaluation, validate a config, check SLO compliance)
   * Automation tools — tools that perform multi-step operational procedures in one call (e.g. create an incident ticket and page on-call, provision a new environment, rotate credentials)
+- **Domain Operational Artifacts Investigation**: Investigate the role's domain operational artifacts as a direct source of tool ideas — runbooks, query patterns, and eval frameworks are tools waiting to be automated. Find and read them to discover what should be built:
+  * Runbooks & playbooks → automation tools (each runbook step is a candidate tool action)
+  * Primary platform query patterns → query & retrieval tools (frequent queries become parameterised tool calls)
+  * Evaluation & quality frameworks → validation & evaluation tools (eval workflows become executable tools)
+  * Templates & checklists → structured output tools (standard doc generation or validation tools)
 - **Platform & API Investigation**: For each capability the tool needs, investigate what platforms, APIs, CLIs, or SDKs are available. Read their documentation to understand endpoints, auth, and data formats.
 - **Interface Design Research**: Research best practices for the tool's interface — parameters, return formats, error handling — based on similar tools and the target platform's conventions.
 - **Implementation Investigation**: Investigate existing tool implementations in the codebase to understand patterns, then research the specific libraries and integration approaches needed.
