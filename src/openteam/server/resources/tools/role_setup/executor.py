@@ -1238,36 +1238,6 @@ async def execute(
         "template_extra_feed.role_doc_path": role_doc_abs,
         "template_extra_feed.available_tools_skills": available_tools_text,
     }
-    # 7-slot Rovo* → ClaudeCodeCli swap covering both outer + inner BTA via _import_
-    # traversal. Mirrors the proven set from test_role_setup_through_yaml_claude.py.
-    # Only applied when a working Claude Code CLI is available on this machine —
-    # unconditionally applying it on machines without `claude` installed silently
-    # produces empty output (ClaudeCodeCLI returns nothing when the binary is missing).
-    import shutil as _shutil
-    _claude_cmd = os.environ.get("CLAUDE_CODE_COMMAND") or "claude"
-    _claude_available = bool(_shutil.which(_claude_cmd))
-    if _claude_available:
-        _logger.info("[role_setup] ClaudeCodeCLI found (%s) — using ClaudeCodeCLI for all slots", _claude_cmd)
-        for slot in (
-            "breakdown_inferencer",
-            "aggregator_inferencer",
-            "worker_factory.skill_tool_association",
-            "worker_factory.skill_tool_creation.breakdown_inferencer",
-            "worker_factory.skill_tool_creation.aggregator_inferencer",
-            "worker_factory.skill_tool_creation.worker_factory.skill_tool_creation_research",
-            "worker_factory.skill_tool_creation.worker_factory.skill_tool_creation_investigation",
-        ):
-            overrides.update({
-                f"{slot}._target_": "ClaudeCodeCLI",
-                f"{slot}.model_name": "opus[1m]",
-                f"{slot}.target_path": str(workspace),
-                f"{slot}.idle_timeout_seconds": 300,
-                f"{slot}.permission_mode": "bypassPermissions",
-            })
-    else:
-        _logger.info(
-            "[role_setup] ClaudeCodeCLI not found — using YAML-native RovoChat/RovoDevCLI targets"
-        )
 
     # Delegate to /task's core. _run_topology respects session_context["working_dir"]
     # (we set it to the pre-allocated workspace above), wires WebSocketGraphReporter,
