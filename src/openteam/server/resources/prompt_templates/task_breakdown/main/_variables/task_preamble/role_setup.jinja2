@@ -8,6 +8,7 @@ Carefully analyze the following aspects of the role and achieve the above goal.
 - **Responsibilities and day-to-day activities** — what capabilities must the role have to perform its work?
 - **Required skills and competencies** — what technical and operational skills does the role need?
 - **Tools and technologies** — what platforms, services, and integrations does the role depend on?
+- **Domain operational artifacts** — what runbooks, playbooks, evaluation frameworks, query patterns, and templates does the role use? Each is a candidate for a skill (to encode the workflow) or a tool (to automate the operation).
 - **Standard operating procedures** — what actions, workflows, and automations do the SOPs reference?
 - **Collaboration and communication** — what tools or skills are needed for stakeholder interactions?
 - **Metrics and evaluation** — what tracking, reporting, or analysis capabilities are implied?
@@ -41,7 +42,7 @@ Each subtask should use `args` to specify its `task_preamble` variant, and inclu
   * **List each skill and tool** to be created, with a brief purpose for each.
   * For each new **tool**: state why existing tools are insufficient and what new executable capability is needed.
   * For each new **skill**: state which existing tools it can leverage, and what additional tools may be needed. A skill is domain-specific guidance (SKILL.md) on how to use tools for a particular workflow — only propose a new tool if no existing tool covers the needed operations.
-- Always include a research requirement to discover and evaluate available platforms, APIs, and CLIs that could serve the need — the role document may hint at relevant options but is often incomplete. 
+- Always include a research requirement to discover and evaluate available platforms, APIs, codebases, runbooks, and CLIs that could serve the need — the role document may hint at relevant options but is often incomplete. Pay particular attention to domain operational artifacts in the role doc (runbooks, query patterns, eval frameworks) as direct sources of tool ideas: each runbook is a candidate automation tool, each query pattern is a candidate retrieval tool, each eval framework is a candidate validation tool.
 - Reference the specific parts of the role document that drive each new skill or tool.
 
 **Skill/Tool Association Subtask** (exactly one, mandatory)
