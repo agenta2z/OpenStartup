@@ -41,6 +41,14 @@
 .PARAMETER NewServer
     Force a new server (same as default; kept for compatibility with run.sh).
 
+.PARAMETER LlmBackend
+    Default conversation backend: mock | rovodev | claude_cli.
+    Per-session UI selector overrides this for new sessions.
+
+.PARAMETER LlmModel
+    Default model name for the backend factory (e.g. "sonnet" for claude_cli).
+    Backend-specific; ignored by backends that don't accept a model_name.
+
 .EXAMPLE
     .\run.ps1
     Start both server (8000) and UI (3000).
@@ -69,7 +77,9 @@ param(
     [string]$RealSessions,
     [switch]$ResumeLatestServer,
     [string]$ResumeServer,
-    [switch]$NewServer
+    [switch]$NewServer,
+    [string]$LlmBackend,
+    [string]$LlmModel
 )
 
 $ErrorActionPreference = "Stop"
@@ -123,6 +133,8 @@ if ($PSBoundParameters.ContainsKey('RealSessions')) {
 if ($ResumeServer)        { $serverArgs += @("--resume-server", $ResumeServer) }
 if ($ResumeLatestServer)  { $serverArgs += "--resume-latest-server" }
 if ($NewServer)           { $serverArgs += @("--resume-server", "new") }
+if ($LlmBackend)          { $serverArgs += @("--llm-backend", $LlmBackend) }
+if ($LlmModel)            { $serverArgs += @("--llm-model", $LlmModel) }
 
 # ── Logging helpers ──────────────────────────────────────────────────
 function Write-RunLog  { param($m) Write-Host "[run.ps1] $m" -ForegroundColor Cyan }

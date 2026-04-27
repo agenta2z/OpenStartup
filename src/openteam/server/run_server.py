@@ -44,6 +44,11 @@ for _pkg_src in [
 
 
 def main() -> None:
+    # Pre-import the backend registry so --llm-backend choices and
+    # --list-backends can read it. Built-in backends register on import.
+    from openteam.server.backends import get_registry
+    from openteam.server.services.conversation_service import ConversationService
+
     parser = argparse.ArgumentParser(description="OpenStartup API Server")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
@@ -70,7 +75,52 @@ def main() -> None:
         default=False,
         help='Resume the most recently created server directory instead of creating a new one.',
     )
+    parser.add_argument(
+        "--llm-backend",
+        type=str,
+        default=None,
+        metavar="NAME",
+        choices=ConversationService.AVAILABLE_BACKENDS(),
+        help=(
+            "Default conversation backend (override via OPENTEAM_LLM_BACKEND or "
+            "the per-session UI selector). Choices: "
+            + ", ".join(ConversationService.AVAILABLE_BACKENDS())
+        ),
+    )
+    parser.add_argument(
+        "--llm-model",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help=(
+            "Default model name to pass into the backend factory "
+            "(e.g., 'opus[1m]' for claude_cli). Backend-specific. "
+            "Override via OPENTEAM_LLM_MODEL or the per-session UI."
+        ),
+    )
+    parser.add_argument(
+        "--list-backends",
+        action="store_true",
+        default=False,
+        help="Print all registered backends with availability status and exit.",
+    )
     args = parser.parse_args()
+
+    if args.list_backends:
+        registry = get_registry()
+        print("Registered inferencer backends:")
+        print()
+        for name, desc in sorted(registry.list_backends().items()):
+            available = desc.is_available()
+            status = "available  " if available else "unavailable"
+            print(f"  [{status}] {desc.display_name} ({name})")
+            if desc.description:
+                print(f"             {desc.description}")
+            print(f"             {desc.status_message()}")
+            if desc.default_model:
+                print(f"             default_model={desc.default_model}")
+            print()
+        sys.exit(0)
 
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(
@@ -91,6 +141,11 @@ def main() -> None:
     elif args.resume_server:
         app.state.resume_server = args.resume_server
     # else: app.state.resume_server is not set → session_store defaults to creating new
+
+    if args.llm_backend:
+        app.state.llm_backend = args.llm_backend
+    if args.llm_model:
+        app.state.llm_model = args.llm_model
 
     print(f"Starting OpenStartup API Server ({args.mode} mode)")
     print(f"  Host: {args.host}")

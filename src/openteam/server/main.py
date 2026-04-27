@@ -36,6 +36,7 @@ from openteam.server.routes.session_routes import router as session_router
 from openteam.server.routes.role_skill_routes import router as role_skill_router
 from openteam.server.routes.manager_websocket_routes import router as manager_ws_router
 from openteam.server.routes.org_routes import router as org_router, employee_org_router
+from openteam.server.routes.meta_routes import router as meta_router
 from openteam.server.services.data_service import MockDataService
 from openteam.server.services.intelligence_service import MockIntelligenceService
 
@@ -110,6 +111,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 or getattr(app.state, "llm_backend", None)
                 or "mock"
             )
+            llm_model = (
+                os.environ.get("OPENTEAM_LLM_MODEL")
+                or getattr(app.state, "llm_model", None)
+            )
             templates_dir = Path(__file__).parent / "resources" / "prompt_templates"
             working_dir = os.environ.get(
                 "OPENTEAM_WORKING_DIR", str(Path.home() / "MyProjects")
@@ -125,6 +130,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             conversation_svc = ConversationService(
                 templates_dir,
                 llm_backend=llm_backend,
+                llm_model=llm_model,
                 working_dir=working_dir,
                 cache_dir=cache_dir,
                 session_store=session_store,
@@ -133,8 +139,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             logger.info("Real sessions enabled: %s", real_sessions_dir)
             logger.info(
-                "Conversation service: backend=%s, working_dir=%s",
+                "Conversation service: backend=%s, model=%s, working_dir=%s",
                 llm_backend,
+                llm_model or "(default)",
                 working_dir,
             )
         else:
@@ -204,6 +211,7 @@ app.include_router(session_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(role_skill_router, prefix="/api/role-skills", tags=["role-skills"])
 app.include_router(manager_ws_router, prefix="/ws", tags=["websocket"])
 app.include_router(org_router, prefix="/api/orgs", tags=["organizations"])
+app.include_router(meta_router, prefix="/api", tags=["meta"])
 
 from openteam.server.routes.view_routes import router as view_router
 app.include_router(view_router, prefix="/api", tags=["file-viewer"])

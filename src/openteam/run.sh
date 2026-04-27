@@ -13,6 +13,8 @@
 #   ./run.sh --resume-latest-server     # Resume the most recently created server
 #   ./run.sh --resume-server <name>     # Resume a specific server by name (e.g., server_20260406_...)
 #   ./run.sh --new-server               # Force a new server (same as default, kept for compatibility)
+#   ./run.sh --llm-backend claude_cli   # Default conversation backend (mock|rovodev|claude_cli)
+#   ./run.sh --llm-model sonnet         # Default model for the backend factory (claude_cli only)
 #
 # Requires: python3, node/npm (node_modules installed in src/ui)
 # ─────────────────────────────────────────────────────────────────────
@@ -87,6 +89,14 @@ while [[ $# -gt 0 ]]; do
       # Explicit new server (same as default — kept for backwards compatibility)
       SERVER_EXTRA_ARGS+=("--resume-server" "new")
       shift
+      ;;
+    --llm-backend)
+      SERVER_EXTRA_ARGS+=("--llm-backend" "$2")
+      shift 2
+      ;;
+    --llm-model)
+      SERVER_EXTRA_ARGS+=("--llm-model" "$2")
+      shift 2
       ;;
     -h|--help)
       sed -n '2,/^# ─\{5,\}$/{ s/^# \?//; p }' "$0"

@@ -346,8 +346,33 @@ async def manager_websocket(websocket: WebSocket) -> None:
         await send_safe({"type": "message_start"})
 
         try:
-            # Use workflow-controlled agentic loop when available
-            if hasattr(conv_svc, "run_conversation_turn") and conv_svc._llm_backend == "rovodev":
+            # Use workflow-controlled agentic loop when a real inferencer
+            # is available for this session. Mock falls through to
+            # astream_response (canned-response branch). If the backend
+            # build fails (e.g., claude_cli without claude on PATH), surface
+            # a clear error to the client instead of crashing the route.
+            existing_session = data_svc.get_session(sid)
+            has_agentic_inferencer = False
+            if hasattr(conv_svc, "run_conversation_turn") and hasattr(
+                conv_svc, "_get_session_inferencer"
+            ):
+                try:
+                    has_agentic_inferencer = (
+                        conv_svc._get_session_inferencer(
+                            sid, session=existing_session
+                        )
+                        is not None
+                    )
+                except Exception as build_exc:
+                    logger.exception(
+                        "Failed to build inferencer for session %s", sid
+                    )
+                    await send_safe({
+                        "type": "error",
+                        "message": f"Backend unavailable: {build_exc}",
+                    })
+                    return
+            if has_agentic_inferencer:
                 from openteam.server.services.websocket_interactive import (
                     WebSocketInteractive,
                 )

@@ -126,9 +126,11 @@ class ConversationService:
         working_dir: str | None = None,
         cache_dir: str | None = None,
         session_store: object | None = None,
+        llm_model: str | None = None,
     ) -> None:
         self._templates_dir = templates_dir
         self._llm_backend = llm_backend
+        self._llm_model = llm_model
         self._working_dir = working_dir or str(Path.home())
         self._cache_dir = cache_dir
         self._session_store = session_store
@@ -204,209 +206,96 @@ class ConversationService:
         # Fallback: raw Jinja2 rendering
         return self._render_fallback(conversation_history, current_turn)
 
-    def _build_rovodev_inferencer(self):
-        """Create a ConversationalInferencer wrapping RovoDevCliInferencer.
+    @classmethod
+    def AVAILABLE_BACKENDS(cls) -> list[str]:
+        """Names of all backends registered in the global registry.
 
-        Architecture:
-            ConversationalInferencer (prompt rendering, history, agentic loop)
-                └── base_inferencer: RovoDevCliInferencer (LLM streaming via acli)
-
-        The ConversationalInferencer handles:
-        - Prompt rendering via the template manager (initial.jinja2)
-        - Conversation history management (_messages)
-        - Agentic loop with tool execution and conversation tools
-        - Streaming via base_inferencer.ainfer_streaming()
+        Used by run_server.py's --llm-backend choices and by the
+        /api/server/backends meta route.
         """
-        try:
-            from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev import (
-                RovoDevCliInferencer,
-            )
-            from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversational_inferencer import (
-                ConversationalInferencer,
-            )
-
-            # 1. Create the base inferencer (RovoDev CLI) with streaming cache
-            cache_folder = self._cache_dir
-
-            base = RovoDevCliInferencer(
-                working_dir=self._working_dir,
-                idle_timeout_seconds=600,
-                tool_use_idle_timeout_seconds=600,
-                cache_folder=cache_folder,
-                enable_legacy=True,  # Legacy mode uses --output-file for clean output
-                                     # capture that preserves XML tags and code fences.
-                                     # Non-legacy (TUI mode) mangles fences via Rich
-                                     # markup, breaking parse_conversation_response().
-            )
-            logger.info(
-                "RovoDevCliInferencer initialized (working_dir=%s, acli=%s, cache=%s)",
-                self._working_dir,
-                base.acli_path,
-                cache_folder,
-            )
-
-            # 2. Build prompt renderer (JinjaPromptRenderer conforms to PromptRenderer protocol)
-            from agent_foundation.common.inferencers.agentic_inferencers.conversational.prompt_rendering import (
-                JinjaPromptRenderer,
-            )
-
-            prompt_renderer = JinjaPromptRenderer(
-                template_dir=str(self._templates_dir),
-                template_path="conversation/main/initial.jinja2",
-            )
-
-            # 3. Load tool registry, apply config-based filtering, and build tool executor
-            from agent_foundation.resources.tools.registry import load_all_tools
-            from openteam.server.integrations.dispatch import build_integration_executor
-
-            # Pass OpenStartup's tools directory so create_role, role_setup
-            # and all slack/twg tools are discovered alongside AF built-ins.
-            openteam_tools_dir = self._templates_dir.parent / "tools"
-            tool_registry = load_all_tools(extra_dirs=[openteam_tools_dir])
-
-            # Filter tools based on .initial.config.yaml → tools.enabled_action_tools
-            # If the whitelist is defined and non-empty, only include listed tools.
-            # Conversation tools (clarification, single_choice, etc.) are built-in
-            # to ConversationalInferencer and are NOT affected by this filter.
-            tool_registry = self._filter_tools_by_config(tool_registry, prompt_renderer)
-
-            integration_executor = build_integration_executor()
-
-            # Generic registry-driven dispatcher — reads 'executor' field from each
-            # tool's tool.json and imports the callable at construction time.
-            # Fallback to integration_executor for Slack/TWG tools.
-            from openteam.server.services.tool_dispatcher import ToolDispatcher
-            session_context = {
-                "working_dir": self._working_dir,
-                "server_dir": str(self._session_store.server_dir) if self._session_store else "",
-                # cloud_id, uct_token, email loaded from environment if needed
-                "cloud_id": "",
-                "uct_token": None,
-                "email": None,
-            }
-            dispatcher = ToolDispatcher(
-                tool_registry=tool_registry,
-                integration_executor=integration_executor,
-                session_context=session_context,
-                interactive=None,  # Injected per-turn by run_conversation_turn
-            )
-
-            conv_inferencer = None  # assigned after closure; safe because tools only run during run_agentic_loop
-
-            async def tool_executor(tool_name, arguments):
-                result = await dispatcher(tool_name, arguments)
-                # Auto-derive phase updates from SOP tool_phase_map
-                # (populated by _render_prompt() from the SOP before tool execution)
-                if hasattr(result, "context_updates") and conv_inferencer is not None:
-                    tool_phase_map = conv_inferencer.prior_context.get("tool_phase_map", {})
-                    tool_phase = tool_phase_map.get(tool_name)
-                    if tool_phase and "current_phase" not in result.context_updates:
-                        result.context_updates["current_phase"] = tool_phase
-                        result.context_updates["phase_status"] = "completed"
-                return result
-
-            # 4. Wrap in ConversationalInferencer with tools
-            # Note: tool_executor closure references conv_inferencer for
-            # tool_phase_map access. Python closures capture by name (not value),
-            # so conv_inferencer will be bound by the time tools execute.
-            conv_inferencer = ConversationalInferencer(
-                base_inferencer=base,
-                # NOTE: _tool_dispatcher set below after conv_inferencer is created
-                prompt_renderer=prompt_renderer,
-                tool_registry=tool_registry,
-                tool_executor=tool_executor,
-                max_iterations=5,
-                compression_threshold=8000,
-            )
-            # Store dispatcher on inferencer so run_conversation_turn can inject
-            # per-turn interactive (needed for async background task dispatch).
-            # ConversationalInferencer uses @attrs(slots=False) — dynamic attrs allowed.
-            conv_inferencer._tool_dispatcher = dispatcher
-
-            logger.info(
-                "ConversationalInferencer wrapping RovoDevCliInferencer "
-                "(tools: %d registered)", len(tool_registry),
-            )
-
-            return conv_inferencer
-
-        except ImportError as e:
-            logger.error("Failed to import inferencer: %s", e)
-            logger.error(
-                "Ensure AgentFoundation/src and RichPythonUtils/src are on PYTHONPATH"
-            )
-            raise
-        except Exception as e:
-            logger.error("Failed to create inferencer: %s", e)
-            raise
-
-    @staticmethod
-    def _filter_tools_by_config(
-        tool_registry: dict, prompt_renderer: object
-    ) -> dict:
-        """Filter tool_registry based on .initial.config.yaml whitelist.
-
-        Reads ``tools.enabled_action_tools`` from the template's config YAML.
-        If the list is defined and non-empty, only tools whose name appears in
-        the whitelist (or whose aliases include a whitelisted name) are kept.
-
-        If the config key is absent, empty, or the config cannot be loaded,
-        all tools are returned unchanged (safe default).
-
-        Note: This only affects action tools rendered in the prompt. The four
-        built-in conversation tools (clarification, single_choice,
-        multiple_choice, confirmation) are always enabled — they are part of
-        the ConversationalInferencer, not the tool_registry.
-
-        Args:
-            tool_registry: Dict of {name: ToolDefinition} from load_all_tools().
-            prompt_renderer: Prompt renderer with a .template_config property.
-
-        Returns:
-            Filtered dict of {name: ToolDefinition}.
-        """
-        try:
-            config = getattr(prompt_renderer, "template_config", None) or {}
-            tools_config = config.get("tools", {})
-            if not isinstance(tools_config, dict):
-                return tool_registry
-
-            enabled_list = tools_config.get("enabled_action_tools")
-            if not enabled_list or not isinstance(enabled_list, list):
-                return tool_registry
-
-            enabled_set = set(enabled_list)
-
-            filtered = {}
-            for name, tool_def in tool_registry.items():
-                # Match by primary name or any alias
-                aliases = set(getattr(tool_def, "aliases", []))
-                if name in enabled_set or aliases & enabled_set:
-                    filtered[name] = tool_def
-
-            logger.info(
-                "Tool filtering applied: %d/%d tools enabled (whitelist: %s)",
-                len(filtered),
-                len(tool_registry),
-                enabled_list,
-            )
-            return filtered
-
-        except Exception as e:
-            logger.warning(
-                "Failed to apply tool filtering from config: %s — "
-                "returning all tools",
-                e,
-            )
-            return tool_registry
+        from openteam.server.backends import get_registry
+        return list(get_registry().list_backends())
 
     # ── Workflow-controlled conversation ────────────────────────────
 
-    def _get_session_inferencer(self, session_id: str):
-        """Get or create a per-session ConversationalInferencer."""
-        if session_id not in self._inferencers and self._llm_backend == "rovodev":
-            self._inferencers[session_id] = self._build_rovodev_inferencer()
-        return self._inferencers.get(session_id)
+    def _get_session_inferencer(self, session_id: str, session: dict | None = None):
+        """Get or create a per-session ConversationalInferencer.
+
+        Effective backend/model precedence:
+          1. ``session["llm_backend"]`` / ``session["llm_model"]`` (per-session)
+          2. ``self._llm_backend`` / ``self._llm_model`` (server default)
+
+        ``mock`` is fast-pathed: returns ``None`` so the caller streams
+        canned responses via ``astream_response`` without consulting the
+        registry. Any other backend dispatches through
+        ``BackendRegistry.create()``.
+        """
+        from openteam.server.backends import BackendBuildContext, get_registry
+
+        sess = session or {}
+        backend = sess.get("llm_backend") or self._llm_backend
+        model = sess.get("llm_model") or self._llm_model
+
+        if backend == "mock":
+            return None
+
+        if session_id in self._inferencers:
+            return self._inferencers[session_id]
+
+        ctx = BackendBuildContext(
+            templates_dir=self._templates_dir,
+            working_dir=self._working_dir,
+            cache_dir=self._cache_dir,
+            session_store=self._session_store,
+            model_name=model,
+        )
+        try:
+            inferencer = get_registry().create(backend, ctx)
+        except Exception as e:
+            logger.error("Failed to build inferencer for backend %r: %s", backend, e)
+            raise
+
+        self._inferencers[session_id] = inferencer
+        return inferencer
+
+    def set_session_backend(
+        self,
+        session_id: str,
+        backend: str,
+        model: str | None = None,
+    ) -> dict | None:
+        """Set the per-session LLM backend (and optional model).
+
+        Validates ``backend`` against the registry, persists via
+        ``session_store.update_session``, and evicts any cached inferencer
+        so the next turn rebuilds with the new choice.
+
+        Returns the updated session dict, or ``None`` if the session is
+        unknown or no session store is wired.
+        """
+        from openteam.server.backends import get_registry
+
+        registered = get_registry().list_backends()
+        if backend not in registered:
+            available = ", ".join(sorted(registered)) or "(none)"
+            raise KeyError(
+                f"Unknown backend {backend!r}. Registered backends: {available}"
+            )
+
+        # Evict cached inferencer so the next turn rebuilds with the new backend
+        self._inferencers.pop(session_id, None)
+
+        if self._session_store is None or not hasattr(
+            self._session_store, "update_session"
+        ):
+            logger.warning(
+                "set_session_backend(%s, %s): no session_store wired — "
+                "in-memory eviction only", session_id, backend,
+            )
+            return None
+
+        updates = {"llm_backend": backend, "llm_model": model}
+        return self._session_store.update_session(session_id, updates)
 
     def evict_session_inferencer(self, session_id: str) -> None:
         """Free memory when a session is deleted."""
@@ -865,15 +754,15 @@ class ConversationService:
                 yield chunk
                 await asyncio.sleep(0.03)  # 30ms per word — feels natural
 
-        elif self._llm_backend == "rovodev":
-            # rovodev backend: use run_conversation_turn() instead (workflow-controlled).
-            # astream_response() is not the correct entrypoint for rovodev — it bypasses
-            # run_agentic_loop() and the SOP/prompt rendering.
-            # Callers should use run_conversation_turn() with a WebSocketInteractive.
-            # This branch is kept as a safety fallback only.
-            inferencer = self._get_session_inferencer(session["id"])
+        else:
+            # Generic agentic-backend path: any registered non-mock backend.
+            # Safety fallback only — the WS route prefers run_conversation_turn().
+            inferencer = self._get_session_inferencer(session["id"], session=session)
             if inferencer is None:
-                raise RuntimeError("ConversationalInferencer not initialized")
+                raise RuntimeError(
+                    f"No inferencer registered for backend {self._llm_backend!r}. "
+                    f"Available: {', '.join(sorted(self.AVAILABLE_BACKENDS()))}"
+                )
 
             # Sync conversation history from session into the inferencer
             messages = session.get("messages", [])
@@ -898,12 +787,6 @@ class ConversationService:
 
             inferencer.add_message("user", user_message)
             inferencer.add_message("assistant", full_response)
-
-        else:
-            # Fallback for other backends
-            rendered_prompt = self.render_prompt(session, user_message)
-            raw_response = await self._call_llm(rendered_prompt)
-            yield self._parse_response(raw_response)
 
     async def get_response(self, session: dict, user_message: str) -> str:
         """Get an AI response for the user's message.
@@ -935,18 +818,17 @@ class ConversationService:
         )
 
     async def _call_llm(self, rendered_prompt: str) -> str:
-        """Call the configured LLM backend.
+        """Single-shot prompt path (legacy ``get_response``).
 
-        Supports:
-        - "mock": returns canned response (default, no deps)
-        - "ai-gateway": calls Atlassian AI Gateway (future)
-        - "anthropic": direct Anthropic API (future)
-        - "openai": direct OpenAI API (future)
-
-        Future: plug in via llm_gateway.py or agent_foundation inferencers.
+        Real backends are reached through ``_get_session_inferencer`` +
+        ``run_conversation_turn`` / ``astream_response``. This single-shot
+        path has no caller for non-mock backends and is intentionally not
+        implemented.
         """
-        raise NotImplementedError(
-            f"LLM backend '{self._llm_backend}' not yet implemented"
+        raise RuntimeError(
+            f"No single-shot inferencer for backend {self._llm_backend!r}. "
+            f"Available backends: {', '.join(sorted(self.AVAILABLE_BACKENDS()))}. "
+            f"Use astream_response() or run_conversation_turn() instead."
         )
 
     @staticmethod

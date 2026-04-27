@@ -39,6 +39,7 @@ import { FileViewer } from '../layout/FileViewer';
 import ConnectionStatusBar from '../layout/ConnectionStatusBar';
 import { TaskCard } from '../chat/TaskCard';
 import { TaskPanel } from '../chat/TaskPanel';
+import { BackendSelector } from '../chat/BackendSelector';
 
 
 /**
@@ -381,6 +382,13 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
             {messages.length} messages
           </Typography>
         </Box>
+        {isRealSessions && (
+          <BackendSelector
+            sessionId={sessionId}
+            sessionLlmBackend={sessionMeta?.llm_backend}
+            sessionLlmModel={sessionMeta?.llm_model}
+          />
+        )}
         {isRealSessions && <WsStatusBadge status={connectionStatus} />}
       </Box>
 
