@@ -41,6 +41,11 @@ For each skill or tool described in the parent task, produce subtasks that cover
 - **Templates & Patterns**: Research reusable templates, checklists, or decision criteria the skill should provide for its domain.
 
 **For tools** (new executable capabilities):
+- **High-Value Operation Identification**: Identify the most frequent, high-value operations the role performs that could be directly automated as executable tools. Think action-first — what does the role *do* repeatedly that a tool could run directly? Examples by type (not exhaustive):
+  * Job launchers — tools that trigger jobs or workflows (e.g. launch a training run, kick off a data pipeline, trigger a deployment)
+  * Query & retrieval tools — tools that fetch or compute information the role regularly needs (e.g. query experiment results, fetch platform metrics, retrieve incident history, check deployment status)
+  * Validation & evaluation tools — tools that assess quality or correctness (e.g. run model evaluation, validate a config, check SLO compliance)
+  * Automation tools — tools that perform multi-step operational procedures in one call (e.g. create an incident ticket and page on-call, provision a new environment, rotate credentials)
 - **Platform & API Investigation**: For each capability the tool needs, investigate what platforms, APIs, CLIs, or SDKs are available. Read their documentation to understand endpoints, auth, and data formats.
 - **Interface Design Research**: Research best practices for the tool's interface — parameters, return formats, error handling — based on similar tools and the target platform's conventions.
 - **Implementation Investigation**: Investigate existing tool implementations in the codebase to understand patterns, then research the specific libraries and integration approaches needed.
