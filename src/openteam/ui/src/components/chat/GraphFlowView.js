@@ -57,7 +57,7 @@ const STATUS_CONFIG = {
 };
 
 function computeLayout(nodes, edges, dims) {
-  if (!nodes || !nodes.length) return { columns: [], totalW: 0, totalH: 0, edgePaths: [], positions: {} };
+  if (!nodes || !nodes.length) return { columns: [], totalW: 0, totalH: 0, edgePaths: [], positions: {}, groupedColumns: {} };
   const { nodeH, nodeW, rowGap } = dims;
   const outEdges = {};
   const inDegree = {};
@@ -83,28 +83,9 @@ function computeLayout(nodes, edges, dims) {
   const maxDepth = Math.max(...Object.values(depth));
   const columns = Array.from({ length: maxDepth + 1 }, () => []);
   nodes.forEach(n => columns[depth[n.id] || 0].push(n));
-  const positions = {};
-  columns.forEach((col, ci) => {
-    col.forEach((n, ri) => {
-      positions[n.id] = {
-        x: PADDING + ci * (nodeW + COL_GAP),
-        y: PADDING + ri * (nodeH + rowGap),
-        cx: PADDING + ci * (nodeW + COL_GAP) + nodeW / 2,
-        cy: PADDING + ri * (nodeH + rowGap) + nodeH / 2,
-      };
-    });
-  });
-  const totalW = PADDING * 2 + columns.length * nodeW + Math.max(0, columns.length - 1) * COL_GAP;
-  // totalH recalculated after groupedColumns is built (see below)
-  const edgePaths = (edges || []).map(e => {
-    const src = positions[e.source];
-    const tgt = positions[e.target];
-    if (!src || !tgt) return null;
-    const sx = src.x + nodeW, sy = src.cy, tx = tgt.x, ty = tgt.cy;
-    const cp = (tx - sx) * 0.5;
-    return { key: `${e.source}-${e.target}`, d: `M ${sx} ${sy} C ${sx + cp} ${sy}, ${tx - cp} ${ty}, ${tx} ${ty}` };
-  }).filter(Boolean);
-  // Detect columns with >GROUP_THRESHOLD nodes → grouped rendering
+
+  // Detect grouped columns BEFORE computing positions so their actual width
+  // feeds into column spacing (prevents overlap when groupW > nodeW).
   const groupedColumns = {};
   columns.forEach((col, ci) => {
     if (col.length > GROUP_THRESHOLD) {
@@ -114,15 +95,50 @@ function computeLayout(nodes, edges, dims) {
       const dotRows = Math.ceil(others.length / DOTS_PER_ROW);
       const dotsH = dotRows * DOT_STRIDE + 8;
       const groupH = GROUP_HEADER_H + runH + dotsH + 12;
-      const colX = PADDING + ci * (nodeW + COL_GAP);
       const groupW = Math.max(nodeW, DOTS_PER_ROW * DOT_STRIDE + 12);
       groupedColumns[ci] = {
-        x: colX, y: PADDING, w: groupW, h: groupH,
+        y: PADDING, w: groupW, h: groupH,
         nodeIds: new Set(col.map(n => n.id)),
         nodes: col,
       };
     }
   });
+
+  // Adaptive column x-offsets: use actual column width (groupW or nodeW)
+  const colX = [];
+  let curX = PADDING;
+  for (let ci = 0; ci < columns.length; ci++) {
+    colX[ci] = curX;
+    curX += (groupedColumns[ci] ? groupedColumns[ci].w : nodeW) + COL_GAP;
+  }
+
+  // Assign positions using adaptive x-offsets
+  const positions = {};
+  columns.forEach((col, ci) => {
+    col.forEach((n, ri) => {
+      positions[n.id] = {
+        x: colX[ci],
+        y: PADDING + ri * (nodeH + rowGap),
+        cx: colX[ci] + nodeW / 2,
+        cy: PADDING + ri * (nodeH + rowGap) + nodeH / 2,
+      };
+    });
+  });
+
+  // Set grouped column x from adaptive offsets
+  for (const ci of Object.keys(groupedColumns)) {
+    groupedColumns[ci].x = colX[ci];
+  }
+
+  const totalW = curX - COL_GAP + PADDING;
+  const edgePaths = (edges || []).map(e => {
+    const src = positions[e.source];
+    const tgt = positions[e.target];
+    if (!src || !tgt) return null;
+    const sx = src.x + nodeW, sy = src.cy, tx = tgt.x, ty = tgt.cy;
+    const cp = (tx - sx) * 0.5;
+    return { key: `${e.source}-${e.target}`, d: `M ${sx} ${sy} C ${sx + cp} ${sy}, ${tx - cp} ${ty}, ${tx} ${ty}` };
+  }).filter(Boolean);
   const totalH = PADDING * 2 + Math.max(...columns.map((col, ci) =>
     groupedColumns[ci] ? groupedColumns[ci].h : (col.length * nodeH + Math.max(0, col.length - 1) * rowGap)
   ));

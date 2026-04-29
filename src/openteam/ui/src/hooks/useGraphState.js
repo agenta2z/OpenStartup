@@ -222,7 +222,7 @@ export function useGraphState(setTasks) {
       let corrected = 0;
       for (const node of updated.graph.nodes) {
         const serverStatus = data.nodes?.[node.id];
-        if (serverStatus && node.status !== serverStatus && node.status === 'running') {
+        if (serverStatus && node.status !== serverStatus) {
           console.warn(
             `[graph_reconcile] Gap detected: node '${node.id}' was '${node.status}' ` +
             `on UI but server reports '${serverStatus}' — auto-correcting`
