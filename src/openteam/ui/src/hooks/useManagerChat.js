@@ -165,13 +165,11 @@ export function useManagerChat(sessionId) {
 
       case 'graph_topology': {
         const tid = data.task_id;
-        console.debug('[graph_topology] received:', { tid, parent: data.parent_node_id, nodeCount: data.nodes?.length });
         if (tid) graphState.handleGraphTopology(tid, data);
         break;
       }
 
       case 'node_status': {
-        console.debug('[node_status] received:', { task_id: data.task_id, node_id: data.node_id, status: data.status });
         if (data.task_id) graphState.handleNodeStatus(data.task_id, data);
         break;
       }
@@ -230,7 +228,9 @@ export function useManagerChat(sessionId) {
           setTasks(prev => {
             const t = prev[tokenTaskId];
             if (!t) return prev;
-            return { ...prev, [tokenTaskId]: { ...t, isStreaming: true, streamContent: (t.streamContent || '') + data.content } };
+            let sc = (t.streamContent || '') + data.content;
+            if (sc.length > 200_000) sc = sc.slice(50_000);
+            return { ...prev, [tokenTaskId]: { ...t, isStreaming: true, streamContent: sc } };
           });
           break;
         }

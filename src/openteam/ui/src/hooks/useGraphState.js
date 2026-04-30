@@ -17,6 +17,8 @@ const MAX_STREAM_SIZE = 200_000;
 const TRIM_SIZE = 50_000;
 const STICKY_DURATION_MS = 5_000;
 const RACE_BUFFER_MAX_PER_PARENT = 200;
+const MAX_TOTAL_STREAMS = 10_000_000;
+const CLEANUP_KEEP_SIZE = 2_000;
 
 /**
  * Check if all nodes across root graph and all sub-graphs are in a terminal state.
@@ -90,6 +92,25 @@ function applyStreamToTask(task, evt) {
     content = content.slice(TRIM_SIZE);
   }
   nodeStreams[evt.node_id] = content;
+
+  // Global cap: if total nodeStreams size exceeds limit, purge completed nodes
+  let totalSize = 0;
+  for (const v of Object.values(nodeStreams)) totalSize += v.length;
+  if (totalSize > MAX_TOTAL_STREAMS) {
+    const terminal = new Set(['completed', 'error', 'skipped']);
+    const allNodes = [
+      ...(task.graph?.nodes || []),
+      ...Object.values(task.subGraphs || {}).flatMap(sg => sg?.nodes || []),
+    ];
+    for (const n of allNodes) {
+      if (terminal.has(n.status) && nodeStreams[n.id] && nodeStreams[n.id].length > CLEANUP_KEEP_SIZE) {
+        totalSize -= nodeStreams[n.id].length;
+        nodeStreams[n.id] = '';
+        if (totalSize <= MAX_TOTAL_STREAMS * 0.7) break;
+      }
+    }
+  }
+
   const updated = { ...task, nodeStreams };
 
   // Auto-correct: a node receiving stream data is clearly running.
@@ -231,8 +252,28 @@ export function useGraphState(setTasks) {
           corrected++;
         }
       }
-      if (corrected === 0) return prev;
-      console.info(`[graph_reconcile] Corrected ${corrected} stale node status(es) for task ${tid}`);
+
+      // Free memory: trim nodeStreams for completed graphs.
+      // Completed nodes' full output is available via the detail panel's
+      // file fetch (outputPath); keeping large stream buffers is wasteful.
+      if (isAllComplete(updated.graph, updated.subGraphs) && updated.nodeStreams) {
+        const trimmed = {};
+        let freed = 0;
+        for (const [nodeId, content] of Object.entries(updated.nodeStreams)) {
+          if (content.length > CLEANUP_KEEP_SIZE) {
+            trimmed[nodeId] = content.slice(0, CLEANUP_KEEP_SIZE);
+            freed += content.length - CLEANUP_KEEP_SIZE;
+          } else {
+            trimmed[nodeId] = content;
+          }
+        }
+        if (freed > 0) {
+          updated.nodeStreams = trimmed;
+          console.info(`[graph_reconcile] Freed ~${(freed / 1024).toFixed(0)}KB of completed stream data for task ${tid}`);
+        }
+      }
+
+      if (corrected === 0 && !updated.nodeStreams) return prev;
       return { ...prev, [tid]: updated };
     });
   }, [setTasks]);
