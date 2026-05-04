@@ -69,6 +69,10 @@ _PROMPT_TEMPLATES_ROOT = (
     Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 )
 
+# AgentFoundation fallback templates root (for multi-root TemplateManager).
+import agent_foundation.resources as _af_res
+_AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
+
 # Application-level resources directories (tools & skills moved from framework)
 _APP_TOOLS_DIR = Path(__file__).resolve().parent.parent.parent / "tools"
 _APP_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills"
@@ -958,9 +962,10 @@ def build_subtask_breakdown_only(
 
     # 3. Set up TemplateManager
     tm = TemplateManager(
-        templates=str(templates_root),
+        templates=[str(templates_root), str(_AF_TEMPLATES_ROOT)],
         active_template_type="main",
         predefined_variables=True,
+        cross_root_variable_lookup=True,  # Refactor 17
     )
 
     # 4. Build inner BTA with breakdown_only=True
@@ -1063,9 +1068,10 @@ def build_inner_research_only(
     # 3. Set up TemplateManager
     templates_root = Path(templates_dir) if templates_dir else _PROMPT_TEMPLATES_ROOT
     tm = TemplateManager(
-        templates=str(templates_root),
+        templates=[str(templates_root), str(_AF_TEMPLATES_ROOT)],
         active_template_type="main",
         predefined_variables=True,
+        cross_root_variable_lookup=True,  # Refactor 17
     )
 
     # 4. Build worker factories (same as _build_inner_bta)

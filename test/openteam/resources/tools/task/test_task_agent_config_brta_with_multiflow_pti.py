@@ -101,7 +101,7 @@ PROFILES = {
         "min_response_len": 400,
     },
     "deep": {
-        "outer_dual_iter": 2,
+        "outer_dual_iter": 3,
         "bta_workers": 3,
         "mfdual_iter": 2,
         "inner_dual_iter": 2,
@@ -115,30 +115,49 @@ _PROFILE = os.environ.get("BMP_REAL_PROFILE", "shallow")
 # Task prompt
 # ---------------------------------------------------------------------------
 
-DOC_TASK = """\
-You are creating a documentation plan for OpenStartup's `/task` slash
-command and its YAML topology composition system. The codebase is at
-the current working directory. Investigate first via file reads; do
-not speculate.
+DOC_TASK = r"""Create detailed, comprehensive documentation for the codebase at:
 
-Your output is the PLAN, not the documentation itself. Cover with
-concrete file:line citations:
-  1. Slash entry path -- `manager_websocket_routes._try_dev_slash_command`
-     to `task/executor.execute`.
-  2. Agent entry path -- ConversationalInferencer tool dispatch reaching
-     the same `task/executor.execute`. Note where paths converge and
-     diverge (workspace allocation heuristics).
-  3. YAML composition -- `_target_:` alias registry, the 5-priority
-     `--agent-config` resolver, `_-prefix` cascade injection, and
-     post-instantiate mutations (`--model`, `--no-dual`).
-  4. Workspace allocation -- per-task `_runtime/tasks/<id>` vs the
-     slash-path's heuristic rejection of unsafe `working_dir` hints.
-  5. WebSocket event surface -- events emitted to the UI during a task
-     run and how `useGraphState` / `useManagerChat` consume them.
+  C:\Users\yxinl\OneDrive\Projects\PythonProjects\CoreProjects\_dev\responsible-ai-api
 
-For each section: list specific files with line refs, key
-functions/classes, recommended depth, and ambiguities worth flagging.
-Be concrete; avoid generic boilerplate.
+The documentation must be:
+- Comprehensive: cover the codebase's purpose, architecture, public API, key
+  modules, and any operational concerns
+- Structured: organized into clearly-named sections with consistent depth
+- Both human-readable and machine-friendly: use proper headings, code blocks,
+  cross-references, and a glossary; emit content that downstream tools (Sphinx,
+  search indexers) can parse
+- Accurate, informative, insightful, and reflective of critical thinking:
+  verify claims against the source code, do not speculate; flag ambiguities
+  rather than paper over them; bring out non-obvious design decisions
+- Cross-referenced: where relevant, link sections together using Sphinx
+  `:ref:` references and a shared anchor map, with sufficient citations
+
+Output format: reStructuredText source files placed under `docs/source/`
+(one .rst file per major section). Then build HTML output via Sphinx:
+  - Place `conf.py` under `docs/source/` (alabaster or sphinx-rtd-theme)
+  - Place `index.rst` under `docs/source/` with a toctree referencing each
+    section in a sensible reading order
+  - Run `sphinx-build -b html docs/source docs/build/html` and report any
+    warnings or errors
+
+The deliverable is the documentation itself, NOT a documentation plan or
+outline. Produce the actual prose, code excerpts, and reference material
+that a reader can consume directly.
+
+Tool-use constraints (IMPORTANT — failure to honor these will cause the run to
+hang for hours):
+- Confine ALL filesystem operations to the target codebase directory shown
+  above. Do NOT run `find /`, `find C:\`, `grep -r` over `c:/Users`,
+  `OneDrive`, `Desktop`, `Projects`, or any other drive-root or large parent
+  directory. On this Windows host, recursive scans rooted at `/` or
+  `c:/Users/...` traverse hundreds of GB and take hours; they will exceed
+  the per-tool idle timeout and stall the workflow.
+- Use the target codebase path explicitly when listing or searching files:
+  e.g., `find <repo_root>/src -name '*.py'`, NOT `find / -name '*.py'`.
+- Prefer the `Read`/`Glob`/`Grep` tools scoped to a known subdirectory over
+  shell `find`/`grep -r` whenever possible.
+- If you cannot locate a file with a bounded search, ASK or report the
+  ambiguity rather than escalating to a drive-wide scan.
 """
 
 
@@ -147,10 +166,16 @@ Be concrete; avoid generic boilerplate.
 # ===========================================================================
 
 def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
-    """Validate the YAML loads and instantiates without LLM calls.
+    """Validate the YAML loads and instantiates the new Topology B-extended
+    shape without LLM calls.
 
-    Catches alias-registration regressions, `_-prefix` cascade bugs,
-    OmegaConf interpolation bugs, and type mismatches in seconds --
+    Topology B-extended:
+        Outer Dual { base = PTI { planner = Dual{base=BTA{workers=MFDual},
+        review}, executor = BTA{workers=Dual} }, review, fixer = PTI }
+
+    Catches alias-registration regressions, `_-prefix` cascade bugs (incl.
+    `_logger: auto`, `_debug_mode: true`), OmegaConf interpolation bugs,
+    type mismatches, and template_variables resolution in seconds --
     before the real-CLI test burns money.
     """
     import agent_foundation.common.configs.registered_targets  # noqa: F401
@@ -165,8 +190,17 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.plan_then_implement_inferencer import (
         PlanThenImplementInferencer,
     )
+    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.multi_flow_dual_inferencer import (
+        MultiFlowDualInferencer,
+    )
+    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.multi_flow_inferencer import (
+        MultiFlowInferencer,
+    )
     from agent_foundation.common.inferencers.agentic_inferencers.external.claude_code.claude_code_cli_inferencer import (
         ClaudeCodeCliInferencer,
+    )
+    from agent_foundation.common.inferencers.flow_parsers import (
+        parse_winner_tag, parse_decision_stop, parse_finalplan_tag,
     )
 
     monkeypatch.setenv("DUAL_WS", str(tmp_path / "ws"))
@@ -179,134 +213,472 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     )
     inferencer = instantiate(cfg)
 
-    # Outer Dual + two distinct BTAs
+    # ----- Top-level: outer Dual wrapping PTI base + PTI fixer -----
     assert isinstance(inferencer, DualInferencer), type(inferencer).__name__
-    assert isinstance(inferencer.base_inferencer, BreakdownThenAggregateInferencer)
-    assert isinstance(inferencer.fixer_inferencer, BreakdownThenAggregateInferencer)
+    assert isinstance(inferencer.base_inferencer, PlanThenImplementInferencer), (
+        f"base must be PTI (Topology B-extended); got {type(inferencer.base_inferencer).__name__}"
+    )
+    assert isinstance(inferencer.fixer_inferencer, PlanThenImplementInferencer), (
+        f"fixer must be PTI (mirror of base); got {type(inferencer.fixer_inferencer).__name__}"
+    )
     assert inferencer.base_inferencer is not inferencer.fixer_inferencer, (
-        "base and fixer must be distinct BTA instances"
+        "base and fixer must be distinct PTI instances"
     )
-    assert inferencer.base_inferencer.name == "base_bta"
-    assert inferencer.fixer_inferencer.name == "fixer_bta"
     assert isinstance(inferencer.review_inferencer, ClaudeCodeCliInferencer)
-
-    # worker_factory.__default__ is auto-partial'd to functools.partial
-    base_factory = inferencer.base_inferencer.worker_factory["__default__"]
-    fixer_factory = inferencer.fixer_inferencer.worker_factory["__default__"]
-    assert isinstance(base_factory, functools.partial), (
-        "base BTA worker_factory.__default__ should be a functools.partial "
-        "(auto-injected by _filter_attrs_keys for *_factory fields)"
+    # Outer reviewer judges the deliverable, not a plan — uses implementation/review
+    assert inferencer.review_inferencer.template_root_space == "implementation", (
+        f"outer reviewer must judge deliverable, not plan; got "
+        f"template_root_space={inferencer.review_inferencer.template_root_space!r}"
     )
-    assert isinstance(fixer_factory, functools.partial)
+    assert inferencer.review_inferencer.template_key == "review"
 
-    # Calling factory() produces a fresh PTI tree
-    sample_pti = base_factory()
-    assert isinstance(sample_pti, PlanThenImplementInferencer)
-    # Planner is a single Dual (MFDual was dropped due to architectural
-    # mismatch — see YAML comment on planner_inferencer for details).
-    assert isinstance(sample_pti.planner_inferencer, DualInferencer)
-    assert isinstance(sample_pti.executor_inferencer, DualInferencer)
-
-    # _-prefix cascade injection reached every leaf ClaudeCodeCli
-    # (planner is a Dual; its review_inferencer is a ClaudeCodeCli leaf)
-    leaf_review = sample_pti.planner_inferencer.review_inferencer
-    assert isinstance(leaf_review, ClaudeCodeCliInferencer)
-    # model_name normalized via resolve_model_tag — accept either alias or resolved form
-    assert leaf_review.model_name in ("opus[1m]", "opus", "claude-opus-4-7[1m]"), (
-        f"unexpected model_name on leaf reviewer: {leaf_review.model_name!r}"
+    # ----- PTI's plan stage: Dual{base=BTA{workers=MFDual}, review} -----
+    base_pti = inferencer.base_inferencer
+    plan_dual = base_pti.planner_inferencer
+    assert isinstance(plan_dual, DualInferencer), (
+        f"plan stage must be Dual (review-and-fix the integrated plan); got {type(plan_dual).__name__}"
     )
-    assert leaf_review.target_path == str(OPENSTARTUP_PATH), (
-        f"_target_path cascade failed; got {leaf_review.target_path!r}"
+    plan_bta = plan_dual.base_inferencer
+    assert isinstance(plan_bta, BreakdownThenAggregateInferencer), (
+        f"plan Dual.base must be BTA (decompose planning); got {type(plan_bta).__name__}"
     )
-    assert leaf_review.idle_timeout_seconds == 600, (
-        f"_idle_timeout_seconds cascade failed; got {leaf_review.idle_timeout_seconds}"
+    assert plan_bta.name == "plan_bta"
+    assert isinstance(plan_dual.review_inferencer, ClaudeCodeCliInferencer)
+
+    # plan BTA worker_factory yields MFDual instances (multi-perspective per sub-plan)
+    plan_factory = plan_bta.worker_factory["__default__"]
+    assert isinstance(plan_factory, functools.partial), (
+        "plan BTA worker_factory.__default__ should be functools.partial"
     )
-    # _output_path cascade reached every leaf → resolve_output_path() returns
-    # a leaf-workspace-namespaced path. Without this, templates render
-    # `{{ output_path }}` as empty and models bail.
-    assert leaf_review.output_path == "output.md", (
-        f"_output_path cascade failed; got {leaf_review.output_path!r}"
+    sample_mfdual = plan_factory()
+    assert isinstance(sample_mfdual, MultiFlowDualInferencer), (
+        f"plan BTA worker must be MFDual; got {type(sample_mfdual).__name__}"
+    )
+    assert sample_mfdual.propagate_runtime_input is True, (
+        "MFDual planner MUST have propagate_runtime_input=true so runtime "
+        "subtask description reaches the flows (architectural fix)"
+    )
+    assert sample_mfdual.inject_upstream_artifacts is True, (
+        "MFDual planner MUST have inject_upstream_artifacts=true so "
+        "{{ upstream_artifacts }} slot in target wrappers is populated"
+    )
+    # MFDual auto-constructs an internal MultiFlow as base_inferencer
+    assert isinstance(sample_mfdual.base_inferencer, MultiFlowInferencer)
+    assert sample_mfdual.base_inferencer.propagate_runtime_input is True, (
+        "MultiFlow inside MFDual must also have propagate_runtime_input=true (forwarded)"
+    )
+    assert sample_mfdual.base_inferencer.inject_upstream_artifacts is True, (
+        "MultiFlow inside MFDual must also have inject_upstream_artifacts=true (forwarded)"
+    )
+    assert len(sample_mfdual.flow_configs) == 2, (
+        f"expected 2 parallel flows by default; got {len(sample_mfdual.flow_configs)}"
+    )
+    # Parsers wired correctly
+    assert sample_mfdual.multi_flow_winner_parser is parse_winner_tag, (
+        "winner parser alias not resolved correctly"
+    )
+    assert sample_mfdual.multi_flow_response_parser is parse_finalplan_tag, (
+        "response parser alias (FinalPlanParser) not resolved correctly"
+    )
+    # Per-flow end_condition is the decision-stop parser
+    assert sample_mfdual.flow_configs[0]["end_condition"] is parse_decision_stop, (
+        "flow end_condition alias (DecisionStopParser) not resolved correctly"
     )
 
-    # Workspace interpolation produced distinct subdirs
-    base_ws = str(inferencer.base_inferencer.workspace_root or "")
-    fixer_ws = str(inferencer.fixer_inferencer.workspace_root or "")
-    assert "base_bta" in base_ws, f"base BTA workspace_root: {base_ws!r}"
-    assert "fixer_bta" in fixer_ws, f"fixer BTA workspace_root: {fixer_ws!r}"
-    assert base_ws != fixer_ws, "BTA workspaces must be distinct"
-
-    # ----- Template wiring -----
-    # _template_manager cascade-injected into every InferencerBase
-    # descendant; specific inferencers have their template_root_space set.
-    breakdown = inferencer.base_inferencer.breakdown_inferencer
-    aggregator = inferencer.base_inferencer.aggregator_inferencer
-    outer_reviewer = inferencer.review_inferencer
-
-    for inf, name in [
-        (breakdown, "base.breakdown"),
-        (aggregator, "base.aggregator"),
-        (outer_reviewer, "outer.review"),
-    ]:
-        assert inf.template_manager is not None, (
-            f"{name} missing template_manager (cascade injection failed?)"
+    # plan BTA aggregator uses the SHARED `aggregation` task_* variants for
+    # pure prose integration. Under Option A, NO structured-output addenda
+    # fire here — the exec BTA's breakdown_inferencer is responsible for
+    # decomposing the prose plan into per-section subtasks. The aggregator's
+    # only job is faithful integration of upstream sub-plans.
+    plan_agg = plan_bta.aggregator_inferencer
+    assert isinstance(plan_agg, ClaudeCodeCliInferencer)
+    assert plan_agg.template_root_space == "plan"
+    # Refactor 12+13: BTA.SLOT_DEFAULTS now injects the full aggregation
+    # triplet via template_version + None-keyed template_variables.
+    # task_response_format will be present (None) but renders to the empty
+    # string at feed time because the wrapper template never references
+    # {{ task_response_format }} for the plan BTA aggregator. The structured-
+    # output addenda (winner_pick / iteration_judgment) live on MFDual via
+    # template_extra_feed flags, not on the plan BTA aggregator slot itself.
+    assert plan_agg.template_version == "aggregation"
+    assert "task_preamble" in plan_agg.template_variables
+    assert "task_instructions" in plan_agg.template_variables
+    assert "task_response_format" in plan_agg.template_variables
+    # Plan BTA aggregator must NOT have any output-schema addendum flag set.
+    # If any of these fire, decomposition logic has leaked back into the
+    # plan stage (Option A violation).
+    plan_agg_flags = plan_agg.template_extra_feed or {}
+    for _flag in ("include_iteration_judgment", "include_winner_pick", "include_execution_subtasks"):
+        assert not plan_agg_flags.get(_flag, False), (
+            f"Plan BTA aggregator must not set {_flag!r} (Option A: aggregator "
+            f"does pure prose integration; per-section structuring is the exec "
+            f"BTA breakdown_inferencer's job)"
         )
 
-    assert breakdown.template_root_space == "task_breakdown", (
-        f"breakdown template_root_space: {breakdown.template_root_space!r}"
+    # Plan BTA opts into modern slot semantics via the class-level flag
+    # (replaces the old aggregator_prompt_builder factory wiring). When True,
+    # BTA's _build_agg_input internally pushes formatted worker outputs into
+    # template_extra_feed["upstream_artifacts"], forwards the breakdown's
+    # aggregation_guidance, and returns original_query as inference_input.
+    assert plan_bta.inject_upstream_artifacts_to_aggregator is True, (
+        "Plan BTA must set inject_upstream_artifacts_to_aggregator=True to "
+        "wire the {{ upstream_artifacts }} slot (replaces the old "
+        "UpstreamInjectingAggregatorPromptBuilder factory pattern)"
     )
-    assert aggregator.template_root_space == "plan", (
-        f"aggregator template_root_space: {aggregator.template_root_space!r}"
-    )
-    assert outer_reviewer.template_root_space == "plan"
-    assert outer_reviewer.template_key == "review", (
-        f"outer reviewer template_key: {outer_reviewer.template_key!r}"
+    # Custom prompt_builder should NOT be set when the flag is used (the flag
+    # IS the modern path; the factory was the legacy escape hatch).
+    assert plan_bta.aggregator_prompt_builder is None, (
+        "Plan BTA must not set both aggregator_prompt_builder AND the flag — "
+        "the flag is the canonical pattern, the factory the deprecated one"
     )
 
-    # Template manager actually resolves the breakdown template that BTA
-    # depends on (task_breakdown/main/initial.jinja2). This validates
-    # `templates_dir` override propagated correctly and the Jinja file is
-    # discoverable under {templates_dir}/{root_space}/{type}/{key}.jinja2.
-    rendered = breakdown.template_manager(
+    # Option B (breakdown → aggregator handoff): the new internal path
+    # must plumb the breakdown's aggregation_guidance into the aggregator's
+    # template_extra_feed. Verify by directly calling the helper that
+    # _build_agg_input uses.
+    plan_bta._last_aggregation_guidance = (
+        "Treat subtask 1 as backbone; layer subtasks 2-3 onto it; preserve glossary."
+    )
+    plan_bta._inject_aggregator_extra_feed(
+        worker_results=["worker 1 output", "worker 2 output"],
+    )
+    assert plan_bta.aggregator_inferencer.template_extra_feed.get(
+        "aggregation_guidance"
+    ) == (
+        "Treat subtask 1 as backbone; layer subtasks 2-3 onto it; preserve glossary."
+    ), (
+        "_inject_aggregator_extra_feed must forward _last_aggregation_guidance "
+        "into the aggregator's template_extra_feed['aggregation_guidance']"
+    )
+    # And the upstream_artifacts slot must be populated with formatted
+    # worker outputs (matches the ### Result N format used by both the
+    # legacy default and the new injection path).
+    upstream = plan_bta.aggregator_inferencer.template_extra_feed.get("upstream_artifacts")
+    assert upstream is not None and "### Result 1" in upstream and "### Result 2" in upstream, (
+        f"upstream_artifacts must contain formatted ### Result N entries; got {upstream!r}"
+    )
+    # Stale aggregation_guidance must be dropped when the next breakdown
+    # produces no guidance (else previous-call guidance leaks into the
+    # current aggregator prompt).
+    plan_bta._last_aggregation_guidance = None
+    plan_bta._inject_aggregator_extra_feed(
+        worker_results=["worker 1 output"],
+    )
+    assert "aggregation_guidance" not in plan_bta.aggregator_inferencer.template_extra_feed, (
+        "Stale aggregation_guidance must be dropped when the next breakdown "
+        "does not produce one"
+    )
+
+    # MFDual's final aggregator uses the SHARED structured-aggregation triplet.
+    # Refactor 13: template_version drives expansion; per-key values are None.
+    mfdual_agg = sample_mfdual.multi_flow_aggregator_inferencer
+    assert isinstance(mfdual_agg, ClaudeCodeCliInferencer)
+    assert mfdual_agg.template_version == "aggregation"
+    assert "task_instructions" in mfdual_agg.template_variables
+    assert mfdual_agg.template_extra_feed.get("include_winner_pick") is True
+
+    # MFDual's per-flow followup_inferencer uses SHARED template with
+    # include_iteration_judgment flag (asks the model to judge whether further
+    # iteration adds value; the response-format addendum then specifies emit a
+    # JSON `iteration_judgment` block with `decision: continue|stop`).
+    flow_followup = sample_mfdual.flow_configs[0]["followup_inferencer"]
+    assert isinstance(flow_followup, ClaudeCodeCliInferencer)
+    assert flow_followup.template_version == "aggregation"
+    assert "task_instructions" in flow_followup.template_variables
+    assert flow_followup.template_extra_feed.get("include_iteration_judgment") is True
+
+    # ----- PTI's exec stage: bare BTA{workers=Dual{base+review}} -----
+    exec_bta = base_pti.executor_inferencer
+    assert isinstance(exec_bta, BreakdownThenAggregateInferencer), (
+        f"exec stage must be bare BTA (no surrounding Dual); got {type(exec_bta).__name__}"
+    )
+    assert exec_bta.name == "exec_bta"
+    # Exec BTA also opts into modern slot semantics. Closes the historical
+    # gap where exec_bta lacked a prompt_builder and worker outputs ended up
+    # in the wrapper's {{ input }} slot (mislabeled as "Original User Request").
+    assert exec_bta.inject_upstream_artifacts_to_aggregator is True, (
+        "exec_bta must set inject_upstream_artifacts_to_aggregator=True so the "
+        "exec aggregator receives upstream_artifacts + aggregation_guidance "
+        "via template_extra_feed, with original BTA query in {{ input }}"
+    )
+    assert exec_bta.aggregator_prompt_builder is None
+    # Exec breakdown uses the generic task_breakdown wrapper — no use-case-specific
+    # task_instructions variant. Same generic-wrapper philosophy applies to the
+    # exec workers and aggregator below.
+    exec_breakdown = exec_bta.breakdown_inferencer
+    assert exec_breakdown.template_root_space == "task_breakdown"
+    assert not exec_breakdown.template_variables.get("task_instructions"), (
+        "exec_breakdown must NOT set a task_instructions variant — the generic "
+        "wrapper carries the cognitive load"
+    )
+    # Exec workers are Duals (per-section write+review+fix). They use ONLY the
+    # generic implementation/main/initial.jinja2 wrapper — no task_instructions
+    # variant. The LLM infers the deliverable shape from the subtask description.
+    exec_factory = exec_bta.worker_factory["__default__"]
+    sample_exec_dual = exec_factory()
+    assert isinstance(sample_exec_dual, DualInferencer), (
+        f"exec BTA worker must be Dual (per-section write+review+fix); got {type(sample_exec_dual).__name__}"
+    )
+    assert isinstance(sample_exec_dual.base_inferencer, ClaudeCodeCliInferencer)
+    assert sample_exec_dual.base_inferencer.template_root_space == "implementation"
+    assert not (sample_exec_dual.base_inferencer.template_variables or {}).get("task_instructions"), (
+        "exec worker base must NOT set a task_instructions variant — the generic "
+        "wrapper plus the subtask description carry all needed context"
+    )
+    # Exec aggregator: uses the implementation-namespace aggregation preamble
+    # to consume {{ upstream_artifacts }} and {{ aggregation_guidance }}
+    # (populated by BTA's inject_upstream_artifacts_to_aggregator path).
+    # Refactor 12+13: BTA now defaults the full triplet via SLOT_DEFAULTS.
+    # The newly-authored implementation/.../task_instructions/aggregation.jinja2
+    # provides aggregator-role framing (NOT the worker-style default.jinja2),
+    # so prompt content stays role-correct. Task-specific instructions still
+    # ride in the breakdown's aggregation_guidance via the wrapper template's
+    # {{ aggregation_guidance }} slot.
+    exec_agg = exec_bta.aggregator_inferencer
+    assert exec_agg.template_root_space == "implementation"
+    assert exec_agg.template_version == "aggregation"
+    assert "task_preamble" in exec_agg.template_variables
+    assert "task_instructions" in exec_agg.template_variables
+    # Verify the implementation-namespace aggregation task_instructions file
+    # exists (authored to make the BTA flip semantically safe). load_variable
+    # must return real aggregator framing, NOT the worker-style default.jinja2.
+    impl_agg_instructions_text = exec_agg.template_manager.load_variable(
+        "task_instructions", "aggregation", "implementation"
+    )
+    assert impl_agg_instructions_text is not None
+    assert "aggregating" in impl_agg_instructions_text.lower(), (
+        "implementation/main/_variables/task_instructions/aggregation.jinja2 "
+        "must contain aggregator-role framing, not worker-style instructions "
+        "(which would be the default.jinja2 fallback)"
+    )
+    impl_agg_preamble_text = exec_agg.template_manager.load_variable(
+        "task_preamble", "aggregation", "implementation"
+    )
+    assert impl_agg_preamble_text is not None, (
+        "implementation/main/_variables/task_preamble/aggregation.jinja2 must exist "
+        "to consume the upstream_artifacts + aggregation_guidance slots"
+    )
+    assert "upstream_artifacts" in impl_agg_preamble_text
+    assert "aggregation_guidance" in impl_agg_preamble_text
+    # Implementation aggregation is intentionally simpler than plan's:
+    # no MFDual-specific addendum branches (workflows are non-overlapping
+    # at execution time; no parallel exploration to judge or winner to pick).
+    assert "include_iteration_judgment" not in impl_agg_preamble_text, (
+        "implementation aggregation preamble must NOT include MFDual-specific "
+        "branches — execution stage has no MFDual"
+    )
+    assert "include_winner_pick" not in impl_agg_preamble_text
+
+    # ----- _-prefix cascade reached every leaf -----
+    # _logger: auto → JsonLogger per leaf workspace; _debug_mode: true cascaded
+    # too. Pick a deep leaf and verify all the cascade fields landed.
+    deep_leaf = sample_mfdual.flow_configs[0]["initial_inferencer"]
+    assert isinstance(deep_leaf, ClaudeCodeCliInferencer)
+    # Model alias resolved
+    assert deep_leaf.model_name in ("opus[1m]", "opus", "claude-opus-4-7[1m]"), (
+        f"unexpected model_name on deep leaf: {deep_leaf.model_name!r}"
+    )
+    # _target_path cascade reached deep leaves
+    assert deep_leaf.target_path == str(OPENSTARTUP_PATH), (
+        f"_target_path cascade failed for deep leaf; got {deep_leaf.target_path!r}"
+    )
+    # _idle_timeout_seconds + _output_path cascades
+    assert deep_leaf.idle_timeout_seconds == 600
+    assert deep_leaf.output_path == "output.md"
+    # _logger: auto either reached the leaf as the literal "auto" sentinel (still
+    # deferred — workspace assignment hasn't happened for this fresh-from-factory
+    # leaf), OR has already resolved to a concrete logger dict (if workspace
+    # propagated). Both are acceptable; the cascade itself MUST have hit:
+    assert deep_leaf.logger is not None, "_logger cascade missed deep leaf entirely"
+    assert deep_leaf.logger == "auto" or not isinstance(deep_leaf.logger, str), (
+        f"_logger value should be 'auto' or a resolved logger; got {deep_leaf.logger!r}"
+    )
+    # _debug_mode cascade reached deep leaf
+    assert deep_leaf.debug_mode is True, "_debug_mode: true cascade did not reach deep leaf"
+
+    # Verify per-leaf logger DID resolve where workspace was already assigned —
+    # the plan BTA's aggregator (constructed at YAML instantiation, gets workspace
+    # via _propagate_workspace_to_children before the test inspects it).
+    assert plan_agg.logger is not None and not isinstance(plan_agg.logger, str), (
+        f"plan BTA aggregator's _logger: auto should have resolved to a JsonLogger; "
+        f"got {plan_agg.logger!r}"
+    )
+
+    # ----- Workspace propagation: outer Dual → PTI children → BTAs -----
+    # After Refactor 1, the YAML carries only the top-level `workspace_root`.
+    # The outer Dual creates its `_workspace` from that, then propagation
+    # cascades through the inferencer tree via each `_workspace` setter.
+    # Each child gets `parent_workspace.child("<attr_name>")`.
+    assert base_pti._workspace is not None, "base PTI didn't receive propagated workspace"
+    assert base_pti._workspace.root.replace("\\", "/").endswith(
+        "/children/base_inferencer"
+    ), f"base PTI workspace root: {base_pti._workspace.root!r}"
+    fixer_pti = inferencer.fixer_inferencer
+    assert fixer_pti._workspace is not None, "fixer PTI didn't receive propagated workspace"
+    assert fixer_pti._workspace.root.replace("\\", "/").endswith(
+        "/children/fixer_inferencer"
+    ), f"fixer PTI workspace root: {fixer_pti._workspace.root!r}"
+    # Plan BTA: under planner_inferencer (Dual) under base_inferencer (PTI)
+    # under outer Dual. Path mirrors the topology.
+    assert plan_bta._workspace is not None, (
+        "plan_bta should receive a workspace via the propagation cascade"
+    )
+    assert plan_bta._workspace.root.replace("\\", "/").endswith(
+        "/children/planner_inferencer/children/base_inferencer"
+    ), f"plan_bta workspace root: {plan_bta._workspace.root!r}"
+    # Exec BTA: directly under base_inferencer (PTI) under outer Dual,
+    # via the executor_inferencer slot.
+    assert exec_bta._workspace is not None, (
+        "exec_bta should receive a workspace via the propagation cascade"
+    )
+    assert exec_bta._workspace.root.replace("\\", "/").endswith(
+        "/children/executor_inferencer"
+    ), f"exec_bta workspace root: {exec_bta._workspace.root!r}"
+
+    # ----- Template rendering smoke checks -----
+    # Generic task_breakdown wrapper (no use-case-specific task_instructions).
+    # The breakdown LLM gets the integrated plan as `input` plus the wrapper's
+    # universal decomposition guidance and produces subtasks; downstream
+    # workers are self-sufficient (no args contract).
+    rendered_breakdown = exec_breakdown.template_manager(
         "initial",
         active_template_root_space="task_breakdown",
-        input="DECOMPOSE THIS TASK",
+        input="(integrated documentation plan in free-form prose here)",
         task_preamble="",
-        task_instructions="",
     )
-    assert "decomposed_subtasks" in rendered, (
-        "task_breakdown template did not render the JSON-decomposition "
-        "instruction; check templates_dir resolution"
-    )
-    assert "DECOMPOSE THIS TASK" in rendered, (
-        "template did not interpolate {{ input }}"
+    # The wrapper must carry the four-criteria self-check (Comprehensive,
+    # Independent, Non-conflicting, Actionable) — the conflict-handling
+    # criterion is what lets the LLM encode unavoidable conflicts as
+    # subtask_dependencies rather than producing parallel-unsafe siblings.
+    for _criterion in ("Comprehensive", "Independent", "Non-conflicting", "Actionable"):
+        assert _criterion in rendered_breakdown, (
+            f"task_breakdown wrapper must include the '{_criterion}' decomposition criterion"
+        )
+    assert "subtask_dependencies" in rendered_breakdown, (
+        "task_breakdown wrapper must instruct the LLM how to encode "
+        "subtask_dependencies (used both for logical ordering and conflict "
+        "serialization)"
     )
 
-    # Same check for plan/main/initial.jinja2 (used by aggregator)
-    rendered_plan = aggregator.template_manager(
-        "initial",
-        active_template_root_space="plan",
-        input="SYNTHESIZE THIS",
-        task_preamble="",
-        task_instructions="",
-        output_path="/tmp/out.md",
+    # The breakdown wrapper must instruct the LLM to also fill an
+    # `aggregation_guidance` field. Without this, the breakdown's reasoning
+    # about how to reconstruct the integrated artifact is lost between
+    # breakdown and aggregator stages.
+    assert "aggregation_guidance" in rendered_breakdown, (
+        "task_breakdown wrapper must instruct the breakdown LLM to emit an "
+        "`aggregation_guidance` field — that field carries reconstruction "
+        "guidance forward to the aggregator (Option B for breakdown→aggregator "
+        "handoff)"
     )
-    assert "<Response>" in rendered_plan, "plan/initial template missing <Response> tags"
-    assert "SYNTHESIZE THIS" in rendered_plan
+    assert "Aggregation Guidance" in rendered_breakdown, (
+        "task_breakdown wrapper must include the 'Aggregation Guidance' "
+        "instructional section that explains what the LLM should put in the "
+        "`aggregation_guidance` field"
+    )
 
-    # Critical: predefined_variables=false suppresses the OpenStartup AI HR
-    # persona auto-load from prompt_templates/.variables.yaml. Verify no
-    # persona contamination. Without this guard, every prompt would prefix
-    # "You are OpenStartup, serving as an AI Human Resources agent..."
-    assert "AI Human Resources agent" not in rendered, (
-        "task_breakdown render leaked the AI HR persona "
-        "(predefined_variables not actually disabled)"
+    # task_preamble: aggregation must consume the breakdown's aggregation_guidance
+    # via {% if aggregation_guidance %} so plan BTA aggregators see Option B
+    # plumbing (the breakdown's reconstruction strategy reaches the aggregator).
+    agg_preamble_text = plan_agg.template_manager.load_variable(
+        "task_preamble", "aggregation", "plan"
     )
-    assert "AI Human Resources agent" not in rendered_plan, (
-        "plan render leaked the AI HR persona"
+    assert agg_preamble_text is not None, (
+        "task_preamble/aggregation.jinja2 should load"
     )
-    assert "OpenStartup" not in rendered.split("Original")[0], (
-        "task_breakdown render leaked employee.name=OpenStartup as a persona prefix"
+    assert "aggregation_guidance" in agg_preamble_text, (
+        "task_preamble/aggregation.jinja2 must reference {{ aggregation_guidance }} "
+        "so the breakdown's reconstruction guidance reaches the aggregator"
     )
+    assert "{%- if aggregation_guidance %}" in agg_preamble_text or \
+           "{% if aggregation_guidance %}" in agg_preamble_text, (
+        "task_preamble must gate aggregation_guidance behind an `{% if %}` so "
+        "breakdowns that don't emit guidance render cleanly"
+    )
+
+    # aggregation task_instructions: terse cognitive guidance (compare inputs,
+    # integrate faithfully, maintain structure consistency, avoid hacky/ad-hoc).
+    # NO structured-output addenda — those moved to task_response_format.
+    int_agg_text = plan_agg.template_manager.load_variable(
+        "task_instructions", "aggregation", "plan"
+    )
+    assert int_agg_text is not None, "aggregation task_instructions variant did not load"
+    assert "consolidated artifact" in int_agg_text, (
+        "aggregation task_instructions should mention 'consolidated artifact' (the integration goal)"
+    )
+    assert "DO NOT be hacky" in int_agg_text, (
+        "aggregation task_instructions should include the rigor reminder"
+    )
+    # The {% if %} addenda for output schema have moved to task_response_format
+    assert "include_execution_subtasks" not in int_agg_text, (
+        "aggregation task_instructions should NOT contain output-schema addenda — "
+        "those belong in task_response_format/aggregation.jinja2"
+    )
+
+    # Structured-output schema lives in task_response_format/aggregation.jinja2
+    response_format_text = plan_agg.template_manager.load_variable(
+        "task_response_format", "aggregation", "plan"
+    )
+    assert response_format_text is not None, (
+        "task_response_format/aggregation.jinja2 should load"
+    )
+    # Two surviving addenda under Option A: iteration_judgment (per-flow followup)
+    # and winner_pick (MFDual final aggregator). No execution_breakdown — the
+    # plan aggregator emits prose, exec BTA breakdown does decomposition.
+    assert "include_iteration_judgment" in response_format_text
+    assert "include_winner_pick" in response_format_text
+    assert "include_execution_subtasks" not in response_format_text, (
+        "Option A: include_execution_subtasks must be removed from "
+        "task_response_format/aggregation.jinja2 — decomposition belongs "
+        "to the exec BTA breakdown_inferencer, not the plan aggregator"
+    )
+    # JSON-fenced output schema for the surviving addenda.
+    assert "```json iteration_judgment" in response_format_text
+    assert "```json winner_pick" in response_format_text
+    assert "```json execution_breakdown" not in response_format_text
+    assert "winner_index" in response_format_text
+    # Structured execution-subtask schema must NOT appear in plan response format
+    assert "execution_subtasks" not in response_format_text
+    assert "shared_context" not in response_format_text
+
+    # Verify the per-step followup formatter produces clean text.
+    # The formatter is now an inlined Python method on MultiFlowInferencer
+    # (no longer a Jinja template under prompt_templates/). The original task
+    # is intentionally NOT included — under inject_upstream_artifacts=True,
+    # the wrapper template's {{ input }} slot carries it separately.
+    formatted_followup = sample_mfdual.base_inferencer._format_followup_input(
+        your_prev="prev draft",
+        flow_idx=0,
+        step_idx=2,
+        visible_plans={1: "peer 1"},
+    )
+    assert "prev draft" in formatted_followup
+    assert "peer 1" in formatted_followup
+    assert "flow 0" in formatted_followup
+    assert "step 1" in formatted_followup  # prev_step_idx = step_idx - 1
+    # Critical: data formatter carries NO cognitive instructions (those live in
+    # the followup_inferencer's task_instructions:aggregation wrapper).
+    assert "Decision" not in formatted_followup, (
+        "_format_followup_input should be a thin DATA FORMATTER only — "
+        "cognitive instructions (incl. Decision tag) belong in the followup_inferencer's "
+        "task_instructions (aggregation), not in this formatter"
+    )
+    # Original task must NOT be embedded (avoids duplication with wrapper's
+    # {{ input }} slot that already carries it under inject_upstream_artifacts).
+    assert "Original task" not in formatted_followup, (
+        "_format_followup_input must not include the original task — "
+        "the wrapper's {{ input }} slot supplies it separately under "
+        "inject_upstream_artifacts=True (avoids prompt-level duplication)"
+    )
+
+    # Empty-peers branch: when the flow has no peer visibility, the formatter
+    # emits a sensible placeholder instead of crashing.
+    formatted_no_peers = sample_mfdual.base_inferencer._format_followup_input(
+        your_prev="prev draft",
+        flow_idx=0,
+        step_idx=2,
+        visible_plans={},
+    )
+    assert "No peer outputs visible yet" in formatted_no_peers
 
 
 # ===========================================================================

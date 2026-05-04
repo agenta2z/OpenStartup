@@ -67,6 +67,10 @@ _PROMPT_TEMPLATES_ROOT = (
     Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 )
 
+# AgentFoundation fallback templates root (for multi-root TemplateManager).
+import agent_foundation.resources as _af_res
+_AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
+
 
 def _load_variable_file(space: str, var_name: str, variant: str = "create_role") -> str:
     """Read a ``_variables/`` template file by variant name.
@@ -239,6 +243,10 @@ def _build_template_manager(
 ) -> TemplateManager:
     """Create a ``TemplateManager`` rooted at the ``prompt_templates/`` directory.
 
+    The TemplateManager uses a 2-element root list:
+    1. OpenStartup root (override + all _variables/)
+    2. AgentFoundation root (fallback wrappers only)
+
     The single TemplateManager serves all phases via
     ``active_template_root_space`` switching:
 
@@ -251,9 +259,10 @@ def _build_template_manager(
     """
     root = templates_dir or str(_PROMPT_TEMPLATES_ROOT)
     return TemplateManager(
-        templates=root,
+        templates=[root, str(_AF_TEMPLATES_ROOT)],
         active_template_type="main",
         predefined_variables=True,
+        cross_root_variable_lookup=True,  # Refactor 17
     )
 
 

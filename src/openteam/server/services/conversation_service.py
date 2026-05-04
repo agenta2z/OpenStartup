@@ -17,6 +17,10 @@ import logging
 import re
 from pathlib import Path
 
+import agent_foundation.resources as _af_res
+
+_AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,9 +163,10 @@ class ConversationService:
             )
 
             return TemplateManager(
-                templates=str(self._templates_dir),
+                templates=[str(self._templates_dir), str(_AF_TEMPLATES_ROOT)],
                 active_template_type="main",
                 predefined_variables=True,
+                cross_root_variable_lookup=True,  # Refactor 17
             )
         except ImportError:
             logger.warning(

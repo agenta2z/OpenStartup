@@ -12,9 +12,12 @@ _logger: auto
 _debug_mode: true
 _template_manager:
   _target_: TemplateManager
-  templates: prompt_templates
+  templates:
+    - ${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}
+    - ${modpath:agent_foundation.resources.prompt_templates}
   active_template_type: main
   predefined_variables: true
+  cross_root_variable_lookup: true   # Refactor 17: framework wrappers + consumer specialized variants
   default_template_key: initial
   enable_templated_feed: true
 

@@ -15,9 +15,12 @@ _logger: auto
 _debug_mode: true  # enables verbose logging (CacheOpen, Async, RetryPrompt etc.)
 _template_manager:
   _target_: TemplateManager
-  templates: prompt_templates
+  templates:
+    - ${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}
+    - ${modpath:agent_foundation.resources.prompt_templates}
   active_template_type: main
   predefined_variables: true
+  cross_root_variable_lookup: true   # Refactor 17: framework wrappers + consumer specialized variants
   default_template_key: initial
   enable_templated_feed: true
 
@@ -26,13 +29,13 @@ _template_manager:
 # =====================================================================
 
 # --- Breakdown ---
+# template_root_space: task_breakdown defaulted by BTA.SLOT_DEFAULTS.
 breakdown_inferencer:
   _target_: RovoChat
   auto_continue: true
   output_path: "breakdown_output.md"   # _finalize_output() writes <Response> content here
                                         # → children/breakdown/outputs/breakdown_output.md
   max_continuations: 5
-  template_root_space: task_breakdown
   template_variables:
     task_preamble: create_role
 
@@ -54,6 +57,9 @@ worker_factory:
 # - RovoChat cannot write local files, so the synthesized document was
 #   being lost (agent said "written to file" but it never actually was)
 aggregator_inferencer:
+  # task_preamble + task_response_format = aggregation defaulted by BTA.SLOT_DEFAULTS;
+  # task_instructions: create_role overrides the default per-key (the
+  # create_role-specific instructions matter more than generic aggregation here).
   _target_: RovoDevCLI
   yolo: true
   debug_mode: true

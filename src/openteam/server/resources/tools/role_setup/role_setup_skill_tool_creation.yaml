@@ -16,9 +16,12 @@ _logger: auto
 _debug_mode: true
 _template_manager:
   _target_: TemplateManager
-  templates: prompt_templates
+  templates:
+    - ${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}
+    - ${modpath:agent_foundation.resources.prompt_templates}
   active_template_type: main
   predefined_variables: true
+  cross_root_variable_lookup: true   # Refactor 17: framework wrappers + consumer specialized variants
   default_template_key: initial
   enable_templated_feed: true
 
@@ -36,6 +39,7 @@ workspace:
 # =====================================================================
 
 # --- Breakdown ---
+# template_root_space: task_breakdown defaulted by BTA.SLOT_DEFAULTS.
 breakdown_inferencer:
   _target_: RovoDevCLI
   yolo: true
@@ -46,7 +50,6 @@ breakdown_inferencer:
                                         # Triggers --output-file flag to acli;
                                         # task_breakdown/main/initial.jinja2 instructs
                                         # the agent to write its analysis there.
-  template_root_space: task_breakdown
   template_variables:
     task_preamble: skill_tool_creation
 
@@ -80,13 +83,16 @@ worker_factory:
 # directly to outputs/ which _finalize_response recursively copies to
 # outputs/final_deliverables/. Uses implementation template for synthesis instructions.
 aggregator_inferencer:
+  # task_preamble + task_response_format = aggregation defaulted by
+  # BTA.SLOT_DEFAULTS; task_instructions: skill_tool_creation overrides
+  # the default per-key (the skill-tool-specific instructions are what
+  # tell the aggregator to write SKILL.md / tool.json / executor.py).
   _target_: RovoDevCLI
   yolo: true
   debug_mode: true
   template_root_space: implementation
   template_variables:
     task_instructions: skill_tool_creation
-    task_preamble: skill_tool_creation
 
 # =====================================================================
 # Pipeline: settings
