@@ -1,193 +1,221 @@
-# Outer Dual (review-and-fix) wrapping two distinct BTA instances.
-# Both BTAs share the same composition shape (BTA -> PTI{MFDual, Dual});
-# they're wired into different Dual slots (base vs fixer) and isolated
-# by per-instance workspace_root.
+# ============================================================================
+# Topology B-extended for documentation-shaped tasks.
+# ============================================================================
 #
-# Fully YAML-declarative -- no callables, no state-tracking. Compatible
-# with `/task --agent-config <path>` end-to-end and with the programmatic
-# `_run_topology()` entry that this YAML's test exercises.
+# Tree structure:
+#   Outer Dual                                    review + fix the FULL deliverable
+#   ├── base_inferencer = PTI                     plan-then-execute on the whole task
+#   │   ├── planner_inferencer = Dual             review + fix the integrated PLAN
+#   │   │   ├── base_inferencer = BTA             decompose the PLANNING task
+#   │   │   │   ├── breakdown_inferencer          → N sub-planning subtasks
+#   │   │   │   ├── worker_factory = MFDual       each sub-plan explored by N parallel flows
+#   │   │   │   │                                 with peer visibility + winner picking
+#   │   │   │   └── aggregator_inferencer         integrate sub-plans → ONE coherent
+#   │   │   │                                     prose plan (no structured output —
+#   │   │   │                                     decomposition is the exec BTA's job)
+#   │   │   └── review_inferencer                 judge plan structure + quality
+#   │   └── executor_inferencer = BTA             decompose execution per plan, run parallel
+#   │       ├── breakdown_inferencer              read plan → M execution subtasks (RST files)
+#   │       ├── worker_factory = Dual             each section: write + review + fix
+#   │       └── aggregator_inferencer             combine sections + sphinx-build HTML
+#   ├── review_inferencer                         judge final deliverable (RST + HTML)
+#   └── fixer_inferencer = PTI                    mirror of base — fires if outer review rejects
 #
-# `_-prefix` injection (rich_python_utils._instantiate.py:270-366)
-# propagates _model_name / _idle_timeout_seconds / _target_path /
-# _template_manager down to every descendant that accepts the
-# un-prefixed param. permission_mode is omitted from leaves (already
-# the ClaudeCodeCli class default at claude_code_cli_inferencer.py:86).
+# Why this shape: planning is convergent (sub-plans may overlap/conflict; need
+# integration review + fix loop), execution is divergent (each section is
+# independent; per-section review is enough; integration review at outer Dual).
 #
-# Template wiring follows create_role_bta.yaml's pattern:
-#   - _template_manager cascade-injects `template_manager` into every
-#     InferencerBase descendant (line 141 of inferencer_base.py).
-#   - Each inferencer that should render through templates sets
-#     `template_root_space: <tree>` (and `template_key: <key>` for
-#     non-default keys like 'review').
-#   - BTA / PTI / MFDual / Dual themselves are orchestrators and bypass
-#     template rendering on their own inputs (BTA's _render_prompt
-#     override at line 457-463 returns input unchanged).
+# ----------------------------------------------------------------------------
+# Cascades (`_-prefix` keys → propagated to descendants accepting un-prefixed param)
+# ----------------------------------------------------------------------------
+#   GLOBAL (declared at file root):
+#     _logger, _debug_mode, _model_name, _idle_timeout_seconds, _target_path,
+#     _template_manager, _output_path, _consensus_config.
 #
-# Caveats:
-#   1. `/task --no-dual` collapses the OUTER Dual into its base (just
-#      BTA -- fix loop disappears). Acceptable cheap-mode behavior.
-#      The inner executor Dual under PTI also collapses to its base.
-#   2. `/task --model <name>` rewrites `model_name` keys but NOT
-#      `_model_name`. Override with `--override _model_name=<name>`.
-#   3. `/task --resume` is intended for PTI; outer Dual has no native
-#      resume path -- not supported by this YAML.
-#   4. The fixer BTA uses default prompts. Behaviorally it may produce
-#      a partial redo rather than gap-targeted fixes; topologically the
-#      test asserts only that the composition completes successfully.
-#   5. MFDual's flow / aggregator / review inferencers receive MFDual's
-#      own inline-constructed prompts (multi_flow_aggregator_prompt,
-#      multi_flow_followup_prompt). Their template_root_space causes a
-#      template re-wrap of those inline prompts. Verbose but coherent
-#      -- the model sees specific instructions inside generic framing.
+#   SUBTREE-SCOPED (Refactor 14) — `_template_root_space` declared per-stage:
+#       planner_inferencer       → plan
+#       executor_inferencer      → implementation
+#     Three-layer precedence: leaf > role-specific SLOT_DEFAULTS > subtree cascade.
+#     Example: every BTA's breakdown_inferencer.template_root_space=task_breakdown
+#     comes from BREAKDOWN_TEMPLATE_DEFAULTS (role layer), beating the subtree cascade.
+#
+# ----------------------------------------------------------------------------
+# Template-stack key facts
+# ----------------------------------------------------------------------------
+#   - BTA modern slot semantics (default): worker outputs go into the aggregator's
+#     template_extra_feed["upstream_artifacts"], breakdown's `aggregation_guidance`
+#     is forwarded to the aggregator, original BTA query goes into {{ input }}.
+#     Replaces the legacy UpstreamInjectingAggregatorPromptBuilder factory.
+#   - Three aggregators (per-flow followup, MFDual flow aggregator, plan BTA
+#     aggregator) all share the `aggregation` task_* triplet via SLOT_DEFAULTS,
+#     differing only by `template_extra_feed` flags (winner_pick / iteration_judgment).
+#   - `winner_pick: true` (MFDual feature toggle): auto-sets include_winner_pick
+#     on multi_flow_aggregator + wires the default WinnerParser/FinalPlanParser.
+#   - `iteration_judgment: true` (per-flow toggle): auto-sets end_condition=
+#     parse_decision_stop + include_iteration_judgment on followup_inferencer.
+#   - `propagate_runtime_input: true` (MFDual): MultiFlow fills cfg["input"] from
+#     the runtime inference_input per call (PTI's subtask reaches each flow this way).
+#   - Per-flow followup step ≥ 1: input is assembled by MultiFlow's Python
+#     formatter `_format_followup_input` (no Jinja); upstream artifacts flow via
+#     template_extra_feed["upstream_artifacts"] into the followup's wrapper template.
+#   - Outer review_inferencer uses `implementation/review` (not plan/review) because
+#     the deliverable IS the implementation, not a plan about implementation.
+#   - Fixer PTI uses `_inherits_: base_inferencer` to deep-copy the base subtree,
+#     overriding only `name:` fields so plan_bta / exec_bta have distinct identities.
+#     The deep-copy preserves all `_-prefix` cascade declarations (incl. Refactor 14).
+#
+# ----------------------------------------------------------------------------
+# Hyperparameters (`_hyperparams:` convention, Refactor 15)
+# ----------------------------------------------------------------------------
+# Tunable scalar values are declared once at the top under `_hyperparams:` and
+# referenced via `${_hyperparams.<name>}` in the body. The walker auto-strips
+# `_-prefix` keys at root (no constructor sees `hyperparams`); OmegaConf eager
+# resolution in `load_config` substitutes the values BEFORE instantiation.
+#
+# Override at load time:
+#     load_config(path, overrides={"_hyperparams.plan_max_breakdown": 4})
+#
+# Required (no default) → use the `???` sentinel; OmegaConf raises
+# MissingMandatoryValue if the caller doesn't supply a value.
+#
+# ----------------------------------------------------------------------------
+# Caveats
+# ----------------------------------------------------------------------------
+#   1. `propagate_runtime_input: true` on each MFDual is incompatible with
+#      `/task --resume` — checkpoint reconstruction may use stale per-flow inputs.
+#      Acceptable for shallow real-CLI tests where resume isn't exercised.
+#   2. `/task --no-dual` collapses each Dual to its base; outer review-and-fix
+#      disappears. Acceptable cheap mode.
+#   3. `predefined_variables: false` on TemplateManager suppresses AI HR persona
+#      auto-load (would otherwise contaminate from OpenStartup's _variables.yaml).
 
-_target_: Dual
+# ---------------------------------------------------------------------------
+# HYPERPARAMETERS — defaults; override via load_config(overrides=...)
+# ---------------------------------------------------------------------------
+_hyperparams:
+  plan_max_breakdown: 2              # planner BTA: number of sub-planning subtasks
+  exec_max_breakdown: 4              # executor BTA: number of execution subtasks
+  flow_max_dynamic_steps: 3          # per-flow MFDual followup iterations cap
+  consensus_max_iterations: 1        # cheap-mode default for ALL Dual review-and-fix loops
+
+# ---------------------------------------------------------------------------
+# GLOBAL CASCADES
+# ---------------------------------------------------------------------------
+_logger: auto
+_debug_mode: true
 _model_name: opus[1m]
 _idle_timeout_seconds: 600
-# Cascade `output_path` to every InferencerBase descendant. With per-leaf
-# workspace isolation (via _propagate_workspace_to_children on InferencerBase),
-# each leaf resolves this to <leaf_workspace>/outputs/output.md — no collisions.
-# Without this, templates render `{{ output_path }}` as empty and models bail
-# with "I can't write to an unspecified path."
+_tool_use_idle_timeout_seconds: 1800  # bound runaway tool calls (e.g., recursive find / over C:); generous enough for sphinx-build and other slow but legitimate tool runs
 _output_path: "output.md"
 
-# Templates path. Set explicitly via the test's overrides (or via env
-# var for direct YAML load); the fallback `prompt_templates` is a
-# relative path that TemplateManager resolves under cwd if the override
-# is absent.
-templates_dir: "${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}"
-
-# Cascade-source: every descendant InferencerBase that accepts
-# `template_manager` (all of them, via inferencer_base.py:141) gets this
-# injected. They'll then render based on their own `template_root_space`
-# / `template_key` settings.
 _template_manager:
   _target_: TemplateManager
-  templates: ${templates_dir}
+  templates:
+    - ${templates_dir}
+    - ${modpath:agent_foundation.resources.prompt_templates}
   active_template_type: main
-  # predefined_variables is DELIBERATELY false here. The OpenStartup
-  # prompt_templates/.variables.yaml auto-loads an `employee` variable
-  # describing the AI Human Resources agent persona, which every template
-  # injects via `{% if employee is defined %}You are **{{ employee.name }}**…`.
-  # That persona is correct for `/create_role` / `/role_setup` but wrong
-  # for our documentation-planning task — we want clean prompts focused
-  # on the actual request.
-  predefined_variables: false
+  predefined_variables: false        # suppress AI HR persona auto-load
   default_template_key: initial
   enable_templated_feed: true
 
-# Set by /task injection (executor.py:373) or by the test's overrides.
-workspace_root: "${oc.env:DUAL_WS,/tmp/dual_outside_ws}"
-
-consensus_config:
+_consensus_config:
   _target_: ConsensusConfig
-  max_iterations: 1   # one (review -> fix) round; bumped per profile
+  max_iterations: ${_hyperparams.consensus_max_iterations}
 
-# ---------------------------------------------------------------------
-# BASE BTA -- produces the initial draft
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# OUTER DUAL — review and fix the FULL deliverable
+# ---------------------------------------------------------------------------
+_target_: Dual
+workspace_root: "${oc.env:DUAL_WS,/tmp/topo_b_ws}"
+templates_dir: "${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}"
+
+# ---------------------------------------------------------------------------
+# BASE PTI — plan-then-execute on the whole task
+# ---------------------------------------------------------------------------
 base_inferencer:
-  _target_: BTA
-  name: base_bta
-  workspace_root: ${workspace_root}/base_bta
-  breakdown_format: json_subtasks
-  max_breakdown: 2
-  breakdown_inferencer:
-    _target_: ClaudeCodeCLI
-    template_root_space: task_breakdown
-  worker_factory:
-    __default__:
-      _target_: PTI
-      planner_inferencer:
-        # NOTE: MFDual was originally proposed here for multi-perspective
-        # planning, but MFDual uses static `predefined_sub_queries` from its
-        # flow_configs (multi_flow_inferencer.py:257) — it does NOT propagate
-        # the caller's runtime `inference_input` to its flows. As a sub-
-        # component of PTI (which calls `planner.ainfer(subtask_description)`),
-        # MFDual would ignore the subtask and run its preconfigured flows.
-        # Dropped in favor of a single Dual; MFDual coverage exists standalone
-        # at AgentFoundation/.../test_multi_flow_dual_real.py.
-        _target_: Dual
-        base_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: plan
-        review_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: plan
-          template_key: review
-        consensus_config:
-          _target_: ConsensusConfig
-          max_iterations: 1
-      executor_inferencer:
-        _target_: Dual
-        base_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: implementation
-        review_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: implementation
-          template_key: review
-        consensus_config:
-          _target_: ConsensusConfig
-          max_iterations: 1
-  aggregator_inferencer:
-    _target_: ClaudeCodeCLI
-    template_root_space: plan
+  _target_: PTI
 
-# ---------------------------------------------------------------------
-# REVIEWER -- single-pass critique of base BTA's draft
-# ---------------------------------------------------------------------
+  # ---- PLAN STAGE: Dual{base=BTA{workers=MFDual}, review} ----
+  planner_inferencer:
+    _target_: Dual
+    _template_root_space: plan       # subtree-default cascade (Refactor 14)
+
+    base_inferencer:
+      _target_: BTA
+      name: plan_bta
+      breakdown_format: json_subtasks
+      max_breakdown: ${_hyperparams.plan_max_breakdown}
+
+      # template_root_space=task_breakdown via BTA.SLOT_DEFAULTS (role layer).
+      breakdown_inferencer:
+        _target_: ClaudeCodeCLI
+
+      worker_factory:
+        __default__:
+          _target_: MultiFlowDual
+          propagate_runtime_input: true
+          winner_pick: true          # toggle: include_winner_pick + WinnerParser
+          visible_flows: all         # MFDual class default; explicit for clarity
+
+          flow_configs:
+            - max_dynamic_steps: ${_hyperparams.flow_max_dynamic_steps}
+              iteration_judgment: true   # toggle: end_condition + iter_judgment template flag
+              initial_inferencer:
+                _target_: ClaudeCodeCLI
+              followup_inferencer:
+                _target_: ClaudeCodeCLI
+            - max_dynamic_steps: ${_hyperparams.flow_max_dynamic_steps}
+              iteration_judgment: true
+              initial_inferencer:
+                _target_: ClaudeCodeCLI
+              followup_inferencer:
+                _target_: ClaudeCodeCLI
+
+          multi_flow_aggregator_inferencer:
+            _target_: ClaudeCodeCLI
+
+      aggregator_inferencer:
+        _target_: ClaudeCodeCLI
+
+    review_inferencer:
+      _target_: ClaudeCodeCLI
+
+  # ---- EXECUTE STAGE: bare BTA with Dual workers ----
+  executor_inferencer:
+    _target_: BTA
+    _template_root_space: implementation   # subtree-default cascade (Refactor 14)
+    name: exec_bta
+    breakdown_format: json_subtasks
+    max_breakdown: ${_hyperparams.exec_max_breakdown}
+
+    breakdown_inferencer:
+      _target_: ClaudeCodeCLI
+
+    worker_factory:
+      __default__:
+        _target_: Dual
+        base_inferencer:
+          _target_: ClaudeCodeCLI
+        review_inferencer:
+          _target_: ClaudeCodeCLI
+
+    aggregator_inferencer:
+      _target_: ClaudeCodeCLI
+
+# ---------------------------------------------------------------------------
+# OUTER REVIEWER — judges final deliverable (RST + built HTML)
+# ---------------------------------------------------------------------------
 review_inferencer:
   _target_: ClaudeCodeCLI
-  template_root_space: plan
-  template_key: review
+  template_root_space: implementation   # outside both subtrees — explicit (leaf layer)
 
-# ---------------------------------------------------------------------
-# FIXER BTA -- separate instance, same shape, isolated workspace
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# FIXER PTI — mirror of base_inferencer; fires if outer review rejects
+# ---------------------------------------------------------------------------
 fixer_inferencer:
-  _target_: BTA
-  name: fixer_bta
-  workspace_root: ${workspace_root}/fixer_bta
-  breakdown_format: json_subtasks
-  max_breakdown: 2
-  breakdown_inferencer:
-    _target_: ClaudeCodeCLI
-    template_root_space: task_breakdown
-  worker_factory:
-    __default__:
-      _target_: PTI
-      planner_inferencer:
-        # NOTE: MFDual was originally proposed here for multi-perspective
-        # planning, but MFDual uses static `predefined_sub_queries` from its
-        # flow_configs (multi_flow_inferencer.py:257) — it does NOT propagate
-        # the caller's runtime `inference_input` to its flows. As a sub-
-        # component of PTI (which calls `planner.ainfer(subtask_description)`),
-        # MFDual would ignore the subtask and run its preconfigured flows.
-        # Dropped in favor of a single Dual; MFDual coverage exists standalone
-        # at AgentFoundation/.../test_multi_flow_dual_real.py.
-        _target_: Dual
-        base_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: plan
-        review_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: plan
-          template_key: review
-        consensus_config:
-          _target_: ConsensusConfig
-          max_iterations: 1
-      executor_inferencer:
-        _target_: Dual
-        base_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: implementation
-        review_inferencer:
-          _target_: ClaudeCodeCLI
-          template_root_space: implementation
-          template_key: review
-        consensus_config:
-          _target_: ConsensusConfig
-          max_iterations: 1
-  aggregator_inferencer:
-    _target_: ClaudeCodeCLI
-    template_root_space: plan
+  _inherits_: base_inferencer
+  planner_inferencer:
+    base_inferencer:
+      name: fixer_plan_bta
+  executor_inferencer:
+    name: fixer_exec_bta

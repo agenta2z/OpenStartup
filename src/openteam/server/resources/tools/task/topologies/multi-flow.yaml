@@ -26,8 +26,11 @@ flow_configs:
       idle_timeout_seconds: 300
     max_dynamic_steps: 1
 aggregator_inferencer:
+  # Aggregator template_variables aggregation triplet is provided by
+  # BTA.SLOT_DEFAULTS (MultiFlow inherits BTA's aggregator default via MRO).
   _target_: ClaudeCodeCLI
   model_name: opus[1m]
   permission_mode: bypassPermissions
   idle_timeout_seconds: 300
+  template_root_space: implementation
 visible_flows: all
