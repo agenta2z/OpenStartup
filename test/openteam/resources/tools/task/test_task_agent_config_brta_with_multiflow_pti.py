@@ -112,6 +112,34 @@ _PROFILE = os.environ.get("BMP_REAL_PROFILE", "shallow")
 
 
 # ---------------------------------------------------------------------------
+# Default inferencer (overridable via env var BMP_DEFAULT_INFERENCER).
+# Drives the YAML's `${_params.default_inferencer}` interpolations through the
+# `_params.default_inferencer` override. Examples: "ClaudeCodeCLI" (default),
+# "RovoDevCLI". Any value listed in registered_targets.py works.
+# ---------------------------------------------------------------------------
+_DEFAULT_INFERENCER = os.environ.get("BMP_DEFAULT_INFERENCER", "ClaudeCodeCLI")
+
+
+# ---------------------------------------------------------------------------
+# Proactive AI Platform — codebase-understanding task fixtures
+# ---------------------------------------------------------------------------
+# Target codebase to analyze + output location for the generated docs. Both
+# overridable via env vars so the same test can point at different codebases.
+PAI_CODEBASE_PATH = Path(
+    os.environ.get(
+        "PAI_CODEBASE_PATH",
+        "/Users/tchen7/MyProjects/atlassian_packages/proactive-ai-platform",
+    )
+)
+PAI_DOCS_OUTPUT_PATH = Path(
+    os.environ.get(
+        "PAI_DOCS_OUTPUT_PATH",
+        str(_HERE.parents[5] / "_dev" / "pai_hack" / "codebase_understanding"),
+    )
+)
+
+
+# ---------------------------------------------------------------------------
 # Task prompt
 # ---------------------------------------------------------------------------
 
@@ -442,22 +470,17 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # Verify the implementation-namespace aggregation task_instructions file
     # exists (authored to make the BTA flip semantically safe). load_variable
     # must return real aggregator framing, NOT the worker-style default.jinja2.
-    impl_agg_instructions_text = exec_agg.template_manager.load_variable(
-        "task_instructions", "aggregation", "implementation"
+    _impl_vars = exec_agg.template_manager.load_variables(
+        {"task_instructions": "aggregation", "task_preamble": "aggregation"},
+        root_space="implementation",
     )
-    assert impl_agg_instructions_text is not None
+    impl_agg_instructions_text = _impl_vars["task_instructions"]
     assert "aggregating" in impl_agg_instructions_text.lower(), (
         "implementation/main/_variables/task_instructions/aggregation.jinja2 "
         "must contain aggregator-role framing, not worker-style instructions "
         "(which would be the default.jinja2 fallback)"
     )
-    impl_agg_preamble_text = exec_agg.template_manager.load_variable(
-        "task_preamble", "aggregation", "implementation"
-    )
-    assert impl_agg_preamble_text is not None, (
-        "implementation/main/_variables/task_preamble/aggregation.jinja2 must exist "
-        "to consume the upstream_artifacts + aggregation_guidance slots"
-    )
+    impl_agg_preamble_text = _impl_vars["task_preamble"]
     assert "upstream_artifacts" in impl_agg_preamble_text
     assert "aggregation_guidance" in impl_agg_preamble_text
     # Implementation aggregation is intentionally simpler than plan's:
@@ -579,12 +602,12 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # task_preamble: aggregation must consume the breakdown's aggregation_guidance
     # via {% if aggregation_guidance %} so plan BTA aggregators see Option B
     # plumbing (the breakdown's reconstruction strategy reaches the aggregator).
-    agg_preamble_text = plan_agg.template_manager.load_variable(
-        "task_preamble", "aggregation", "plan"
+    _plan_vars = plan_agg.template_manager.load_variables(
+        {"task_preamble": "aggregation", "task_instructions": "aggregation",
+         "task_response_format": "aggregation"},
+        root_space="plan",
     )
-    assert agg_preamble_text is not None, (
-        "task_preamble/aggregation.jinja2 should load"
-    )
+    agg_preamble_text = _plan_vars["task_preamble"]
     assert "aggregation_guidance" in agg_preamble_text, (
         "task_preamble/aggregation.jinja2 must reference {{ aggregation_guidance }} "
         "so the breakdown's reconstruction guidance reaches the aggregator"
@@ -598,10 +621,7 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # aggregation task_instructions: terse cognitive guidance (compare inputs,
     # integrate faithfully, maintain structure consistency, avoid hacky/ad-hoc).
     # NO structured-output addenda — those moved to task_response_format.
-    int_agg_text = plan_agg.template_manager.load_variable(
-        "task_instructions", "aggregation", "plan"
-    )
-    assert int_agg_text is not None, "aggregation task_instructions variant did not load"
+    int_agg_text = _plan_vars["task_instructions"]
     assert "consolidated artifact" in int_agg_text, (
         "aggregation task_instructions should mention 'consolidated artifact' (the integration goal)"
     )
@@ -615,12 +635,7 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     )
 
     # Structured-output schema lives in task_response_format/aggregation.jinja2
-    response_format_text = plan_agg.template_manager.load_variable(
-        "task_response_format", "aggregation", "plan"
-    )
-    assert response_format_text is not None, (
-        "task_response_format/aggregation.jinja2 should load"
-    )
+    response_format_text = _plan_vars["task_response_format"]
     # Two surviving addenda under Option A: iteration_judgment (per-flow followup)
     # and winner_pick (MFDual final aggregator). No execution_breakdown — the
     # plan aggregator emits prose, exec BTA breakdown does decomposition.

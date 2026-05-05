@@ -91,13 +91,11 @@ class TestWrapperResolvesVariablesFromOpenStartup:
         to non-empty content from OpenStartup's _variables/."""
         tm = _make_2root_tm()
 
-        # load_variable should find the default task_preamble from OpenStartup
-        preamble = tm.load_variable(
-            "task_preamble", "default", root_space="plan"
+        # load_variables should find the default task_preamble from OpenStartup
+        result = tm.load_variables(
+            {"task_preamble": "default"}, root_space="plan"
         )
-        assert preamble is not None, (
-            "task_preamble/default should resolve from OpenStartup's _variables/"
-        )
+        preamble = result["task_preamble"]
         assert len(preamble.strip()) > 0, "task_preamble/default should not be empty"
 
     def test_implementation_initial_resolves_variables(self):
@@ -118,24 +116,24 @@ class TestWrapperResolvesVariablesFromOpenStartup:
         )
 
         # Verify variable resolution works
-        preamble = tm.load_variable(
-            "task_preamble", "default", root_space="implementation"
+        result = tm.load_variables(
+            {"task_preamble": "default"}, root_space="implementation"
         )
-        assert preamble is not None, (
+        assert len(result["task_preamble"].strip()) > 0, (
             "implementation task_preamble/default should resolve from OpenStartup"
         )
 
-    def test_af_root_has_no_variable_loader(self):
-        """AgentFoundation root must NOT have its own VariableLoader
-        (no ``_variables/`` directory), confirming the fallback path."""
+    def test_both_roots_have_variable_loaders(self):
+        """Both roots should have VariableLoaders — OpenStartup has
+        ``_variables/task_preamble/``, AgentFoundation has
+        ``_variables/notes/`` (shared cross-template variables)."""
         tm = _make_2root_tm()
-        assert AF_TEMPLATES_ROOT not in tm._variable_loaders_by_root, (
-            "AgentFoundation root should NOT have a VariableLoader "
-            "(it has no _variables/ directory)"
-        )
-        # OpenStartup root SHOULD have a loader
         assert OS_TEMPLATES_ROOT in tm._variable_loaders_by_root, (
             "OpenStartup root should have a VariableLoader"
+        )
+        assert AF_TEMPLATES_ROOT in tm._variable_loaders_by_root, (
+            "AgentFoundation root should have a VariableLoader "
+            "(it now has _variables/notes/ for shared variables)"
         )
 
     def test_variable_loader_fallback_is_openstartup(self):
@@ -165,13 +163,10 @@ class TestSpecializedVariantResolution:
         from OpenStartup's ``plan/main/_variables/``."""
         tm = _make_2root_tm()
 
-        content = tm.load_variable(
-            "task_instructions", "role_setup_report", root_space="plan"
+        result = tm.load_variables(
+            {"task_instructions": "role_setup_report"}, root_space="plan"
         )
-        assert content is not None, (
-            "task_instructions/role_setup_report should resolve from OpenStartup"
-        )
-        # The role_setup_report variant has characteristic content
+        content = result["task_instructions"]
         assert "Role Setup Report" in content, (
             "role_setup_report variant should contain 'Role Setup Report'"
         )
@@ -181,10 +176,10 @@ class TestSpecializedVariantResolution:
         OpenStartup's ``plan/main/_variables/``."""
         tm = _make_2root_tm()
 
-        content = tm.load_variable(
-            "task_preamble", "aggregation", root_space="plan"
+        result = tm.load_variables(
+            {"task_preamble": "aggregation"}, root_space="plan"
         )
-        assert content is not None, (
+        assert len(result["task_preamble"].strip()) > 0, (
             "task_preamble/aggregation should resolve from OpenStartup"
         )
 
@@ -193,10 +188,10 @@ class TestSpecializedVariantResolution:
         from OpenStartup's ``plan/main/_variables/``."""
         tm = _make_2root_tm()
 
-        content = tm.load_variable(
-            "task_instructions", "skill_tool_creation", root_space="plan"
+        result = tm.load_variables(
+            {"task_instructions": "skill_tool_creation"}, root_space="plan"
         )
-        assert content is not None, (
+        assert len(result["task_instructions"].strip()) > 0, (
             "task_instructions/skill_tool_creation should resolve from OpenStartup"
         )
 
@@ -205,12 +200,10 @@ class TestSpecializedVariantResolution:
         OpenStartup's ``implementation/main/_variables/``."""
         tm = _make_2root_tm()
 
-        content = tm.load_variable(
-            "task_instructions", "aggregation", root_space="implementation"
+        result = tm.load_variables(
+            {"task_instructions": "aggregation"}, root_space="implementation"
         )
-        assert content is not None, (
-            "implementation task_instructions/aggregation should resolve"
-        )
+        content = result["task_instructions"]
         assert "aggregat" in content.lower(), (
             "aggregation variant should contain aggregation-related content"
         )
