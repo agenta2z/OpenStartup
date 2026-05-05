@@ -71,7 +71,7 @@ def _python_bta(tm=None, rovo_kwargs=None, templates_root=None):
         aggregator_working_dir=None,
         streaming_cache_dir=None,
         breakdown_only=False,
-        workspace_root=None,
+        workspace=None,
         inferencer_logger=None,
         templates_root=templates_root,
         role_name="Program Manager",

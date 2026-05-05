@@ -322,8 +322,11 @@ def test_template_feed_via_override_reaches_inferencer():
     template_extra_feed is reachable via dotted-key --override."""
     import asyncio
     bta_yaml = ex._TOPOLOGIES_DIR / "bta.yaml"
+    # Note: pre-2026-05-05 this passed `workspace_root: "/tmp/..."` to satisfy
+    # the (now-removed) BTA convenience attrib. Workspace is not needed for
+    # this template_extra_feed assertion (only for save_results), so it's
+    # omitted entirely — keeps the test focused on what it actually verifies.
     cfg = load_config(str(bta_yaml), overrides={
-        "workspace_root": "/tmp/test_template_feed",
         "template_extra_feed.role_name": "TestRole",
         "template_extra_feed.role_doc_path": "/some/path",
     })

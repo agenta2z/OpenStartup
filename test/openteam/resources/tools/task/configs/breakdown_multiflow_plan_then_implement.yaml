@@ -107,7 +107,7 @@ _logger: auto
 _debug_mode: true
 _model_name: opus[1m]
 _idle_timeout_seconds: 600
-_tool_use_idle_timeout_seconds: 1800  # bound runaway tool calls (e.g., recursive find / over C:); generous enough for sphinx-build and other slow but legitimate tool runs
+_tool_use_idle_timeout_seconds: 5400  # 90 min; covers very slow tool calls (e.g., codebase-wide grep, large doc generation). Previously 1800 (30 min) caused timeouts in deep codebase-understanding runs.
 _output_path: "output.md"
 
 _template_manager:
@@ -128,7 +128,16 @@ _consensus_config:
 # OUTER DUAL — review and fix the FULL deliverable
 # ---------------------------------------------------------------------------
 _target_: Dual
-workspace_root: "${oc.env:DUAL_WS,/tmp/topo_b_ws}"
+# Workspace block (explicit form replaces the prior `workspace_root` shorthand).
+# Reason: the shorthand path constructs InferencerWorkspace(root=...) with
+# defaults, leaving `use_final_deliverables_folder=False`. To opt into the
+# `outputs/final_deliverables/` separation (so the BTA can copy worker
+# deliverables into a distinct folder vs. intermediate outputs), we need to
+# pass the flag explicitly via the workspace block.
+workspace:
+  _target_: InferencerWorkspace
+  root: "${oc.env:DUAL_WS,/tmp/topo_b_ws}"
+  use_final_deliverables_folder: true
 templates_dir: "${oc.env:PROMPT_TEMPLATES_DIR,prompt_templates}"
 
 # ---------------------------------------------------------------------------
@@ -158,6 +167,13 @@ base_inferencer:
           propagate_runtime_input: true
           winner_pick: true          # toggle: include_winner_pick + WinnerParser
           visible_flows: all         # MFDual class default; explicit for clarity
+          # Per-worker retry budget. InferencerBase.max_retry wraps `_ainfer`
+          # via `async_execute_with_retry`, so a worker that raises a transient
+          # error (e.g. acli rovodev TimeoutError) is retried in-place instead
+          # of bubbling up to the parent BTA — which would otherwise abort the
+          # whole WorkGraph and trigger a Dual-level retry-from-scratch loop.
+          # 3 = 1 initial + 2 retries (total 3 attempts).
+          max_retry: 3
 
           flow_configs:
             - max_dynamic_steps: ${_params.flow_max_dynamic_steps}
@@ -196,6 +212,8 @@ base_inferencer:
     worker_factory:
       __default__:
         _target_: Dual
+        # Per-worker retry budget — see commentary on planner worker_factory.
+        max_retry: 3
         base_inferencer:
           _target_: ${_params.default_inferencer}
         review_inferencer:

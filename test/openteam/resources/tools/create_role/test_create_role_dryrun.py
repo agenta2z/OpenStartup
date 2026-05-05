@@ -32,6 +32,7 @@ sys.path.insert(
     0, "/Users/tchen7/MyProjects/CoreProjects/RichPythonUtils/src"
 )
 
+from agent_foundation.common.inferencers.inferencer_workspace import InferencerWorkspace
 from openteam.server.resources.tools.create_role.executor import (
     ROLE_SYNTHESIS_INSTRUCTIONS,
     _build_template_manager,
@@ -262,7 +263,7 @@ class TestAggregatorPromptBuilder:
                 uct_token="test-token",
                 aggregator_type="rovodev",
                 aggregator_working_dir=tmpdir,
-                workspace_root=tmpdir,
+                workspace=tmpdir,
             )
             # Simulate workspace paths that BTA's closure would capture
             ws = InferencerWorkspace(root=tmpdir)
@@ -292,7 +293,7 @@ class TestAggregatorPromptBuilder:
                 cloud_id="test-cloud-id",
                 uct_token="test-token",
                 aggregator_type="rovochat",
-                workspace_root=tmpdir,
+                workspace=tmpdir,
             )
             prompt = inferencer.aggregator_prompt_builder(
                 sample_worker_results,
@@ -475,7 +476,7 @@ class TestEndToEndMockPipeline:
                 max_facets=3,
                 aggregator_type="rovodev",
                 aggregator_working_dir=tmpdir,
-                workspace_root=tmpdir,
+                workspace=tmpdir,
             )
 
             # Build the prompt that would be sent to rovodev
@@ -574,7 +575,7 @@ class TestOutputPathHandling:
                 cloud_id="test-cloud-id",
                 uct_token="test-token",
                 max_facets=3,
-                workspace_root=tmpdir,
+                workspace=tmpdir,
             )
             w0 = inferencer.worker_factory(sub_query="Q0", index=0)
             w1 = inferencer.worker_factory(sub_query="Q1", index=1)

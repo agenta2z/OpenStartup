@@ -439,7 +439,7 @@ def main(
             templates_dir=templates_dir,
             tools_file=tools_file,
             streaming_cache_dir=streaming_cache_dir,
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             inferencer_logger=inferencer_logger,
         )
     elif resume_workspace:
@@ -540,7 +540,7 @@ def main(
             aggregator_working_dir=str(workspace),
             streaming_cache_dir=streaming_cache_dir,
             breakdown_only=False,
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             inferencer_logger=inferencer_logger,
             templates_root=templates_root,
             role_name=role_name,
@@ -604,7 +604,7 @@ def main(
             agent_named_id=agent_named_id,
             templates_dir=templates_dir,
             streaming_cache_dir=streaming_cache_dir,
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             inferencer_logger=inferencer_logger,
         )
 
@@ -667,7 +667,7 @@ def main(
             agent_named_id=agent_named_id,
             templates_dir=templates_dir,
             streaming_cache_dir=streaming_cache_dir,
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             inferencer_logger=inferencer_logger,
         )
         # Override: run full inner BTA (breakdown + workers), not just breakdown
@@ -701,7 +701,7 @@ def main(
             agent_named_id=agent_named_id,
             templates_dir=templates_dir,
             streaming_cache_dir=streaming_cache_dir,
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             inferencer_logger=inferencer_logger,
         )
 
@@ -724,7 +724,7 @@ def main(
             templates_dir=templates_dir,
             aggregator_type=aggregator_type,
             aggregator_working_dir=aggregator_working_dir or str(workspace),
-            workspace_root=str(workspace),
+            workspace=str(workspace),
             tools_file=tools_file,
         )
 

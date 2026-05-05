@@ -332,7 +332,7 @@ def build_create_role_inferencer(
     templates_dir: Optional[str] = None,
     aggregator_type: str = "rovochat",
     aggregator_working_dir: Optional[str] = None,
-    workspace_root: Optional[str] = None,
+    workspace: Optional[Any] = None,
 ) -> BreakdownThenAggregateInferencer:
     """Build a ``BreakdownThenAggregateInferencer`` wired for role creation.
 
@@ -371,9 +371,21 @@ def build_create_role_inferencer(
     """
     tm = _build_template_manager(templates_dir)
 
-    # Build runtime directories from workspace_root
+    # Normalize workspace convenience inputs.
+    # Accept:
+    #   * ``workspace=None``
+    #   * ``workspace="/path"`` shorthand → InferencerWorkspace(root="/path")
+    #   * ``workspace=InferencerWorkspace(...)`` explicit form
+    from agent_foundation.common.inferencers.inferencer_workspace import (
+        InferencerWorkspace,
+    )
+    if isinstance(workspace, str):
+        workspace = InferencerWorkspace(root=workspace)
+
+    # Build runtime directories from workspace.root (if available)
     import os as _os
     streaming_cache_dir: Optional[str] = None
+    workspace_root = workspace.root if workspace is not None else None
     if workspace_root:
         streaming_cache_dir = _os.path.join(workspace_root, "_runtime", "inferencer_cache")
         _os.makedirs(streaming_cache_dir, exist_ok=True)
@@ -488,7 +500,7 @@ def build_create_role_inferencer(
         aggregator_prompt_builder=agg_prompt_builder,
         max_breakdown=max_facets,
         max_concurrency=None,
-        workspace_root=workspace_root,
+        workspace=workspace,
     )
 
 

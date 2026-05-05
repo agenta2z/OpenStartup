@@ -86,11 +86,23 @@ skip_openstartup = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 
 PROFILES = {
+    # quick: tightest run for end-to-end verification (~10-30 min). Single
+    # outer Dual iter, 2 workers per BTA, 1 inner iter, 1 flow step per
+    # MFDual flow. Asserts only minimal completion semantics.
+    "quick": {
+        "outer_dual_iter": 0,           # No fixer pass — base PTI's output is final
+        "bta_workers": 2,
+        "mfdual_iter": 1,
+        "inner_dual_iter": 1,
+        "flow_dynamic_steps": 1,        # NEW: minimal per-flow followups
+        "min_response_len": 100,
+    },
     "shallow": {
         "outer_dual_iter": 1,
         "bta_workers": 2,
         "mfdual_iter": 1,
         "inner_dual_iter": 1,
+        "flow_dynamic_steps": 2,
         "min_response_len": 200,
     },
     "medium": {
@@ -98,6 +110,7 @@ PROFILES = {
         "bta_workers": 2,
         "mfdual_iter": 2,
         "inner_dual_iter": 2,
+        "flow_dynamic_steps": 3,
         "min_response_len": 400,
     },
     "deep": {
@@ -105,6 +118,7 @@ PROFILES = {
         "bta_workers": 3,
         "mfdual_iter": 2,
         "inner_dual_iter": 2,
+        "flow_dynamic_steps": 3,
         "min_response_len": 600,
     },
 }
@@ -134,7 +148,11 @@ PAI_CODEBASE_PATH = Path(
 PAI_DOCS_OUTPUT_PATH = Path(
     os.environ.get(
         "PAI_DOCS_OUTPUT_PATH",
-        str(_HERE.parents[5] / "_dev" / "pai_hack" / "codebase_understanding"),
+        # _HERE.parents (zero-indexed, walking UP from task/):
+        #   [0]=tools, [1]=resources, [2]=openteam, [3]=test, [4]=OpenStartup,
+        #   [5]=CoreProjects. Reference docs live under
+        #   OpenStartup/_dev/pai_hack/codebase_understanding (i.e. parents[4]).
+        str(_HERE.parents[4] / "_dev" / "pai_hack" / "codebase_understanding"),
     )
 )
 
@@ -722,6 +740,7 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
     from openteam.server.resources.tools.task.executor import _run_topology
 
     overrides = {
+        "_params.default_inferencer": _DEFAULT_INFERENCER,
         "_target_path": str(OPENSTARTUP_PATH),
         "templates_dir": str(TEMPLATES_DIR),
         "consensus_config.max_iterations": p["outer_dual_iter"],
@@ -805,3 +824,222 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
         f"base_artifacts={base_artifact_count} "
         f"response_chars={len(response_text)}"
     )
+
+
+# ===========================================================================
+# PAI codebase-understanding task (RovoDevCLI default)
+# ===========================================================================
+
+def _build_pai_doc_request() -> str:
+    """Construct the codebase-understanding prompt for proactive-ai-platform.
+
+    Mirrors the user-facing request: produce comprehensive structured
+    documentation under ``pai_hack/codebase_understanding`` following the
+    format/style of ``rai_hack`` and ``convo_ai_hack`` reference folders.
+    """
+    rai_ref = _HERE.parents[4] / "_dev" / "rai_hack" / "codebase_understanding"
+    convo_ref = _HERE.parents[4] / "_dev" / "convo_ai_hack" / "code_understanding"
+    return f"""Perform deep codebase understanding on:
+
+  {PAI_CODEBASE_PATH}
+
+Output comprehensive, insightful, structured codebase documentation under:
+
+  {PAI_DOCS_OUTPUT_PATH}
+
+Follow the format and style of these reference documentation sets:
+  - {rai_ref}
+  - {convo_ref}
+
+Both reference folders organize content into:
+  README.md (top-level navigation), index.rst (Sphinx master),
+  overviews/  (multi-axis matrix, architectural narrative, criticality dashboard),
+  architecture/  (architecture-overview, request-lifecycle, module-catalog,
+                  cross-cutting/ for goals/history/feature-flags/observability/...),
+  modules/    (per-feature and per-platform-layer deep dives).
+
+Special requirements:
+  (1) BUSINESS CHAPTER — pull this year's business goals + metrics, technical
+      goals + metrics related to the proactive-ai-platform codebase, and write
+      a "business and technical goals" chapter under
+      ``architecture/cross-cutting/01-business-and-technical-goals.rst``.
+  (2) DEVELOPMENT HISTORY CHAPTER — pull previous merged Pull Requests to the
+      main branch and their review comments; build a deep understanding of the
+      development history and past business/technical decisions; write the
+      result under ``architecture/cross-cutting/02-development-history.rst``.
+
+Process directives:
+  - Spawn as many parallel investigation agents as the topology allows.
+  - Iterate as needed to converge on accuracy.
+  - Make the plan/output deeply informative, careful, accurate.
+  - Both human-readable and machine-followable (Sphinx-buildable .rst).
+  - Apply critical thinking; verify claims against source code; flag
+    ambiguities rather than paper over them.
+
+Tool-use constraints (IMPORTANT — failure to honor these may stall the run):
+  - Confine ALL filesystem operations to {PAI_CODEBASE_PATH} and
+    {PAI_DOCS_OUTPUT_PATH}. Do NOT run unbounded recursive scans rooted at
+    "/", "$HOME", "/Users/", or any other large parent directory.
+  - Use the target codebase path explicitly when listing or searching files.
+  - If you cannot locate a file with a bounded search, REPORT the ambiguity
+    rather than escalating to a system-wide scan.
+
+The deliverable is the documentation itself, NOT a documentation plan or
+outline. Produce the actual prose, code excerpts, and reference material that
+a reader can consume directly.
+"""
+
+
+@pytest.mark.integration
+@skip_openstartup
+@pytest.mark.asyncio
+@pytest.mark.timeout(60 * 60 * 6)  # 6h cap
+async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
+    """Real-CLI run targeting proactive-ai-platform codebase with RovoDevCLI.
+
+    Drives the same Topology-B-extended composition as the canonical
+    integration test, but:
+      - swaps the leaf inferencer to ``RovoDevCLI`` via
+        ``_params.default_inferencer`` (acli rovodev legacy under the hood)
+      - points the request at the proactive-ai-platform repo
+      - lets _run_topology allocate its workspace (server/_runtime/tasks/)
+        so the runtime folder is the standard place to monitor logs.
+
+    Skip semantics:
+      - Requires ``acli`` on PATH; skipped otherwise (acli is the rovodev CLI).
+      - Requires the target codebase to exist at ``PAI_CODEBASE_PATH``.
+    """
+    # Pre-flight: acli + target codebase
+    # _cli_available appends `--version` so pass just the binary name to avoid
+    # building `acli --version --version`.
+    if not _cli_available("acli"):
+        pytest.skip("acli (Rovo Dev CLI) not available on PATH")
+    if not PAI_CODEBASE_PATH.exists():
+        pytest.skip(f"Target PAI codebase missing at {PAI_CODEBASE_PATH}")
+
+    PAI_DOCS_OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
+
+    p = PROFILES[_PROFILE]
+    print(f"\n[pai-real] profile={_PROFILE!r}: {p}")
+    print(f"[pai-real] default_inferencer={_DEFAULT_INFERENCER!r}")
+    print(f"[pai-real] target codebase: {PAI_CODEBASE_PATH}")
+    print(f"[pai-real] docs output: {PAI_DOCS_OUTPUT_PATH}")
+
+    from openteam.server.resources.tools.task.executor import _run_topology
+
+    overrides = {
+        # Critical: swap leaves to RovoDevCLI (or whatever caller chose)
+        "_params.default_inferencer": "RovoDevCLI",
+        # _target_path cascade points at the codebase to investigate. Reaches
+        # ClaudeCodeCli leaves only (RovoDevCli has no `target_path` attrib —
+        # the cascade auto-injection at _instantiate.py:487 silently skips
+        # leaves that don't accept the param). RovoDevCli reads the codebase
+        # via its tool calls inside the prompt instead.
+        "_target_path": str(PAI_CODEBASE_PATH),
+        # Templates: still load from OpenStartup (the topology lives here).
+        "templates_dir": str(TEMPLATES_DIR),
+        # Profile knobs (cost-bound the run).
+        "consensus_config.max_iterations": p["outer_dual_iter"],
+        "base_inferencer.max_breakdown": p["bta_workers"],
+        "fixer_inferencer.max_breakdown": p["bta_workers"],
+        "base_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
+        "base_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
+        "fixer_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
+        "fixer_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
+        # NEW v1.7.2: flow_max_dynamic_steps cap (per-flow MFDual followups).
+        "_params.flow_max_dynamic_steps": p["flow_dynamic_steps"],
+    }
+
+    request = _build_pai_doc_request()
+
+    result = await _run_topology(
+        source=("file", str(YAML_PATH)),
+        request=request,
+        overrides=overrides,
+        session_context={"working_dir": str(tmp_path / "task_ws")},
+    )
+
+    # ----- Topology completion -----
+    assert result is not None, "_run_topology returned None"
+    success = result.context_updates.get("success") is True
+    assert success, f"topology reported failure: {result.result!r}"
+
+    response_text = (result.result or "").strip()
+    assert len(response_text) >= p["min_response_len"], (
+        f"profile={_PROFILE!r}: expected >={p['min_response_len']} chars, "
+        f"got {len(response_text)}"
+    )
+
+    # ----- Workspace artifacts -----
+    workspace_path = result.context_updates.get("workspace_path")
+    assert workspace_path, "context_updates missing workspace_path"
+    workspace = Path(workspace_path)
+    assert workspace.exists(), f"workspace dir missing: {workspace}"
+
+    base_dir = workspace / "base_bta"
+    assert base_dir.exists(), (
+        f"base BTA workspace missing under {workspace}; "
+        f"contents: {list(workspace.iterdir())}"
+    )
+
+    base_children = list((base_dir / "children").rglob("*")) \
+        if (base_dir / "children").exists() else []
+    base_artifact_count = sum(1 for f in base_children if f.is_file())
+    assert base_artifact_count > 0, (
+        f"base BTA produced no children/ artifacts under {base_dir}"
+    )
+
+    print(
+        f"\n[pai-real] response_chars={len(response_text)} "
+        f"base_artifacts={base_artifact_count} "
+        f"workspace={workspace}"
+    )
+
+
+# ===========================================================================
+# Direct invocation: `python <this_file> [--pai]`
+# ===========================================================================
+
+if __name__ == "__main__":
+    """Run an integration test directly without pytest.
+
+    Usage:
+        python test_task_agent_config_brta_with_multiflow_pti.py [--pai]
+
+    Without --pai: runs the canonical real integration test.
+    With --pai: runs the PAI codebase-understanding test (RovoDevCLI default).
+    """
+    import asyncio
+    import sys
+    import tempfile
+
+    # Bootstrap sys.path so direct invocation finds the source packages.
+    _OS = _HERE.parents[4]                  # OpenStartup/
+    _CP = _OS.parent                         # CoreProjects/
+    for _dep in (
+        _OS / "src",
+        _CP / "AgentFoundation" / "src",
+        _CP / "RichPythonUtils" / "src",
+    ):
+        _p = str(_dep)
+        if _p not in sys.path:
+            sys.path.insert(0, _p)
+
+    use_pai = "--pai" in sys.argv
+
+    async def _main():
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            class _StubCapfd:
+                def readouterr(self):
+                    return type("R", (), {"out": "", "err": ""})()
+            capfd = _StubCapfd()
+
+            if use_pai:
+                print(f"[direct-run] mode=pai default_inferencer={_DEFAULT_INFERENCER!r}")
+                await test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
+            else:
+                print(f"[direct-run] mode=canonical default_inferencer={_DEFAULT_INFERENCER!r}")
+                await test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd)
+
+    asyncio.run(_main())

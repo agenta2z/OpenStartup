@@ -217,7 +217,7 @@ def main(
         templates_dir=templates_dir,
         aggregator_type=aggregator_type,
         aggregator_working_dir=aggregator_working_dir or str(workspace),
-        workspace_root=str(workspace),
+        workspace=str(workspace),
     )
 
     # 7. Run inference
