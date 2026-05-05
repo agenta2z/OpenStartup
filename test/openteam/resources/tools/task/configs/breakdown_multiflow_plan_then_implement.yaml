@@ -65,15 +65,16 @@
 #     The deep-copy preserves all `_-prefix` cascade declarations (incl. Refactor 14).
 #
 # ----------------------------------------------------------------------------
-# Hyperparameters (`_hyperparams:` convention, Refactor 15)
+# Hyperparameters (`_params:` convention, Refactor 15)
 # ----------------------------------------------------------------------------
-# Tunable scalar values are declared once at the top under `_hyperparams:` and
-# referenced via `${_hyperparams.<name>}` in the body. The walker auto-strips
-# `_-prefix` keys at root (no constructor sees `hyperparams`); OmegaConf eager
+# Tunable scalar values are declared once at the top under `_params:` and
+# referenced via `${_params.<name>}` in the body. The walker auto-strips
+# `_-prefix` keys at root (no constructor sees `params`); OmegaConf eager
 # resolution in `load_config` substitutes the values BEFORE instantiation.
 #
 # Override at load time:
-#     load_config(path, overrides={"_hyperparams.plan_max_breakdown": 4})
+#     load_config(path, overrides={"_params.default_inferencer": "RovoDevCLI"})
+#     load_config(path, overrides={"_params.plan_max_breakdown": 4})
 #
 # Required (no default) → use the `???` sentinel; OmegaConf raises
 # MissingMandatoryValue if the caller doesn't supply a value.
@@ -92,11 +93,12 @@
 # ---------------------------------------------------------------------------
 # HYPERPARAMETERS — defaults; override via load_config(overrides=...)
 # ---------------------------------------------------------------------------
-_hyperparams:
-  plan_max_breakdown: 2              # planner BTA: number of sub-planning subtasks
+_params:
+  default_inferencer: ClaudeCodeCLI  # leaf inferencer alias; override with e.g. RovoDevCLI
+  plan_max_breakdown: 3              # planner BTA: number of sub-planning subtasks
   exec_max_breakdown: 4              # executor BTA: number of execution subtasks
   flow_max_dynamic_steps: 3          # per-flow MFDual followup iterations cap
-  consensus_max_iterations: 1        # cheap-mode default for ALL Dual review-and-fix loops
+  consensus_max_iterations: 3        # cheap-mode default for ALL Dual review-and-fix loops
 
 # ---------------------------------------------------------------------------
 # GLOBAL CASCADES
@@ -120,7 +122,7 @@ _template_manager:
 
 _consensus_config:
   _target_: ConsensusConfig
-  max_iterations: ${_hyperparams.consensus_max_iterations}
+  max_iterations: ${_params.consensus_max_iterations}
 
 # ---------------------------------------------------------------------------
 # OUTER DUAL — review and fix the FULL deliverable
@@ -144,11 +146,11 @@ base_inferencer:
       _target_: BTA
       name: plan_bta
       breakdown_format: json_subtasks
-      max_breakdown: ${_hyperparams.plan_max_breakdown}
+      max_breakdown: ${_params.plan_max_breakdown}
 
       # template_root_space=task_breakdown via BTA.SLOT_DEFAULTS (role layer).
       breakdown_inferencer:
-        _target_: ClaudeCodeCLI
+        _target_: ${_params.default_inferencer}
 
       worker_factory:
         __default__:
@@ -158,27 +160,27 @@ base_inferencer:
           visible_flows: all         # MFDual class default; explicit for clarity
 
           flow_configs:
-            - max_dynamic_steps: ${_hyperparams.flow_max_dynamic_steps}
+            - max_dynamic_steps: ${_params.flow_max_dynamic_steps}
               iteration_judgment: true   # toggle: end_condition + iter_judgment template flag
               initial_inferencer:
-                _target_: ClaudeCodeCLI
+                _target_: ${_params.default_inferencer}
               followup_inferencer:
-                _target_: ClaudeCodeCLI
-            - max_dynamic_steps: ${_hyperparams.flow_max_dynamic_steps}
+                _target_: ${_params.default_inferencer}
+            - max_dynamic_steps: ${_params.flow_max_dynamic_steps}
               iteration_judgment: true
               initial_inferencer:
-                _target_: ClaudeCodeCLI
+                _target_: ${_params.default_inferencer}
               followup_inferencer:
-                _target_: ClaudeCodeCLI
+                _target_: ${_params.default_inferencer}
 
           multi_flow_aggregator_inferencer:
-            _target_: ClaudeCodeCLI
+            _target_: ${_params.default_inferencer}
 
       aggregator_inferencer:
-        _target_: ClaudeCodeCLI
+        _target_: ${_params.default_inferencer}
 
     review_inferencer:
-      _target_: ClaudeCodeCLI
+      _target_: ${_params.default_inferencer}
 
   # ---- EXECUTE STAGE: bare BTA with Dual workers ----
   executor_inferencer:
@@ -186,27 +188,27 @@ base_inferencer:
     _template_root_space: implementation   # subtree-default cascade (Refactor 14)
     name: exec_bta
     breakdown_format: json_subtasks
-    max_breakdown: ${_hyperparams.exec_max_breakdown}
+    max_breakdown: ${_params.exec_max_breakdown}
 
     breakdown_inferencer:
-      _target_: ClaudeCodeCLI
+      _target_: ${_params.default_inferencer}
 
     worker_factory:
       __default__:
         _target_: Dual
         base_inferencer:
-          _target_: ClaudeCodeCLI
+          _target_: ${_params.default_inferencer}
         review_inferencer:
-          _target_: ClaudeCodeCLI
+          _target_: ${_params.default_inferencer}
 
     aggregator_inferencer:
-      _target_: ClaudeCodeCLI
+      _target_: ${_params.default_inferencer}
 
 # ---------------------------------------------------------------------------
 # OUTER REVIEWER — judges final deliverable (RST + built HTML)
 # ---------------------------------------------------------------------------
 review_inferencer:
-  _target_: ClaudeCodeCLI
+  _target_: ${_params.default_inferencer}
   template_root_space: implementation   # outside both subtrees — explicit (leaf layer)
 
 # ---------------------------------------------------------------------------
