@@ -55,3 +55,4 @@ consensus_config:
   max_iterations: 2
 visible_flows: all
 fixer_match_winner: true
+reviewer_match_second: true

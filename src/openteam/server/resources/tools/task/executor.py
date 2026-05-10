@@ -59,9 +59,9 @@ def _resolve_agent_config(spec: str, topologies_dir: Path = _TOPOLOGIES_DIR) -> 
         4. acronym-aware camelCase->kebab match -> file
         5. otherwise ValueError listing presets + close matches
     """
-    spec = (spec or "pti").strip()
+    spec = (spec or "breakdown-multiflow-plan-then-implement").strip()
     if not spec:
-        spec = "pti"
+        spec = "breakdown-multiflow-plan-then-implement"
 
     # Rule 1: inline JSON/YAML
     if spec.startswith("{"):
@@ -359,27 +359,80 @@ async def _run_topology(
             return _error(f"--initial-plan file not found: {init_plan_path}")
         init_plan_path = str(plan_abs)
 
-    # Stage 6 — Build override map. Each field filtered with a warning by
-    # _filter_attrs_keys when the target doesn't accept it, so setting all three
-    # is safe — they reach the right slot per topology kind:
-    #   - workspace_root → BTA / MultiFlow root
-    #   - workspace_path → PTI root
-    #   - target_path    → ClaudeCodeCLI root (single.yaml)
-    # NOTE: do NOT set "workspace.root" here — that resolves to nested
-    # {workspace: {root: ...}} which ClaudeCodeCli interprets as a plain-dict
-    # workspace field and crashes with AttributeError on instantiation.
-    # (Shims that target BTA-rooted YAMLs CAN pass workspace.root via overrides;
-    # BTA's `workspace` field takes precedence over `workspace_root` per BTA:348-349.)
-    overrides.setdefault("workspace_root", str(working_dir))
-    overrides.setdefault("workspace_path", str(working_dir))
+    # Stage 6 — Build override map.
+    #
+    # Workspace routing (updated 2026-05-07):
+    #   - Topology YAMLs declare `workspace.root: ${_params.workspace_root}`.
+    #     The allocator injects the resolved path via the override below.
+    #     The YAML's `_params.workspace_root: ???` (MISSING sentinel) fails
+    #     loud at load time if the override is missing.
+    #   - ClaudeCodeCli / KiroCli (single-leaf YAMLs) → use `target_path`.
     overrides.setdefault("target_path", str(working_dir))
+    overrides["_params.workspace_root"] = str(working_dir)
     if resume_workspace:
         overrides["resume_workspace"] = str(working_dir)
     if init_plan_path and is_pti:
         overrides["initial_plan_file"] = init_plan_path
+
+    # ----- Mode handling --------------------------------------------------
+    # `--plan` mode: swap to the standalone planner topology.
+    #
+    # Why not just set `enable_implementation=False` on the full PTI YAML?
+    # Because the full topology wraps PTI in an OUTER Dual that reviews the
+    # final implementation deliverable. With implementation disabled, PTI
+    # returns "" (empty string) and the outer Dual ends up reviewing an
+    # empty deliverable using `template_root_space=implementation` review
+    # criteria — wasted iterations + wrong evaluation criteria.
+    #
+    # The standalone `breakdown-multiflow-plan.yaml` is purpose-built for
+    # plan-only runs: it has its OWN outer Dual that reviews the PLAN
+    # itself with `_template_root_space=plan` criteria. The full PTI
+    # topology imports this same file via `_import_:`, so there's no
+    # drift risk between the two paths.
     if mode == "plan":
-        overrides["enable_implementation"] = False
+        if source[0] == "file":
+            full_yaml_path = Path(source[1])
+            standalone_path = full_yaml_path.parent / "breakdown-multiflow-plan.yaml"
+            if (
+                full_yaml_path.name == "breakdown-multiflow-plan-then-implement.yaml"
+                and standalone_path.is_file()
+            ):
+                _logger.info(
+                    "[task] --plan: swapping topology %s → %s "
+                    "(standalone planner has its own outer Dual reviewing "
+                    "the plan; avoids empty-deliverable review).",
+                    full_yaml_path.name, standalone_path.name,
+                )
+                source = ("file", standalone_path)
+                # Recompute is_pti: standalone has no PTI wrapper.
+                is_pti = _topology_is_pti(source)
+                # Don't pass enable_implementation override — standalone
+                # YAML has no PTI to receive it (would be a no-op key,
+                # but skipping is cleaner).
+            else:
+                # Custom YAML or standalone path lookup failed — fall back
+                # to the legacy flag toggle so behavior is at least
+                # consistent (and observable) for unusual configs.
+                _logger.warning(
+                    "[task] --plan: cannot swap to standalone planner "
+                    "(source=%s, standalone exists=%s). Falling back to "
+                    "enable_implementation=False on PTI; outer Dual may "
+                    "review an empty deliverable.",
+                    full_yaml_path, standalone_path.is_file(),
+                )
+                overrides["enable_implementation"] = False
+        else:
+            # Inline (dict) source — no file to swap. Same legacy fallback.
+            _logger.warning(
+                "[task] --plan: inline agent-config can't be swapped to "
+                "standalone planner. Using enable_implementation=False; "
+                "outer Dual may review an empty deliverable.",
+            )
+            overrides["enable_implementation"] = False
     if mode == "execute":
+        # Execute mode legitimately needs the full PTI YAML — it skips
+        # planning and runs implementation. Asymmetric with --plan by
+        # design.
         overrides["enable_planning"] = False
     if mode == "confirm":
         overrides["enable_checkpoint_plan_review"] = True
@@ -482,7 +535,7 @@ async def execute(arguments: dict, session_context: dict):
     # Stage 1 — Parse arguments
     request = (arguments.get("request") or "").strip()
     mode = arguments.get("mode") or _derive_mode_from_flags(arguments) or "full"
-    spec = arguments.get("agent-config") or arguments.get("agent_config") or "pti"
+    spec = arguments.get("agent-config") or arguments.get("agent_config") or "breakdown-multiflow-plan-then-implement"
     overrides = _parse_overrides(arguments.get("override", []))
     model = arguments.get("model")
     no_dual = bool(arguments.get("no-dual"))

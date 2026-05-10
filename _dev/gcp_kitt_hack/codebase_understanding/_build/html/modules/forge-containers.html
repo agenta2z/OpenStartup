@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>forge_containers/ — ForgeApp operator (Go) &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="kitt-runbooks/ — SRE runbooks as Temporal workflows" href="kitt-runbooks.html" />
+    <link rel="prev" title="sweeper/ — pod-labelling controller" href="sweeper.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="forge-containers-forgeapp-operator-go">
+<h1><code class="docutils literal notranslate"><span class="pre">forge_containers/</span></code> — ForgeApp operator (Go)<a class="headerlink" href="#forge-containers-forgeapp-operator-go" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">forge_containers/</span></code> (67 files) is a Kubernetes operator + CRD that
+deploys Atlassian Forge applications as containerised workloads on the
+gcp_kitt platform. The operator watches the <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> CRD and
+generates a per-app <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code>, RBAC, and <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> (with
+sidecar injection) from the spec.</p>
+<p>Two Helm charts ship with the operator:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">helm-crd/</span></code> — CRD-only chart (deployed first via Argo CD sync wave)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helm/</span></code> — controller chart (deployed second)</p></li>
+</ul>
+</section>
+<section id="tech-stack">
+<h2>Tech stack<a class="headerlink" href="#tech-stack" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Go</strong> (controller, ~400 LoC for the reconciler)</p></li>
+<li><p><strong>TypeScript</strong> for deployment helpers</p></li>
+<li><p><strong>Helm</strong> for packaging; <strong>Kustomize</strong> for per-cluster overlays</p></li>
+<li><p><strong>Argo CD</strong> for sync ordering</p></li>
+</ul>
+</section>
+<section id="inventory-highlights">
+<h2>Inventory highlights<a class="headerlink" href="#inventory-highlights" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 55.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">main.go</span></code></p></td>
+<td><p>Operator entrypoint</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">controllers/forgeapp_controller.go</span></code></p></td>
+<td><p>Reconciler (~400 LoC)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">controllers/deployment.go</span></code></p></td>
+<td><p>Generates <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> from <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> spec</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">api/v1alpha1/forgeapp_types.go</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> CRD schema</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">helm/Chart.yaml</span></code> / <code class="docutils literal notranslate"><span class="pre">helm/values.yaml</span></code></p></td>
+<td><p>Controller Helm chart</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">helm-crd/Chart.yaml</span></code></p></td>
+<td><p>CRD-only chart (Argo CD wave 0)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">config/rbac/role.yaml</span></code></p></td>
+<td><p>Controller RBAC</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">config/crd/kustomization.yaml</span></code></p></td>
+<td><p>CRD kustomization</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">test/helmfile.yaml</span></code></p></td>
+<td><p>Local helmfile for integration tests</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">test-app.yaml</span></code></p></td>
+<td><p>Sample <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> CR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yamls/deployment.yaml</span></code> / <code class="docutils literal notranslate"><span class="pre">yamls/deploy-compute.yaml</span></code> /
+<code class="docutils literal notranslate"><span class="pre">yamls/network-policy.yaml</span></code></p></td>
+<td><p>Reference manifests</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ARGOCD_SETUP.md</span></code></p></td>
+<td><p>Argo CD wiring guide</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">KUBERNETES_DEPLOYMENT_COMPARISON.md</span></code></p></td>
+<td><p>Decision matrix vs. plain Deployments</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">docs/forgeapp-crd-diagram.md</span></code></p></td>
+<td><p>CRD diagram</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="public-surface">
+<h2>Public surface<a class="headerlink" href="#public-surface" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>CRD:</strong> <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> (group/version per <code class="docutils literal notranslate"><span class="pre">api/v1alpha1</span></code>)</p></li>
+<li><p><strong>Operator-managed objects:</strong> per-app <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code>,
+<code class="docutils literal notranslate"><span class="pre">RoleBinding</span></code>, <code class="docutils literal notranslate"><span class="pre">Deployment</span></code>, optional sidecar containers</p></li>
+</ul>
+</section>
+<section id="reconciler-behaviour">
+<h2>Reconciler behaviour<a class="headerlink" href="#reconciler-behaviour" title="Link to this heading">¶</a></h2>
+<p>For each <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Watch <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> CRs.</p></li>
+<li><p>Generate / update a dedicated <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code> and RBAC.</p></li>
+<li><p>Build a <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> from spec (image, replicas, env vars).</p></li>
+<li><p>Patch in sidecar configurations (e.g., <code class="docutils literal notranslate"><span class="pre">iam-sidecar</span></code>).</p></li>
+</ol>
+</section>
+<section id="auth-rbac">
+<h2>Auth &amp; RBAC<a class="headerlink" href="#auth-rbac" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Operator ClusterRole</strong> scoped to namespaces it manages</p></li>
+<li><p><strong>Per-app SA</strong> isolated to its own namespace</p></li>
+<li><p><strong>Workload-identity binding</strong> plumbed via <code class="docutils literal notranslate"><span class="pre">asi</span></code></p></li>
+</ul>
+</section>
+<section id="build-deploy">
+<h2>Build &amp; deploy<a class="headerlink" href="#build-deploy" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>install<span class="w">                                </span><span class="c1"># Install CRD</span>
+helm<span class="w"> </span>install<span class="w"> </span>forgeapp-controller<span class="w"> </span>./helm<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>--namespace<span class="w"> </span>kittz-system
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>test-app.yaml<span class="w">              </span><span class="c1"># Sample ForgeApp</span>
+kubectl<span class="w"> </span>get<span class="w"> </span>forgeapps<span class="w"> </span>-A
+kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>kittz-system<span class="w"> </span>deployment/forgeapp-controller
+</pre></div>
+</div>
+</section>
+<section id="integration-with-gcp-kitt">
+<h2>Integration with gcp_kitt<a class="headerlink" href="#integration-with-gcp-kitt" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Drives:</strong> <code class="docutils literal notranslate"><span class="pre">forge/</span></code> reference applications (quiz-app, etc.) when
+packaged as <code class="docutils literal notranslate"><span class="pre">ForgeApp</span></code> CRs</p></li>
+<li><p><strong>Driven by:</strong> <code class="docutils literal notranslate"><span class="pre">argocd/</span></code> (CRD app + controller app, in that order)</p></li>
+<li><p><strong>Identity:</strong> <code class="docutils literal notranslate"><span class="pre">asi</span></code> provides the workload-identity foundation for
+per-app SAs</p></li>
+</ul>
+</section>
+<section id="hazards">
+<h2>Hazards<a class="headerlink" href="#hazards" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>CRD/controller version mismatch</strong> between <code class="docutils literal notranslate"><span class="pre">helm-crd/</span></code> and
+<code class="docutils literal notranslate"><span class="pre">helm/</span></code> breaks reconciliation silently — bump versions in lockstep.</p></li>
+<li><p><strong>Hard-coded sidecar injection patterns</strong> — custom sidecars require
+Go code changes today.</p></li>
+<li><p><strong>No documented Helm upgrade strategy</strong> — current SOP is
+delete-and-recreate during upgrades, which causes brief downtime.</p></li>
+<li><p><strong>Argo CD sync waves</strong> must be configured; without them the controller
+Application can race ahead of the CRD Application.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="sweeper.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">sweeper/</span></code> — pod-labelling controller</a></li>
+      <li>Next: <a href="kitt-runbooks.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">kitt-runbooks/</span></code> — SRE runbooks as Temporal workflows</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/forge-containers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

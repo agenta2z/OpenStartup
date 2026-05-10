@@ -20,30 +20,30 @@
     {
       "name": "--plan",
       "type": "flag",
-      "description": "Run planning phase only (PTI only)."
+      "description": "Run planning phase only (skip implementation)."
     },
     {
       "name": "--execute",
       "type": "flag",
-      "description": "Skip planning, execute directly (PTI only)."
+      "description": "Skip planning, execute directly. Requires --initial-plan."
     },
     {
       "name": "--full",
       "type": "flag",
       "default": true,
-      "description": "Plan then implement (default for PTI)."
+      "description": "Plan then implement (default)."
     },
     {
       "name": "--confirm",
       "type": "flag",
-      "description": "Plan, wait for user approval, then implement (PTI only). Uses PTI's enable_checkpoint_plan_review."
+      "description": "Plan, wait for user approval, then implement."
     },
     {
       "name": "--agent-config",
       "type": "string",
-      "default": "pti",
+      "default": "breakdown-multiflow-plan-then-implement",
       "popular": true,
-      "description": "Topology spec: preset name (pti/pti-simple/bta/bta-dual/dual/single/multi-flow/multi-flow-dual), file path (.yaml), inline JSON, or registered alias (BTA/Dual/MultiFlow/MultiFlowDual). PTI is preset-only — no _target_ alias."
+      "description": "Topology spec: preset name (breakdown-multiflow-plan-then-implement/breakdown-multiflow-plan/pti/bta/dual/multi-flow-dual), file path (.yaml), or inline JSON."
     },
     {
       "name": "--override",
@@ -66,12 +66,12 @@
     {
       "name": "--analysis",
       "type": "flag",
-      "description": "Enable post-implementation analysis phase (PTI only)."
+      "description": "Enable post-implementation analysis phase."
     },
     {
       "name": "--multi-iter",
       "type": "flag",
-      "description": "Enable multi-iteration refinement loop (PTI only)."
+      "description": "Enable multi-iteration refinement loop."
     },
     {
       "name": "--max-iterations",

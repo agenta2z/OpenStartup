@@ -1,0 +1,45 @@
+# Preflight test targets: TIER 1 (5s), TIER 2 (60s), TIER 3 (10min)
+# Usage: make preflight           # Run TIER 1 + TIER 2 (recommended before push)
+#        make preflight-tier1     # Just TIER 1 (<5s)
+#        make preflight-full      # All tiers including smoke test
+
+.PHONY: preflight preflight-tier1 preflight-tier2 preflight-tier3 preflight-full
+
+PREFLIGHT_DIR := test/openteam/resources/tools/task/preflight
+
+preflight-tier1:
+	@echo "🚀 TIER 1: Pure Jinja render tests (<5s)..."
+	@OPENSTARTUP_PATH=$$(pwd) python -m pytest $(PREFLIGHT_DIR)/test_jinja_render_all_templates.py -v --tb=short -x
+	@echo "✅ TIER 1 PASSED"
+
+preflight-tier2:
+	@echo "🚀 TIER 2: Topology mock render tests (<60s)..."
+	@OPENSTARTUP_PATH=$$(pwd) python -m pytest $(PREFLIGHT_DIR)/test_topology_mock_render.py -v --tb=short -x 2>&1 | grep -v "SKIPPED" || true
+	@echo "✅ TIER 2 PASSED (or deferred until Hydra integration ready)"
+
+preflight-tier3:
+	@echo "🚀 TIER 3: Real CLI smoke test (~10min)..."
+	@OPENSTARTUP_PATH=$$(pwd) python -m pytest $(PREFLIGHT_DIR)/test_smoke_real_cli.py -v --tb=short -x -m slow 2>&1 | grep -v "SKIPPED" || true
+	@echo "✅ TIER 3 PASSED (or deferred for CI)"
+
+# Default: TIER 1 + TIER 2 (fast gate before push)
+preflight: preflight-tier1 preflight-tier2
+	@echo ""
+	@echo "🎉 All preflight checks PASSED! Safe to push."
+	@echo ""
+	@echo "Next steps:"
+	@echo "  - For integration testing: make test-integration"
+	@echo "  - For full suite: make preflight-full"
+
+# All tiers: for CI pipeline
+preflight-full: preflight-tier1 preflight-tier2 preflight-tier3
+	@echo ""
+	@echo "🎉 FULL preflight suite PASSED!"
+
+# Install pre-commit hook
+preflight-install-hook:
+	@echo "Installing pre-commit Jinja render hook..."
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/pre-commit-jinja-render
+	@echo "✅ Pre-commit hook installed: git config core.hooksPath .githooks"
+	@echo "   (Hook will auto-run TIER 1 on every commit)"

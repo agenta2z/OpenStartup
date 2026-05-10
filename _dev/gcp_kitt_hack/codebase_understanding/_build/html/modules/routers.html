@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>routers/ — lightweight Python URL router &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="lambda/ — AWS Lambda scrapers (DynamoDB + Postgres backends)" href="lambda.html" />
+    <link rel="prev" title="portable-cryptor/ — AWS↔GCP KMS-portable encryption" href="portable-cryptor.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="routers-lightweight-python-url-router">
+<h1><code class="docutils literal notranslate"><span class="pre">routers/</span></code> — lightweight Python URL router<a class="headerlink" href="#routers-lightweight-python-url-router" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p>Standalone Python middleware library that maps URL paths to handler
+callables with both <strong>exact</strong> and <strong>wildcard</strong> route matching. Used by
+in-cluster web services and gateways within <code class="docutils literal notranslate"><span class="pre">gcp_kitt</span></code> that don’t want
+the weight of Flask/FastAPI routing.</p>
+</section>
+<section id="layout">
+<h2>Layout<a class="headerlink" href="#layout" title="Link to this heading">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">routers</span><span class="o">/</span>
+  <span class="n">router</span><span class="o">.</span><span class="n">py</span>                  <span class="c1"># core Router class</span>
+  <span class="n">test_router</span><span class="o">.</span><span class="n">py</span>             <span class="c1"># unit tests</span>
+  <span class="n">test_wildcards</span><span class="o">.</span><span class="n">py</span>          <span class="c1"># wildcard matching tests</span>
+  <span class="n">test_performance</span><span class="o">.</span><span class="n">py</span>        <span class="c1"># benchmark suite</span>
+  <span class="n">example_usage</span><span class="o">.</span><span class="n">py</span>
+  <span class="n">example_wildcards</span><span class="o">.</span><span class="n">py</span>
+  <span class="n">example_path_parameters</span><span class="o">.</span><span class="n">py</span>
+  <span class="n">run_all_tests</span><span class="o">.</span><span class="n">py</span>
+  <span class="n">TEST_RESULTS</span><span class="o">.</span><span class="n">md</span>            <span class="c1"># benchmark output</span>
+</pre></div>
+</div>
+</section>
+<section id="surface-area">
+<h2>Surface area<a class="headerlink" href="#surface-area" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">Router</span></code> — main routing engine.</p></li>
+<li><p>Exact-match routes win over wildcard routes; longest-matching wildcard
+wins among wildcards.</p></li>
+<li><p>Path-parameter extraction supported.</p></li>
+</ul>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Performance degrades with &gt;1000 routes — <code class="docutils literal notranslate"><span class="pre">test_performance.py</span></code>
+documents the curve.</p></li>
+<li><p>Library is unversioned (no <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> / <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>); consumers
+vendor it in directly.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="portable-cryptor.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">portable-cryptor/</span></code> — AWS↔GCP KMS-portable encryption</a></li>
+      <li>Next: <a href="lambda.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">lambda/</span></code> — AWS Lambda scrapers (DynamoDB + Postgres backends)</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/routers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

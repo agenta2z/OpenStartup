@@ -1,0 +1,299 @@
+================================================================================
+PREFLIGHT TEST ARCHITECTURE - VISUAL DIAGRAM
+================================================================================
+
+PROBLEM SCENARIO:
+─────────────────
+Developer commits 4 templates with slash-vs-dot bug:
+  {{ notes/local_search_efficiency }}  ← TYPO (should be . not /)
+
+BEFORE PREFLIGHT TESTS:
+                    ┌─────────────┐
+                    │ git commit  │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Pre-commit? │
+                    │    None     │ ✅ Commit proceeds (no check)
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────────────┐
+                    │ Integration Test    │
+                    │ (1.5 hours)         │
+                    └──────┬──────────────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+        ┌─────▼─────┐            ┌─────▼──────┐
+        │ Topology  │            │ LLM Calls  │
+        │ loads     │            │ (in real   │
+        │ Templates │            │  executor) │
+        │ render    │            │            │
+        └─────┬─────┘            └─────┬──────┘
+              │                        │
+              └────────────┬───────────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Jinja Error │
+                    │ 💥 Crash    │
+                    │ @T+1h38m    │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼───────────┐
+                    │ Wasted compute   │
+                    │ Frustrated dev   │
+                    │ Slow feedback    │
+                    └──────────────────┘
+
+TIME TO DETECTION: ~1.5 HOURS (or longer if found in code review)
+
+================================================================================
+
+AFTER PREFLIGHT TESTS:
+─────────────────────
+Developer commits 4 templates with slash-vs-dot bug:
+  {{ notes/local_search_efficiency }}  ← TYPO (should be . not /)
+
+              ┌─────────────┐
+              │ git commit  │
+              └──────┬──────┘
+                     │
+        ┌────────────▼────────────┐
+        │  PRE-COMMIT HOOK        │
+        │  (TIER 1: Jinja Render) │
+        │  [< 2 seconds]          │
+        │                         │
+        │  ✓ Discover all .jinja2 │
+        │  ✓ Render with          │
+        │    StrictUndefined      │
+        │  ✓ Check for errors     │
+        └────────────┬────────────┘
+                     │
+              ┌──────▼──────┐
+              │ UndefinedErr│
+              │  in template│
+              │   CAUGHT!   │
+              └──────┬──────┘
+                     │
+         ┌───────────▼────────────┐
+         │  Developer sees:       │
+         │  "Jinja UndefinedError │
+         │   in notes_template.   │
+         │   jinja2 line 42"      │
+         │                        │
+         │  [< 2 seconds]         │
+         └───────────┬────────────┘
+                     │
+         ┌───────────▼───────────┐
+         │  Developer fixes it:  │
+         │  {{ notes.field }}    │
+         │  (slash → dot)        │
+         │  [< 30 seconds]       │
+         └───────────┬───────────┘
+                     │
+              ┌──────▼──────┐
+              │ git commit  │
+              │ --amend     │
+              └──────┬──────┘
+                     │
+        ┌────────────▼────────────┐
+        │  PRE-COMMIT HOOK        │
+        │  (TIER 1: Jinja Render) │
+        │  ✅ All templates pass  │
+        │  [< 2 seconds]          │
+        └────────────┬────────────┘
+                     │
+         ┌───────────▼─────────┐
+         │  Commit succeeds    │
+         │  Safe to push       │
+         │  Time elapsed: ~40s │
+         └─────────────────────┘
+
+TIME TO DETECTION: <2 SECONDS (1.5h faster!)
+
+================================================================================
+
+LAYERED DEFENSE IN DEPTH:
+─────────────────────────
+
+        COMMIT → PRE-COMMIT    → CI (required) → INTEGRATION → PRODUCTION
+                                                    TEST
+                    │
+    ┌───────────────┴────────────────────────────────────────────┐
+    │                                                              │
+    │  TIER 1: Pure Jinja Render                                 │
+    │  ─────────────────────────                                 │
+    │  • All .jinja2 templates                                   │
+    │  • StrictUndefined context                                 │
+    │  • No topology, no LLM                                     │
+    │  ✅ Catches: syntax bugs, typos, slash-vs-dot             │
+    │  Time: <5s                                                 │
+    │  When: EVERY commit (pre-commit hook)                     │
+    │  Also: make preflight-tier1 (manual)                      │
+    │        CI gate (required to pass)                         │
+    │                                                             │
+    │  If this passes: ✅ you're very likely safe               │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
+                    │
+    ┌───────────────┴────────────────────────────────────────────┐
+    │                                                              │
+    │  TIER 2: Topology Mock Render                              │
+    │  ──────────────────────────────                            │
+    │  • Load YAML via Hydra                                     │
+    │  • Replace LLM inferencers with mocks                      │
+    │  • Call infer() to trigger render                          │
+    │  ✅ Catches: topology wiring, prompt render failures       │
+    │  Time: <60s                                                │
+    │  When: Before push (make preflight)                        │
+    │        CI gate (required to pass)                          │
+    │  Status: Marked @skip pending Hydra integration            │
+    │                                                             │
+    │  If this passes: ✅ topology loads, renders correctly     │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
+                    │
+    ┌───────────────┴────────────────────────────────────────────┐
+    │                                                              │
+    │  TIER 3: Real CLI Smoke Test                               │
+    │  ──────────────────────────                                │
+    │  • Run openteam task via CLI                               │
+    │  • Minimal task, profile=quick                             │
+    │  • Time-bounded to 10 minutes                              │
+    │  ✅ Catches: end-to-end integration failures              │
+    │  Time: ~10min                                              │
+    │  When: CI only (too slow for local/pre-commit)             │
+    │  Status: Marked @skip + @slow, activated in CI             │
+    │                                                             │
+    │  If this passes: ✅ real workflow works                   │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
+
+Each tier is INDEPENDENT: if TIER 1 passes, you know templates are valid
+regardless of topology or integration. TIER 2 is independent of TIER 3, etc.
+
+================================================================================
+
+DEVELOPER DECISION TREE:
+───────────────────────
+
+              DEVELOPER READY TO COMMIT
+                      │
+              ┌───────▼────────┐
+              │ git commit ... │
+              └───────┬────────┘
+                      │
+         ┌────────────▼────────────┐
+         │ PRE-COMMIT HOOK RUNS    │
+         │ (TIER 1: Jinja)         │
+         └────────────┬────────────┘
+                      │
+           ┌──────────┴──────────┐
+           │                     │
+        ✅ PASS               ❌ FAIL
+           │                     │
+        ┌──▼────────┐     ┌──────▼──────────────┐
+        │ Commit    │     │ Jinja Error shown  │
+        │ proceeds  │     │ Line number &      │
+        │           │     │ variable name      │
+        └──┬────────┘     │                    │
+           │              │ Developer fixes    │
+           │              │ the template       │
+           │              │                    │
+           │              │ git commit --amend │
+           │              │                    │
+           │              └──────┬─────────────┘
+           │                     │
+           │                     └──────┐
+           │                            │
+        ┌──▼──────────────────────────▼──┐
+        │ READY TO PUSH: OPTIONAL         │
+        │ make preflight (TIER 1+2)       │
+        └──────────┬─────────────────────┘
+                   │
+         ┌─────────▼──────────┐
+         │ ✅ All pass        │
+         │ Safe to push       │
+         │ (recommended)      │
+         └────────────────────┘
+
+================================================================================
+
+TIME COMPARISON: DETAILED BREAKDOWN
+──────────────────────────────────
+
+SCENARIO: Developer commits with slash-vs-dot bug
+
+WITHOUT PREFLIGHT:
+  ├─ Time to commit: 1 second
+  ├─ Commit succeeds (no checks)
+  ├─ Push to GitHub: 2 seconds
+  ├─ CI starts: 0 seconds (immediately)
+  ├─ TIER 1 equivalent check (if manual): SKIPPED
+  ├─ TIER 2 equivalent check (if manual): SKIPPED
+  ├─ Integration test starts: 10 minutes
+  ├─ Topology loads: 2 minutes
+  │  └─ Jinja error occurs here: 💥 CRASH
+  └─ TOTAL TIME TO DETECTION: ~12-15 minutes (minimum, could be 1.5h+)
+
+WITH PREFLIGHT:
+  ├─ Time to commit: 1 second
+  ├─ Pre-commit hook runs (TIER 1): 2 seconds
+  │  └─ UndefinedError detected: ❌ FAIL
+  ├─ Hook blocks commit, error shown: 1 second
+  ├─ Developer reads error: 5 seconds
+  ├─ Developer fixes template: 20 seconds
+  ├─ git commit --amend: 1 second
+  ├─ Pre-commit hook re-runs: 2 seconds
+  │  └─ All templates pass: ✅ PASS
+  ├─ Commit succeeds: 1 second
+  └─ TOTAL TIME TO DETECTION + FIX: ~35 seconds
+
+EFFICIENCY GAIN: 1500%+ faster
+COMPUTE SAVED: ~1.5 hours per bug
+
+With 5 such bugs in a release cycle:
+  WITHOUT preflight: 5 × 1.5h = 7.5 hours of integration test time wasted
+  WITH preflight:    5 × 0.5m = ~2.5 minutes of developer time
+
+NET SAVINGS: ~7.5 hours of CI compute per release cycle
+
+================================================================================
+
+IMPLEMENTATION ROADMAP:
+──────────────────────
+
+WEEK 1: Setup
+  Day 1: Add TIER 1 test to repo, run locally
+  Day 2: Verify pre-commit hook works
+  Day 3: Test with intentional bad template, confirm catch
+  Day 4: Document in team wiki
+  Day 5: Announce & ask team to run `make preflight-install-hook`
+
+WEEK 2: Integration
+  Day 1: Set up CI pipeline with make preflight gate
+  Day 2: Require preflight to pass before merge
+  Day 3: Add TIER 2 test (if Hydra integration confirmed)
+  Day 4: Set up TIER 3 smoke test in CI (separate pipeline)
+  Day 5: Monitor & iterate
+
+WEEK 3+: Monitoring
+  Track metrics:
+    • # of bugs caught by TIER 1 pre-commit
+    • # of bugs that would have reached integration test
+    • Average time to fix (should be <1m)
+    • False positive rate (should be 0%)
+
+================================================================================
+
+KEY SUCCESS METRICS:
+───────────────────
+
+✅ Pre-commit hook runs in < 3 seconds
+✅ No false positives (real errors only)
+✅ > 95% team adoption (make preflight-install-hook)
+✅ 100% of template bugs caught before integration test
+✅ Average fix time < 1 minute
+✅ CI gate requires TIER 1 to pass (0 blocked merges)
+
+================================================================================

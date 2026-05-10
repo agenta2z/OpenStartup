@@ -4,7 +4,8 @@ Topology: outer Dual (review-and-fix) wrapping two distinct BTA instances,
 each with PTI workers whose planner is MultiFlowDual and whose executor
 is a Dual. Five inferencer types in their natural roles.
 
-YAML lives at: configs/breakdown_multiflow_plan_then_implement.yaml.
+YAML lives at: src/openteam/server/resources/tools/task/topologies/
+  breakdown-multiflow-plan-then-implement.yaml (the production path).
 The test goes through `_run_topology()` -- the same path `/task` slash
 uses -- exercising the full real loader (alias resolution, `_-prefix`
 cascade, OmegaConf interpolation, `_partial_` auto-injection).
@@ -36,7 +37,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
-YAML_PATH = _HERE / "configs" / "breakdown_multiflow_plan_then_implement.yaml"
+YAML_PATH = _HERE.parents[4] / "src" / "openteam" / "server" / "resources" / "tools" / "task" / "topologies" / "breakdown-multiflow-plan-then-implement.yaml"
 
 # OpenStartup repo (the target_path for ClaudeCodeCli leaves to investigate)
 OPENSTARTUP_PATH = Path(
@@ -249,12 +250,12 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
         parse_winner_tag, parse_decision_stop, parse_finalplan_tag,
     )
 
-    monkeypatch.setenv("DUAL_WS", str(tmp_path / "ws"))
     cfg = load_config(
         str(YAML_PATH),
         overrides={
             "_target_path": str(OPENSTARTUP_PATH),
             "templates_dir": str(TEMPLATES_DIR),
+            "_params.workspace_root": str(tmp_path / "ws"),
         },
     )
     inferencer = instantiate(cfg)
@@ -753,12 +754,11 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
     }
 
     # Let `_run_topology` allocate its own working_dir (server/_runtime/tasks/
-    # task_<id>_<ts>) and inject it as `workspace_root` via setdefault. The
-    # YAML's `${workspace_root}/base_bta` interpolation resolves against that
+    # task_<id>_<ts>) and inject it as `_params.workspace_root` override. The
+    # YAML's `${_params.workspace_root}` interpolation resolves against that
     # path, so context_updates["workspace_path"] aligns with the actual
-    # workspace where artifacts land. (Passing our own workspace_root override
-    # would create a path mismatch since _run_topology returns its allocated
-    # path, not our override, in context_updates.)
+    # workspace where artifacts land. Children appear under
+    # workspace/children/base_inferencer/, workspace/children/fixer_inferencer/.
     result = await _run_topology(
         source=("file", str(YAML_PATH)),
         request=DOC_TASK,
@@ -783,8 +783,8 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
     workspace = Path(workspace_path)
     assert workspace.exists(), f"workspace dir missing: {workspace}"
 
-    base_dir = workspace / "base_bta"
-    fixer_dir = workspace / "fixer_bta"
+    base_dir = workspace / "children" / "base_inferencer"
+    fixer_dir = workspace / "children" / "fixer_inferencer"
     assert base_dir.exists(), (
         f"base BTA workspace missing under {workspace}; "
         f"contents: {list(workspace.iterdir())}"
@@ -976,7 +976,7 @@ async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
     workspace = Path(workspace_path)
     assert workspace.exists(), f"workspace dir missing: {workspace}"
 
-    base_dir = workspace / "base_bta"
+    base_dir = workspace / "children" / "base_inferencer"
     assert base_dir.exists(), (
         f"base BTA workspace missing under {workspace}; "
         f"contents: {list(workspace.iterdir())}"
@@ -997,25 +997,148 @@ async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
 
 
 # ===========================================================================
-# Direct invocation: `python <this_file> [--pai]`
+# Plan-only mode integration test
+# ===========================================================================
+#
+# This test exercises `_run_topology(mode="plan", ...)`. The executor
+# auto-swaps `source` from the full PTI YAML to the standalone planner
+# (`breakdown-multiflow-plan.yaml`). We pass the FULL YAML path because:
+#   1. It mirrors how the slash command and CLI invoke the executor
+#   2. The swap logic is what we want to exercise (not bypass)
+#   3. PMS10 preflight verifies the swap fires; this is the integration check
+#
+# We intentionally do NOT define a PLAN_YAML_PATH constant — the plan-only
+# YAML name should never be referenced by name in this test, since the
+# executor's swap is the canonical path. Adding a direct reference here
+# would create a parallel code path that drifts from the production swap.
+
+
+def _build_pai_plan_request() -> str:
+    """Plan-only request: produce a PLAN for documenting the codebase."""
+    return f"""Create a detailed, structured PLAN for documenting the codebase at:
+
+  {PAI_CODEBASE_PATH}
+
+The plan should cover:
+  - What major modules and subsystems to document
+  - Recommended documentation structure (chapters, sections)
+  - Key architectural decisions to investigate
+  - Cross-cutting concerns to cover (observability, error handling, etc.)
+  - Recommended investigation order and dependencies between sections
+
+Output: A comprehensive, actionable documentation plan that another agent
+could follow to produce the actual documentation. This is a PLAN, not the
+documentation itself.
+
+Tool-use constraints:
+  - Confine ALL filesystem operations to {PAI_CODEBASE_PATH}.
+  - Do NOT run unbounded recursive scans rooted at "/", "$HOME", etc.
+"""
+
+
+@pytest.mark.integration
+@skip_openstartup
+@pytest.mark.asyncio
+@pytest.mark.timeout(60 * 60 * 2)  # 2h cap — plan-only is much cheaper
+async def test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
+    """Plan-only run: produce a structured PLAN for understanding the PAI
+    codebase. Does NOT execute the documentation work.
+
+    Exercises:
+      - executor.py mode='plan' YAML swap to standalone planner topology
+      - Standalone breakdown-multiflow-plan.yaml end-to-end
+      - Dual{BTA{MFDual}} planner with lightweight leaf fixer
+    """
+    if not _cli_available("acli"):
+        pytest.skip("acli (Rovo Dev CLI) not available on PATH")
+    if not PAI_CODEBASE_PATH.exists():
+        pytest.skip(f"Target PAI codebase missing at {PAI_CODEBASE_PATH}")
+
+    p = PROFILES[_PROFILE]
+    print(f"\n[pai-plan] profile={_PROFILE!r}: {p}")
+    print(f"[pai-plan] default_inferencer={_DEFAULT_INFERENCER!r}")
+    print(f"[pai-plan] target codebase: {PAI_CODEBASE_PATH}")
+
+    from openteam.server.resources.tools.task.executor import _run_topology
+
+    overrides = {
+        "_params.default_inferencer": _DEFAULT_INFERENCER,
+        "_target_path": str(PAI_CODEBASE_PATH),
+        "templates_dir": str(TEMPLATES_DIR),
+        # Plan-only knobs — standalone planner is Dual{BTA{MFDual}}, NOT PTI.
+        # No fixer.worker_factory.* overrides (fixer is a lightweight leaf).
+        "_params.plan_max_breakdown": p["bta_workers"],
+        "_params.flow_max_dynamic_steps": p["flow_dynamic_steps"],
+        "_params.consensus_max_iterations": p["mfdual_iter"],
+    }
+
+    result = await _run_topology(
+        source=("file", str(YAML_PATH)),
+        request=_build_pai_plan_request(),
+        overrides=overrides,
+        mode="plan",
+        session_context={"working_dir": str(tmp_path / "task_ws")},
+    )
+
+    # ----- Topology completion -----
+    assert result is not None, "_run_topology returned None"
+    success = result.context_updates.get("success") is True
+    assert success, f"topology reported failure: {result.result!r}"
+
+    response_text = (result.result or "").strip()
+    assert len(response_text) >= p["min_response_len"], (
+        f"profile={_PROFILE!r}: expected >={p['min_response_len']} chars, "
+        f"got {len(response_text)}"
+    )
+
+    # ----- Workspace artifacts -----
+    workspace_path = result.context_updates.get("workspace_path")
+    assert workspace_path, "context_updates missing workspace_path"
+    workspace = Path(workspace_path)
+    assert workspace.exists(), f"workspace dir missing: {workspace}"
+
+    # Standalone planner structure: Dual{BTA{MFDual}}
+    # base_inferencer = BTA with MFDual workers
+    base_dir = workspace / "children" / "base_inferencer"
+    assert base_dir.exists(), (
+        f"planner BTA workspace missing under {workspace}; "
+        f"contents: {list(workspace.iterdir())}"
+    )
+
+    base_children = list((base_dir / "children").rglob("*")) \
+        if (base_dir / "children").exists() else []
+    base_artifact_count = sum(1 for f in base_children if f.is_file())
+    assert base_artifact_count > 0, (
+        f"planner BTA produced no children/ artifacts under {base_dir}"
+    )
+
+    print(
+        f"\n[pai-plan] response_chars={len(response_text)} "
+        f"base_artifacts={base_artifact_count} "
+        f"workspace={workspace}"
+    )
+
+
+# ===========================================================================
+# Direct invocation: `python <this_file> [--pai] [--plan]`
 # ===========================================================================
 
 if __name__ == "__main__":
     """Run an integration test directly without pytest.
 
     Usage:
-        python test_task_agent_config_brta_with_multiflow_pti.py [--pai]
+        python test_task_agent_config_brta_with_multiflow_pti.py [--pai] [--plan]
 
-    Without --pai: runs the canonical real integration test.
-    With --pai: runs the PAI codebase-understanding test (RovoDevCLI default).
+    Without flags: runs the canonical real integration test.
+    --pai: runs the PAI codebase-understanding test (RovoDevCLI default).
+    --plan: runs the plan-only PAI test (standalone planner topology).
     """
     import asyncio
     import sys
     import tempfile
 
-    # Bootstrap sys.path so direct invocation finds the source packages.
-    _OS = _HERE.parents[4]                  # OpenStartup/
-    _CP = _OS.parent                         # CoreProjects/
+    _OS = _HERE.parents[4]
+    _CP = _OS.parent
     for _dep in (
         _OS / "src",
         _CP / "AgentFoundation" / "src",
@@ -1026,6 +1149,7 @@ if __name__ == "__main__":
             sys.path.insert(0, _p)
 
     use_pai = "--pai" in sys.argv
+    use_plan = "--plan" in sys.argv
 
     async def _main():
         with tempfile.TemporaryDirectory() as td:
@@ -1035,7 +1159,10 @@ if __name__ == "__main__":
                     return type("R", (), {"out": "", "err": ""})()
             capfd = _StubCapfd()
 
-            if use_pai:
+            if use_plan:
+                print(f"[direct-run] mode=plan default_inferencer={_DEFAULT_INFERENCER!r}")
+                await test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
+            elif use_pai:
                 print(f"[direct-run] mode=pai default_inferencer={_DEFAULT_INFERENCER!r}")
                 await test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
             else:

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Architecture overview &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="DTE request lifecycle (deep)" href="02-dte-request-lifecycle.html" />
+    <link rel="prev" title="Glossary" href="00-glossary.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="architecture-overview">
+<h1>Architecture overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h1>
+<section id="system-diagram-textual">
+<h2>System diagram (textual)<a class="headerlink" href="#system-diagram-textual" title="Link to this heading">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────┐       ┌──────────────┐
+│   Operator  │──CLI──│   dtecli     │  Node.js, 31 TS files, 7,943 LoC
+│  (laptop)   │       │   binary     │  Atlas plugin
+└─────────────┘       └──────┬───────┘
+                             │ HTTPS  X-DTE-ASAP / X-DTE-SCT / X-DTE-GROUPS
+                             ▼
+                      ┌──────────────────┐
+                      │   dte-web        │  optional browser UI
+                      │   (Express SPA)  │  dte-web/server.js 1,241 LoC
+                      └────────┬─────────┘
+                               │ same headers (proxied)
+                               ▼
+┌──────────────────────────────────────────────────────┐
+│           distributed-client (Knative svc)            │
+│           amp/distributed-client/main.go 1,868 LoC    │
+│     /health  /api?action=...  /start-workflow         │
+└────────────┬─────────────────────────────────────────┘
+             │  StartWorkflow(taskQueue=&quot;dte-workflows&quot;,
+             │                workflowType=&quot;DistributedTaskExecutionWorkflow&quot;,
+             │                input=DistributedTaskRequest)
+             ▼
+     ┌───────────────────────────────────────────┐
+     │   Temporal cluster                         │
+     │   (helmfile/temporal-manifests/, Cassandra)│
+     └────────────┬──────────────────────────────┘
+                  │ pollers on task-queue &quot;dte-workflows&quot;
+                  ▼
+     ┌──────────────────────────────────────────────┐
+     │  distributed-worker (Knative svc)             │
+     │  amp/distributed-worker/main.go 1,222 LoC     │
+     │  helpers.go 1,134, cluster_db.go 276          │
+     │                                               │
+     │  Workflows registered:                        │
+     │   - DistributedTaskExecutionWorkflow          │
+     │   - HelloWorldWorkflow                        │
+     │  Activities registered:                       │
+     │   - HealthCheckActivity                       │
+     │   - ServiceDiscoveryActivity                  │
+     │   - HelloWorldActivity / Greeting / Processing │
+     │     / FormattingActivity                      │
+     │   - ExecuteArgoWorkflowActivity               │
+     │   - FilterServiceDiscoveryResultsActivity     │
+     └─────────┬────────────────────────────────────┘
+               │
+     Per-cluster fan-out (parallel):
+               │
+┌──────────────┴────────────────────────────────────┐
+│ For each cluster c in request.ClusterNames:        │
+│   1. cluster_db.go   → fetch ClusterInfo from S3   │
+│      (kitt-cluster-registry.s3.amazonaws.com)      │
+│   2. helpers.go      → exchange operator token     │
+│      for cluster-bearer (auth-provider)            │
+│   3. createK8sClient → rest.Config + dynamic.IF    │
+│   4. createWorkflowViaAPI → POST Argo Workflow CR  │
+│   5. getWorkflowStatus / getWorkflowOutput         │
+└────────────────────────────────────────────────────┘
+</pre></div>
+</div>
+</section>
+<section id="three-independent-operator-worker-control-loops">
+<h2>Three independent Operator/Worker control loops<a class="headerlink" href="#three-independent-operator-worker-control-loops" title="Link to this heading">¶</a></h2>
+<p>In addition to DTE, three more long-lived processes run inside each
+cluster:</p>
+<ol class="arabic simple">
+<li><p><strong>ASI Operator</strong> (<code class="docutils literal notranslate"><span class="pre">asi/cmd/main.go</span></code> 344 LoC) — controller-runtime
+reconciler for <code class="docutils literal notranslate"><span class="pre">ASI</span></code> cluster-scoped CRD. Binds K8s <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code>
+to GCP IAM SA. Required GCP role:
+<code class="docutils literal notranslate"><span class="pre">roles/iam.serviceAccountAdmin</span></code>.</p></li>
+<li><p><strong>Sweeper Operator</strong> (<code class="docutils literal notranslate"><span class="pre">sweeper/main.go</span></code> 83 LoC, controller 207 LoC)
+— kubebuilder Operator on <code class="docutils literal notranslate"><span class="pre">sweepers.platform.atlassian.com/v1</span></code>.
+Schedules pod-labelling sweeps. Leader election lock
+<code class="docutils literal notranslate"><span class="pre">sweeper-controller-lock</span></code>. Ports: metrics <code class="docutils literal notranslate"><span class="pre">:8080</span></code>, health
+<code class="docutils literal notranslate"><span class="pre">:8081</span></code>, webhooks <code class="docutils literal notranslate"><span class="pre">:9443</span></code>.</p></li>
+<li><p><strong>kitt-runbooks worker</strong> (<code class="docutils literal notranslate"><span class="pre">kitt-runbooks/cmd/worker/main.go</span></code> 117
+LoC) — Temporal worker polling task queue <code class="docutils literal notranslate"><span class="pre">kitt-runbooks</span></code>. Three
+workflows: <code class="docutils literal notranslate"><span class="pre">WorkflowK8sNodeCordoned</span></code>, <code class="docutils literal notranslate"><span class="pre">WorkflowCyclopsCycleNodes</span></code>,
+<code class="docutils literal notranslate"><span class="pre">WorkflowHighUnhealthyDeployments</span></code>.</p></li>
+</ol>
+</section>
+<section id="two-side-car-agent-patterns">
+<h2>Two side-car / agent patterns<a class="headerlink" href="#two-side-car-agent-patterns" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>iam-sidecar</strong> (<code class="docutils literal notranslate"><span class="pre">iam-sidecar/iam-sidecar.go</span></code> 340 LoC) — runs
+alongside any pod that needs GCP creds; mints tokens via
+<code class="docutils literal notranslate"><span class="pre">iamcredentials.GenerateAccessToken</span></code>/<code class="docutils literal notranslate"><span class="pre">GenerateIdToken</span></code>. Exposes
+<code class="docutils literal notranslate"><span class="pre">/token</span></code> over localhost.</p></li>
+<li><p><strong>k8s-metadata-collector</strong> — daemon collecting per-pod / per-node
+metadata snapshots.</p></li>
+</ul>
+</section>
+<section id="helmfile-deployment-graph-top-level">
+<h2>Helmfile deployment graph (top-level)<a class="headerlink" href="#helmfile-deployment-graph-top-level" title="Link to this heading">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>helmfile/helmfile.yaml
+    ├── repositories: temporal, bitnami, elastic
+    ├── environments: dev, prod, eks
+    └── releases (rendered in dependency order):
+           ├── temporal-postgresql      (bitnami/postgresql)
+           ├── temporal-redis           (bitnami/redis)
+           ├── temporal                 (temporal/temporal)
+           ├── temporal-helloworld-worker
+           ├── temporal-helloworld-go-web-service
+           └── s3-crud-api
+
+argocd/argocd-bootstrap     ─►  argocd/argocd-apps     ─►
+    argocd/cluster-bootstrap ─►  argocd/cluster-apps   ─►
+        helmfile renders &amp; helm-crd controller applies
+</pre></div>
+</div>
+</section>
+<section id="layer-by-layer-breakdown">
+<h2>Layer-by-layer breakdown<a class="headerlink" href="#layer-by-layer-breakdown" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 22.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Layer</p></th>
+<th class="head"><p>Owns</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Bootstrap</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">helmfile/bootstrap/</span></code>, <code class="docutils literal notranslate"><span class="pre">argocd/argocd-bootstrap/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ai/gcp-critical-pods.yaml</span></code></p></td>
+<td><p>First-deploy CRDs, RBAC, ClusterRoles, namespace, PriorityClass.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Persistence</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">helmfile/</span></code> cassandra-* manifests, Bitnami Postgres / Redis
+releases, <code class="docutils literal notranslate"><span class="pre">helmfile/scraper/temporal-pg-redis/setup-database.sh</span></code></p></td>
+<td><p>Temporal can run on Cassandra (default) or Postgres+Redis
+(<code class="docutils literal notranslate"><span class="pre">scraper/temporal-pg-redis</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Networking</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">deny-all.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">allow-all.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">all-ingress.yaml</span></code>,
+<code class="docutils literal notranslate"><span class="pre">all-egress.yaml</span></code>, Knative + Kourier + Istio configs in
+<code class="docutils literal notranslate"><span class="pre">helmfile/</span></code></p></td>
+<td><p>Steps 3–9 of <code class="docutils literal notranslate"><span class="pre">DEPLOYMENT_ORDER.md</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Workload identity</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">asi/</span></code>, <code class="docutils literal notranslate"><span class="pre">iam-sidecar/</span></code></p></td>
+<td><p>ASI annotates SA → GCP SA email; iam-sidecar uses Workload
+Identity to mint runtime tokens.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Control plane</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">amp/distributed-client</span></code>, <code class="docutils literal notranslate"><span class="pre">amp/distributed-worker</span></code>,
+<code class="docutils literal notranslate"><span class="pre">kitt-runbooks/</span></code>, <code class="docutils literal notranslate"><span class="pre">sweeper/</span></code>, <code class="docutils literal notranslate"><span class="pre">forge_containers/</span></code> (helm-crd
+controller)</p></td>
+<td><p>Knative-deployed Go services + controller-runtime operators.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Operator UX</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dtecli/</span></code>, <code class="docutils literal notranslate"><span class="pre">dte-web/</span></code></p></td>
+<td><p>CLI + Web UI front-ends to DTE.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Observability</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">logging/</span></code> + <code class="docutils literal notranslate"><span class="pre">monitoring/</span></code></p></td>
+<td><p>Filebeat → ES; Prometheus + Grafana + KEDA.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Batch / GPU</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">vocalno/</span></code>, <code class="docutils literal notranslate"><span class="pre">pae/</span></code>, <code class="docutils literal notranslate"><span class="pre">pae-apps/</span></code></p></td>
+<td><p>Volcano scheduler + Kueue queueing.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Data plane</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">go-app/</span></code>, <code class="docutils literal notranslate"><span class="pre">helmfile/python-app/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">helmfile/s3-crud-api/</span></code>, <code class="docutils literal notranslate"><span class="pre">cc/monolith/</span></code>, <code class="docutils literal notranslate"><span class="pre">scraper/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">lambda/</span></code></p></td>
+<td><p>Sample / production workloads; AWS Lambda services.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Cryptography</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">portable-cryptor/</span></code></p></td>
+<td><p>Cross-cloud key import + envelope encryption.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="key-invariants">
+<h2>Key invariants<a class="headerlink" href="#key-invariants" title="Link to this heading">¶</a></h2>
+<p>These invariants are referenced throughout the documentation and are
+considered binding by the codebase:</p>
+<ol class="arabic simple">
+<li><p><strong>Auth headers are mutually exclusive.</strong> Either <code class="docutils literal notranslate"><span class="pre">X-DTE-Auth-Token</span></code>
+(legacy SLAuth) is set, OR <code class="docutils literal notranslate"><span class="pre">X-DTE-ASAP</span></code> + <code class="docutils literal notranslate"><span class="pre">X-DTE-SCT</span></code> (modern) are
+both set. <code class="docutils literal notranslate"><span class="pre">X-DTE-GROUPS</span></code> is required when using ASAP+SCT for the
+worker-side auth-provider exchange.</p></li>
+<li><p><strong>Cluster registry is read with AWS Signature V4</strong>, never SLAuth.</p></li>
+<li><p><strong>Task queue ``dte-workflows`` is hardcoded in distributed-client</strong>
+but the worker reads the env var (<code class="docutils literal notranslate"><span class="pre">INTEGRATION_REVIEW.md</span></code> flags this
+as a <em>POTENTIAL MISMATCH</em> and recommends fixing the client to also use
+<code class="docutils literal notranslate"><span class="pre">TEMPORAL_TASKQUEUE</span></code>).</p></li>
+<li><p><strong>The ASI finalizer must be present</strong> before namespace deletion or GCP
+IAM cleanup is skipped.</p></li>
+<li><p><strong>PriorityClass ``gcp-critical-pods``</strong> must be set on AI/compute
+workloads to avoid eviction.</p></li>
+<li><p><strong>Cassandra replication factor 3</strong> is mandatory for Temporal HA
+(per <code class="docutils literal notranslate"><span class="pre">DEPLOYMENT_SUMMARY.md</span></code>).</p></li>
+<li><p><strong>Knative serving step ordering</strong> — domain config must precede
+serving-core (steps 6 → 7 in <code class="docutils literal notranslate"><span class="pre">DEPLOYMENT_ORDER.md</span></code>).</p></li>
+</ol>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Architecture</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="00-glossary.html">Glossary</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Architecture overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-dte-request-lifecycle.html">DTE request lifecycle (deep)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-auth-and-iam.html">Authentication &amp; IAM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-temporal-topology.html">Temporal topology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-helmfile-deployment-chain.html">Helmfile deployment chain</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Per-module catalog</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Architecture</a><ul>
+      <li>Previous: <a href="00-glossary.html" title="previous chapter">Glossary</a></li>
+      <li>Next: <a href="02-dte-request-lifecycle.html" title="next chapter">DTE request lifecycle (deep)</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/architecture/01-architecture-overview.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

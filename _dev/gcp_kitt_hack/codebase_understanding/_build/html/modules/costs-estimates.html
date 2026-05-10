@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>costs-estimates/ — GCP/AWS pod-hosting cost calculator &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="cc/ — Confluence Cloud monolith manifests" href="cc.html" />
+    <link rel="prev" title="cdp_services/ — service-to-environment explosion + region stats" href="cdp_services.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="costs-estimates-gcp-aws-pod-hosting-cost-calculator">
+<h1><code class="docutils literal notranslate"><span class="pre">costs-estimates/</span></code> — GCP/AWS pod-hosting cost calculator<a class="headerlink" href="#costs-estimates-gcp-aws-pod-hosting-cost-calculator" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p>Python + Pandas calculator that compares <strong>bare-metal vs. VM</strong> hosting
+costs for a target pod count, using a fixed pod-shape assumption.</p>
+</section>
+<section id="layout">
+<h2>Layout<a class="headerlink" href="#layout" title="Link to this heading">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">costs</span><span class="o">-</span><span class="n">estimates</span><span class="o">/</span>
+  <span class="n">compute_costs</span><span class="o">.</span><span class="n">py</span>              <span class="c1"># main calculator</span>
+  <span class="n">rules</span><span class="o">.</span><span class="n">txt</span>                     <span class="c1"># assumptions (1 pod = 1 vCPU + 2 GB; 720 hrs/mo; min 3 nodes)</span>
+  <span class="n">cost_comparison_table</span><span class="o">.</span><span class="n">csv</span>     <span class="c1"># sample output</span>
+  <span class="o">*.</span><span class="n">png</span>                         <span class="c1"># cost graphs</span>
+</pre></div>
+</div>
+</section>
+<section id="function-surface">
+<h2>Function surface<a class="headerlink" href="#function-surface" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">calculate_node_requirements()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">calculate_nodes_needed()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">calculate_monthly_cost()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_recommended_option()</span></code></p></li>
+</ul>
+</section>
+<section id="integration">
+<h2>Integration<a class="headerlink" href="#integration" title="Link to this heading">¶</a></h2>
+<p>Standalone planning tool. Not invoked by Helmfile, ArgoCD, or any
+runtime component.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="cdp_services.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">cdp_services/</span></code> — service-to-environment explosion + region stats</a></li>
+      <li>Next: <a href="cc.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">cc/</span></code> — Confluence Cloud monolith manifests</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/costs-estimates.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

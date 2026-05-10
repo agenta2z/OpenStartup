@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>cc/ — Confluence Cloud monolith manifests &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="forge/ — sample Atlassian Forge applications" href="forge.html" />
+    <link rel="prev" title="costs-estimates/ — GCP/AWS pod-hosting cost calculator" href="costs-estimates.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="cc-confluence-cloud-monolith-manifests">
+<h1><code class="docutils literal notranslate"><span class="pre">cc/</span></code> — Confluence Cloud monolith manifests<a class="headerlink" href="#cc-confluence-cloud-monolith-manifests" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p>Helm-templated Kubernetes manifests for deploying the <strong>Confluence Cloud
+monolith</strong> onto a <code class="docutils literal notranslate"><span class="pre">gcp_kitt</span></code>-managed cluster. Provides the canonical
+shape of a heavyweight Atlassian product deployment (gateway, services,
+rollouts, PDBs, KEDA-driven autoscaling, ASAP auth).</p>
+</section>
+<section id="layout">
+<h2>Layout<a class="headerlink" href="#layout" title="Link to this heading">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cc</span><span class="o">/</span>
+  <span class="n">monolith</span><span class="o">/</span>
+    <span class="n">README</span><span class="o">.</span><span class="n">md</span>                  <span class="c1"># template/deploy commands</span>
+    <span class="n">gateway</span><span class="o">.</span><span class="n">yaml</span>               <span class="c1"># Contour HTTPProxy / Envoy config</span>
+    <span class="n">services</span><span class="o">.</span><span class="n">yaml</span>              <span class="c1"># Service definitions</span>
+    <span class="n">rollouts</span><span class="o">.</span><span class="n">yaml</span>              <span class="c1"># Argo Rollouts (canary / blue-green)</span>
+    <span class="n">pod</span><span class="o">-</span><span class="n">disruption</span><span class="o">-</span><span class="n">budgets</span><span class="o">.</span><span class="n">yaml</span>
+    <span class="n">scaled</span><span class="o">-</span><span class="n">objects</span><span class="o">.</span><span class="n">yaml</span>        <span class="c1"># KEDA autoscaling</span>
+    <span class="n">asap</span><span class="o">-</span><span class="n">key</span><span class="o">.</span><span class="n">yaml</span>              <span class="c1"># service-to-service auth</span>
+    <span class="n">micros</span><span class="o">-</span><span class="n">resources</span><span class="o">.</span><span class="n">yaml</span>      <span class="c1"># CPU/memory limits</span>
+</pre></div>
+</div>
+</section>
+<section id="deployment">
+<h2>Deployment<a class="headerlink" href="#deployment" title="Link to this heading">¶</a></h2>
+<p>Templated via Helm; example invocation from <code class="docutils literal notranslate"><span class="pre">README.md</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">HELM_DRIVER</span><span class="o">=</span><span class="n">configmap</span> <span class="n">VERSION</span><span class="o">=</span><span class="mf">1.0.0</span> <span class="n">helm</span> <span class="n">template</span> <span class="n">confluence</span><span class="o">-</span><span class="n">dev</span><span class="o">-</span><span class="n">us</span><span class="o">-</span><span class="mi">11</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p>Integrates with <strong>Contour</strong> ingress, <strong>Argo Rollouts</strong>, and <strong>KEDA</strong>
+for traffic, progressive delivery, and autoscaling respectively.</p>
+</section>
+<section id="gotchas">
+<h2>Gotchas<a class="headerlink" href="#gotchas" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Namespace is hardcoded in <code class="docutils literal notranslate"><span class="pre">values.yaml</span></code> — multi-environment use
+requires many <code class="docutils literal notranslate"><span class="pre">--set</span></code> overrides at template time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rollouts.yaml</span></code> strategy assumes the cluster has Argo Rollouts
+installed; falls back to plain <code class="docutils literal notranslate"><span class="pre">Deployment</span></code> semantics otherwise
+(silent regression).</p></li>
+<li><p>ASAP key rotation is not automated; rotate via <code class="docutils literal notranslate"><span class="pre">asap-key.yaml</span></code> +
+manual reapply.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="costs-estimates.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">costs-estimates/</span></code> — GCP/AWS pod-hosting cost calculator</a></li>
+      <li>Next: <a href="forge.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">forge/</span></code> — sample Atlassian Forge applications</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/cc.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

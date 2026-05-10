@@ -1,0 +1,114 @@
+{
+  "name": "log_query",
+  "tool_type": "Action",
+  "category": "observability",
+  "description": "Query, tail, and analyze logs from log aggregation backends (Loki/LogQL, Splunk SPL, Elasticsearch, CloudWatch Logs Insights). Vendor-neutral.",
+  "usage_guidance": "Use this tool to retrieve and search logs during incident investigation, debugging, and routine ops. Supports five core actions: instant query (`query`), time-range query (`query_range`), live tail (`tail`), label/field discovery (`labels` and `label_values`), and log volume statistics (`volume`). Always specify the time range (--start/--end or --since) for range queries to bound result size. For Loki/LogQL backends use {label=\"value\"} selector syntax; for Splunk use SPL; for Elasticsearch use Lucene/KQL. The tool will auto-detect the backend from --endpoint URL or LOG_BACKEND env var. For unknown backends, set --provider explicitly.",
+  "parameters": [
+    {
+      "name": "action",
+      "type": "string",
+      "required": true,
+      "positional": true,
+      "description": "The log query action to perform.",
+      "choices": ["query", "query_range", "tail", "labels", "label_values", "volume"]
+    },
+    {
+      "name": "--query",
+      "type": "string",
+      "description": "Log selector / query expression. Required for query, query_range, tail, volume. Format depends on --provider: LogQL (Loki), SPL (Splunk), Lucene (Elasticsearch), CWL Insights (CloudWatch)."
+    },
+    {
+      "name": "--start",
+      "type": "string",
+      "description": "Start timestamp for query_range and volume (RFC3339 or Unix epoch seconds). Required for query_range. Defaults to --since ago for volume."
+    },
+    {
+      "name": "--end",
+      "type": "string",
+      "description": "End timestamp for query_range and volume (RFC3339 or Unix epoch seconds). Required for query_range. Defaults to now for volume."
+    },
+    {
+      "name": "--since",
+      "type": "string",
+      "description": "Convenience time range relative to now (e.g., '5m', '1h', '24h'). Used for query, tail, and volume when --start/--end are omitted."
+    },
+    {
+      "name": "--limit",
+      "type": "int",
+      "default": 100,
+      "description": "Maximum number of log entries returned. Defaults to 100. Capped at provider-specific maximums (Loki: 5000)."
+    },
+    {
+      "name": "--direction",
+      "type": "string",
+      "description": "Sort order for results: 'forward' (oldest first) or 'backward' (newest first). Defaults to 'backward' for query and query_range, 'forward' for tail.",
+      "choices": ["forward", "backward"]
+    },
+    {
+      "name": "--label",
+      "type": "string",
+      "description": "Label name for the label_values action. Required for label_values."
+    },
+    {
+      "name": "--match",
+      "type": "string",
+      "description": "Label selector for labels and label_values to filter the result set (e.g., '{job=\"my-app\"}')."
+    },
+    {
+      "name": "--provider",
+      "type": "string",
+      "description": "Log backend provider. If omitted, auto-detected from --endpoint URL path or LOG_BACKEND env var. Defaults to 'loki'.",
+      "choices": ["loki", "splunk", "elasticsearch", "cloudwatch_logs"]
+    },
+    {
+      "name": "--endpoint",
+      "type": "string",
+      "description": "Backend API base URL. Defaults to LOG_QUERY_URL or LOKI_URL environment variable."
+    },
+    {
+      "name": "--tenant_id",
+      "type": "string",
+      "description": "Multi-tenant org/tenant ID. Sent as X-Scope-OrgID for Loki/Mimir, as authentication realm for Splunk."
+    },
+    {
+      "name": "--step",
+      "type": "string",
+      "description": "Step size for query_range (e.g., '15s', '1m'). Auto-selected based on time range if omitted."
+    },
+    {
+      "name": "--max_results_estimate",
+      "type": "int",
+      "default": 1000000,
+      "description": "Hard upper bound on estimated result size. Queries that would return more require an explicit override and are otherwise rejected with an error explaining the alternative (narrower time range, more selective query)."
+    },
+    {
+      "name": "--dry_run",
+      "type": "flag",
+      "default": false,
+      "description": "Validate parameters and print the resolved request URL without contacting the backend. Useful for query construction."
+    }
+  ],
+  "preflight_checks": [
+    {
+      "check": "Endpoint reachable",
+      "description": "GET {endpoint}/ready (Loki) / /healthz (other) returns 2xx",
+      "fix": "Verify LOG_QUERY_URL is set and the log backend is up. Fall back to a different read replica if applicable."
+    },
+    {
+      "check": "Query bounded",
+      "description": "query_range and volume actions have --start/--end OR --since",
+      "fix": "Add --since 1h (or appropriate range). Unbounded queries can return >10GB of logs."
+    }
+  ],
+  "side_effects": "READ_ONLY. No log writes, no index modifications.",
+  "resource_cost": "Low for label discovery; Medium for bounded query/query_range; High for unbounded queries (CPU/memory on the backend, network egress to the agent). Live tail holds an open connection.",
+  "rate_limits": "Inherits backend rate limits. Loki default: 100 streams per query, 5000 entries per page.",
+  "expected_response_schema": {
+    "ok": "bool — true on success",
+    "data": "object — provider-specific result shape, normalized to {streams: [{stream: {labels...}, values: [[ts, line], ...]}, ...]} for log entries; {labels: [...]} for labels; {values: [...]} for label_values; {bytes_total, lines_total, breakdown: [{ts, bytes, lines}, ...]} for volume",
+    "metadata": "object — {provider, endpoint, query, time_range, result_count, truncated}",
+    "warnings": "list[string] — non-fatal issues (e.g., 'result truncated at limit', 'partial backend availability')",
+    "error": "string — on failure, a one-line error description"
+  }
+}

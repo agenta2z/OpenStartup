@@ -30,7 +30,7 @@ import pytest
 # Resolve the YAML config — same convention as the legacy
 # `test_yaml_smoke_instantiate`. preflight/ lives one level below task/.
 _HERE = Path(__file__).resolve().parent
-YAML_PATH = _HERE.parent / "configs" / "breakdown_multiflow_plan_then_implement.yaml"
+YAML_PATH = _HERE.parents[5] / "src" / "openteam" / "server" / "resources" / "tools" / "task" / "topologies" / "breakdown-multiflow-plan-then-implement.yaml"
 # OpenStartup root: preflight/<this> → task/ → tools/ → resources/ → openteam/
 # → test/ → OpenStartup/.
 OPENSTARTUP_PATH = _HERE.parents[5]
@@ -47,7 +47,6 @@ def _load_topology(monkeypatch, tmp_path):
     Mirrors the bootstrap done in `test_yaml_smoke_instantiate` so this
     preflight is self-contained.
     """
-    monkeypatch.setenv("DUAL_WS", str(tmp_path / "ws"))
     monkeypatch.setenv("PROMPT_TEMPLATES_DIR", "prompt_templates")
 
     # Side-effect import to register Hydra targets (ClaudeCodeCLI, Dual, etc.)
@@ -59,6 +58,7 @@ def _load_topology(monkeypatch, tmp_path):
         overrides={
             "_target_path": str(OPENSTARTUP_PATH),
             "templates_dir": str(TEMPLATES_DIR),
+            "_params.workspace_root": str(tmp_path / "ws"),
         },
     )
     return instantiate(cfg)

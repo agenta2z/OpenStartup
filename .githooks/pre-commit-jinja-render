@@ -1,0 +1,37 @@
+#!/bin/bash
+# Pre-commit hook: TIER 1 Jinja render check
+#
+# Prevents commits with Jinja syntax errors or undefined variable bugs.
+# Run in <5 seconds. Catches slash-vs-dot bugs before they reach CI.
+#
+# Install via: git config core.hooksPath .githooks
+
+set -e
+
+OPENSTARTUP_PATH=$(git rev-parse --show-toplevel)
+TEMPLATES_DIR="$OPENSTARTUP_PATH/src/openteam/server/resources/prompt_templates"
+PREFLIGHT_TEST="$OPENSTARTUP_PATH/test/openteam/resources/tools/task/preflight/test_jinja_render_all_templates.py"
+
+if [ ! -d "$TEMPLATES_DIR" ]; then
+    echo "Warning: Templates dir not found at $TEMPLATES_DIR; skipping Jinja check"
+    exit 0
+fi
+
+echo "Running TIER 1 preflight: Jinja render check on all templates..."
+export OPENSTARTUP_PATH="$OPENSTARTUP_PATH"
+
+# Run ONLY the TIER 1 test
+python -m pytest "$PREFLIGHT_TEST" -v --tb=short -x
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ TIER 1 preflight FAILED. Fix Jinja errors before committing:"
+    echo "   - Check for undefined variables (typos in {{ var }})"
+    echo "   - Check for slash vs dot: {{ notes.field }} not {{ notes/field }}"
+    echo ""
+    echo "   Run locally: pytest $PREFLIGHT_TEST -v"
+    exit 1
+fi
+
+echo "✅ TIER 1 preflight PASSED: All templates render without errors"
+exit 0

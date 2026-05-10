@@ -1,0 +1,132 @@
+"""Generic tool.json-driven CLI scaffold.
+
+Builds an argparse parser from a tool's tool.json file, then invokes the
+tool's execute() function. Identical behavior across all tools that follow
+the (executor, tool.json) pattern: task, role_setup, create_role.
+
+Usage from a tool's cli.py::
+
+    from openteam.server.services.tool_cli import run_cli
+    from .executor import execute
+
+    _TOOL_JSON = Path(__file__).parent / "tool.json"
+
+    def main(argv=None):
+        return run_cli(_TOOL_JSON, execute, argv=argv,
+                       mutually_exclusive_groups=[{"--plan", "--execute", "--full", "--confirm"}])
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+from pathlib import Path
+from typing import Any, Awaitable, Callable, Optional
+
+ExecuteFn = Callable[[dict, dict], Awaitable[Any]]
+
+
+def build_parser(
+    tool_json_path: Path,
+    *,
+    mutually_exclusive_groups: Optional[list[set[str]]] = None,
+) -> argparse.ArgumentParser:
+    """Build an argparse parser from a tool.json file.
+
+    ``mutually_exclusive_groups`` is a list of sets — each set names flags
+    that can't appear together (e.g., ``{"--plan", "--execute", "--full"}``).
+    """
+    spec = json.loads(tool_json_path.read_text(encoding="utf-8"))
+    p = argparse.ArgumentParser(
+        prog=spec.get("name", "tool"),
+        description=spec.get("description", ""),
+        epilog="Examples:\n  " + "\n  ".join(spec.get("examples", [])) if spec.get("examples") else None,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    mutex_sets = mutually_exclusive_groups or []
+    mutex_groups: dict[str, argparse._MutuallyExclusiveGroup] = {}
+    for i, group in enumerate(mutex_sets):
+        mg = p.add_mutually_exclusive_group()
+        for flag in group:
+            mutex_groups[flag] = mg
+
+    for param in spec.get("parameters", []):
+        name = param["name"]
+        target: Any = mutex_groups.get(name, p)
+        kwargs: dict[str, Any] = {}
+        if param.get("description"):
+            kwargs["help"] = param["description"]
+        if param.get("choices"):
+            kwargs["choices"] = param["choices"]
+
+        ptype = param.get("type", "string")
+        is_positional = param.get("positional", False)
+
+        if ptype == "flag":
+            kwargs["action"] = "store_true"
+            kwargs["default"] = False
+            target.add_argument(name, **kwargs)
+        elif ptype == "int":
+            kwargs["type"] = int
+            if param.get("default") is not None:
+                kwargs["default"] = param["default"]
+            p.add_argument(name, **kwargs)
+        elif ptype == "path":
+            kwargs["type"] = str
+            p.add_argument(name, **kwargs)
+        elif param.get("repeatable"):
+            kwargs["action"] = "append"
+            p.add_argument(name, **kwargs)
+        elif is_positional:
+            if not param.get("required", False):
+                kwargs["nargs"] = "?"
+            p.add_argument(name, **kwargs)
+        else:
+            if param.get("default") is not None:
+                kwargs["default"] = param["default"]
+            p.add_argument(name, **kwargs)
+
+    return p
+
+
+def run_cli(
+    tool_json_path: Path,
+    execute_fn: ExecuteFn,
+    *,
+    argv: Optional[list[str]] = None,
+    mutually_exclusive_groups: Optional[list[set[str]]] = None,
+) -> int:
+    """Build parser, parse args, run the executor, print results."""
+    parser = build_parser(tool_json_path, mutually_exclusive_groups=mutually_exclusive_groups)
+    ns = parser.parse_args(argv)
+
+    arguments: dict[str, Any] = {}
+    for k, v in vars(ns).items():
+        if v is None or v is False:
+            continue
+        # argparse converts --foo-bar to foo_bar; the slash dispatcher uses
+        # dashes (foo-bar). Normalize to dashes so executor.execute() sees
+        # the same key shape from both CLI and slash paths.
+        arguments[k.replace("_", "-")] = v
+
+    session_context: dict[str, Any] = {}
+
+    try:
+        result = asyncio.run(execute_fn(arguments, session_context))
+    except KeyboardInterrupt:
+        print("\n[cli] cancelled", file=sys.stderr)
+        return 130
+    except Exception as e:
+        print(f"[cli] error: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+
+    if isinstance(result, dict):
+        print(result.get("text", ""))
+        ctx = result.get("context_updates")
+        if ctx:
+            print(f"\n[workspace] {ctx.get('workspace_path', '')}", file=sys.stderr)
+    else:
+        print(result)
+    return 0

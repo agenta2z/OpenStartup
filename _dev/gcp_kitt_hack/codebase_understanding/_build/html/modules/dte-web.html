@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>dte-web/ — DTE Web UI + REST proxy (Express.js) &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="helmfile/ — the Helm-based platform (largest subsystem)" href="helmfile-platform.html" />
+    <link rel="prev" title="dtecli/ — DTE TypeScript CLI + Temporal-Cloud bootstrap" href="dte-cli.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="dte-web-dte-web-ui-rest-proxy-express-js">
+<h1><code class="docutils literal notranslate"><span class="pre">dte-web/</span></code> — DTE Web UI + REST proxy (Express.js)<a class="headerlink" href="#dte-web-dte-web-ui-rest-proxy-express-js" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">dte-web/</span></code> is the browser-facing front-door for DTE. A single Express.js
+server (<code class="docutils literal notranslate"><span class="pre">server.js</span></code>, 1241 LoC) serves both static UI assets and a REST
+API that proxies to <code class="docutils literal notranslate"><span class="pre">distributed-client</span></code>. Authentication is delegated
+to a <code class="docutils literal notranslate"><span class="pre">slauth-sidecar</span></code> running in the same pod (SAML against Atlassian
+SSO), with ASAP token signing performed in-process via <code class="docutils literal notranslate"><span class="pre">httplease-asap</span></code>.</p>
+</section>
+<section id="tech-stack">
+<h2>Tech stack<a class="headerlink" href="#tech-stack" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Express.js</strong></p></li>
+<li><p><strong>httplease-asap</strong> — ASAP JWT issuance / verification</p></li>
+<li><p><strong>axios</strong> — proxy HTTP to <code class="docutils literal notranslate"><span class="pre">distributed-client</span></code> and Temporal Web</p></li>
+<li><p><strong>cors</strong></p></li>
+<li><p><strong>slauth-sidecar</strong> (separate container) — SAML auth + header injection</p></li>
+</ul>
+</section>
+<section id="inventory-26-files">
+<h2>Inventory (26 files)<a class="headerlink" href="#inventory-26-files" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 10.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>LoC</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">server.js</span></code></p></td>
+<td><p>1241</p></td>
+<td><p>Express app, all routes &amp; auth middleware</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code></p></td>
+<td><p>23</p></td>
+<td><p>Container image build</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Makefile</span></code></p></td>
+<td><p>218</p></td>
+<td><p>Build / docker / push / kubectl-apply targets</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">deployment.yaml</span></code></p></td>
+<td><p>—</p></td>
+<td><p>K8s Deployment with sidecar</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">service.yaml</span></code></p></td>
+<td><p>—</p></td>
+<td><p>Service exposing port 8081 (sidecar)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ingress.yaml</span></code></p></td>
+<td><p>33</p></td>
+<td><p>ALB Ingress</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">asapkey-dtaske.yaml</span></code></p></td>
+<td><p>—</p></td>
+<td><p>ASAP private-key Secret (referenced by env)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">slauth.json</span></code></p></td>
+<td><p>4</p></td>
+<td><p>Sidecar config snippet</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">helmfile/helmfile.yaml</span></code></p></td>
+<td><p>—</p></td>
+<td><p>Optional helmfile-based deploy path</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">README.md</span></code></p></td>
+<td><p>299</p></td>
+<td><p>Deployment &amp; local dev guide</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">auth-provider.md</span></code></p></td>
+<td><p>—</p></td>
+<td><p>Architecture of the slauth-sidecar interaction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">asap.md</span></code></p></td>
+<td><p>—</p></td>
+<td><p>ASAP key &amp; header docs</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sct.md</span></code></p></td>
+<td><p>88</p></td>
+<td><p>Service Context Token notes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">docs/auth.md</span></code></p></td>
+<td><p>—</p></td>
+<td><p>Additional auth notes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">package.json</span></code></p></td>
+<td><p>19</p></td>
+<td><p>npm metadata</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="public-surface-http-routes">
+<h2>Public surface — HTTP routes<a class="headerlink" href="#public-surface-http-routes" title="Link to this heading">¶</a></h2>
+<p>Routes inferred from <code class="docutils literal notranslate"><span class="pre">server.js</span></code> (<code class="docutils literal notranslate"><span class="pre">app.get</span></code> / <code class="docutils literal notranslate"><span class="pre">app.post</span></code>):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10.0%" />
+<col style="width: 45.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Verb</p></th>
+<th class="head"><p>Path</p></th>
+<th class="head"><p>Behaviour</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/health</span></code></p></td>
+<td><p>Liveness; bypasses auth</p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/info</span></code></p></td>
+<td><p>Service metadata</p></td>
+</tr>
+<tr class="row-even"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/auth/token</span></code></p></td>
+<td><p>Returns the current bearer token (extracted from sidecar headers)</p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/auth/status</span></code></p></td>
+<td><p>Authentication state probe</p></td>
+</tr>
+<tr class="row-even"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/workflows/start</span></code></p></td>
+<td><p>Proxies to <code class="docutils literal notranslate"><span class="pre">distributed-client</span></code> <code class="docutils literal notranslate"><span class="pre">/start-workflow</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/workflows</span></code></p></td>
+<td><p>Lists workflows</p></td>
+</tr>
+<tr class="row-even"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/workflows/:id/status</span></code></p></td>
+<td><p>Workflow status</p></td>
+</tr>
+<tr class="row-odd"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/workflows/:id/terminate</span></code></p></td>
+<td><p>Hard terminate</p></td>
+</tr>
+<tr class="row-even"><td><p>POST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">/api/workflows/:id/cancel</span></code></p></td>
+<td><p>Graceful cancel</p></td>
+</tr>
+<tr class="row-odd"><td><p>GET</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p>SPA fallback to <code class="docutils literal notranslate"><span class="pre">public/index.html</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="auth-rbac">
+<h2>Auth &amp; RBAC<a class="headerlink" href="#auth-rbac" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>slauth-sidecar</strong> (separate container, port 8081) authenticates the
+user via SAML and injects <code class="docutils literal notranslate"><span class="pre">x-slauth-*</span></code> headers (user/email/groups)
+before forwarding to dte-web on port 8080. The known gap (called out
+in <code class="docutils literal notranslate"><span class="pre">auth-provider.md</span></code>) is that the SAML plugin does <strong>not</strong> currently
+inject a JWT bearer or <code class="docutils literal notranslate"><span class="pre">x-slauth-staff-context</span></code> header — endpoints
+expecting a Bearer must build it via ASAP.</p></li>
+<li><p><strong>ASAP</strong> — issued in-process using env vars
+<code class="docutils literal notranslate"><span class="pre">ASAP_PRIVATE_KEY</span></code> / <code class="docutils literal notranslate"><span class="pre">ASAP_ISSUER</span></code> / <code class="docutils literal notranslate"><span class="pre">ASAP_KEY_ID</span></code> /
+<code class="docutils literal notranslate"><span class="pre">ASAP_AUDIENCE</span></code> (private key sourced from <code class="docutils literal notranslate"><span class="pre">asapkey-dtaske</span></code>).</p></li>
+<li><p><strong>ROLLCALL_URL</strong> — secondary auth endpoint (Atlassian Rollcall) for
+allow-listing.</p></li>
+</ul>
+</section>
+<section id="build-deploy">
+<h2>Build &amp; deploy<a class="headerlink" href="#build-deploy" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Local dev</span>
+npm<span class="w"> </span>install
+<span class="nv">PORT</span><span class="o">=</span><span class="m">8080</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">DTE_CLIENT_URL</span><span class="o">=</span>http://distributed-client.fqk5.kitt-inf.net<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">TEMPORAL_WEB_URL</span><span class="o">=</span>http://temporal-web.fqk5.kitt-inf.net<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">ASAP_PRIVATE_KEY</span><span class="o">=</span>...<span class="w"> </span><span class="nv">ASAP_ISSUER</span><span class="o">=</span>...<span class="w"> </span><span class="nv">ASAP_KEY_ID</span><span class="o">=</span>...<span class="w"> </span><span class="nv">ASAP_AUDIENCE</span><span class="o">=</span>...<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>npm<span class="w"> </span>start
+
+<span class="c1"># Image build &amp; push (Makefile)</span>
+make<span class="w"> </span>build<span class="w"> </span>push
+
+<span class="c1"># Manual K8s apply</span>
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>deployment.yaml<span class="w"> </span>-f<span class="w"> </span>service.yaml<span class="w"> </span>-f<span class="w"> </span>ingress.yaml
+</pre></div>
+</div>
+<p>The README also documents a <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">buildx</span> <span class="pre">build</span> <span class="pre">--platform</span> <span class="pre">linux/amd64,linux/arm64</span></code>
+multi-arch path tagged <code class="docutils literal notranslate"><span class="pre">docker.atl-paas.net/kitt/dte-web:&lt;timestamp&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">:latest</span></code>.</p>
+</section>
+<section id="integration-with-gcp-kitt">
+<h2>Integration with gcp_kitt<a class="headerlink" href="#integration-with-gcp-kitt" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Calls:</strong> <code class="docutils literal notranslate"><span class="pre">distributed-client</span></code>, Temporal Web, Rollcall</p></li>
+<li><p><strong>Sidecar:</strong> <code class="docutils literal notranslate"><span class="pre">slauth-sidecar</span></code> co-located in the same pod; Service port
+8081 routes through the sidecar</p></li>
+<li><p><strong>Helm chart:</strong> optional <code class="docutils literal notranslate"><span class="pre">helmfile/</span></code> directory for Helmfile-driven
+deploys; primary path is hand-applied YAML via Makefile</p></li>
+<li><p><strong>Namespace:</strong> typically <code class="docutils literal notranslate"><span class="pre">dtaske</span></code></p></li>
+</ul>
+</section>
+<section id="hazards">
+<h2>Hazards<a class="headerlink" href="#hazards" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>JWT injection gap</strong> — endpoints expecting Bearer fail unless ASAP is
+issued in-process; this surface is the most common production 401
+source.</p></li>
+<li><p><strong>Port mismatch</strong> — Service exposes 8081 (sidecar), backend listens on
+8080; mis-routed traffic <em>bypasses</em> auth entirely.</p></li>
+<li><p><strong>CORS default</strong> — broad CORS may accept any origin in production
+unless overridden.</p></li>
+<li><p><strong>ASAP secret rotation</strong> — <code class="docutils literal notranslate"><span class="pre">asapkey-dtaske</span></code> Secret must be rotated in
+lockstep with the issuer registration; mis-rotation breaks every
+outbound call.</p></li>
+<li><p><strong>Hard-coded fqk5 defaults</strong> — multi-cluster operation requires every
+caller to set <code class="docutils literal notranslate"><span class="pre">DTE_CLIENT_URL</span></code> and <code class="docutils literal notranslate"><span class="pre">TEMPORAL_WEB_URL</span></code> explicitly.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="dte-cli.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">dtecli/</span></code> — DTE TypeScript CLI + Temporal-Cloud bootstrap</a></li>
+      <li>Next: <a href="helmfile-platform.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">helmfile/</span></code> — the Helm-based platform (largest subsystem)</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/dte-web.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

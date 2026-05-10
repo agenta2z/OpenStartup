@@ -1,0 +1,886 @@
+{
+  "$schema_description": "Machine-readable manifest for the proactive-ai-platform codebase-understanding documentation set. An agent can `jq` this to filter chapters by topic, audience, symbol, or path. Update this file when chapters are added/removed.",
+  "$generated_date": "2026-05-05 (TESTING_SOP added)",
+  "$verification": "Every chapter listed below was verified to exist via `find . -name '*.rst'` on the date above. Every cited topic/symbol/file was extracted by direct read of the chapter or grep against the source tree.",
+  "$reproducibility": "Re-run `find . -name '*.rst' | sort` to verify the file list. Re-run `grep -rEn '^(class|interface|object|enum class|sealed )' --include='*.kt' /Users/tchen7/MyProjects/atlassian_packages/proactive-ai-platform/src/main/kotlin/` to verify symbol counts.",
+  "doc_root": "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/pai_hack/codebase_understanding",
+  "source_root": "/Users/tchen7/MyProjects/atlassian_packages/proactive-ai-platform",
+  "stats": {
+    "total_rst_chapters": 51,
+    "total_doc_lines": 12527,
+    "source_kt_files": 118,
+    "test_kt_files": 32,
+    "total_type_declarations": 121,
+    "controllers": 5,
+    "spring_components": 27,
+    "async_task_handlers": 4,
+    "spring_conditions": 2,
+    "enums": 23
+  },
+  "audiences": {
+    "ai_agent_first_load": [
+      "AGENTS.md",
+      "MANIFEST.json",
+      "TESTING_SOP.md"
+    ],
+    "human_first_load": [
+      "README.md",
+      "index.rst",
+      "overviews/02-architectural-narrative.rst"
+    ],
+    "new_contributor": [
+      "overviews/02-architectural-narrative.rst",
+      "architecture/01-architecture-overview.rst",
+      "architecture/02-request-lifecycle.rst"
+    ],
+    "on_call_sre": [
+      "overviews/03-criticality-dashboard.rst",
+      "architecture/cross-cutting/11-metrics-catalog.rst",
+      "architecture/cross-cutting/12-optimization-playbook.rst"
+    ],
+    "architect": [
+      "architecture/cross-cutting/14-architectural-decisions.rst",
+      "architecture/cross-cutting/10-vision-and-strategy.rst",
+      "architecture/03-module-catalog.rst"
+    ],
+    "business_stakeholder": [
+      "architecture/cross-cutting/01-business-and-technical-goals.rst",
+      "architecture/cross-cutting/10-vision-and-strategy.rst",
+      "architecture/cross-cutting/15-velocity-and-debt.rst"
+    ],
+    "platform_engineer": [
+      "modules/platform/index.rst",
+      "architecture/cross-cutting/06-async-tasks-and-sqs.rst",
+      "architecture/cross-cutting/03-request-context-and-mdc.rst"
+    ],
+    "pr_author": [
+      "TESTING_SOP.md",
+      "AGENTS.md",
+      "PROBLEM_PLAYBOOKS.md"
+    ]
+  },
+  "chapters": [
+    {
+      "id": "overview-narrative",
+      "path": "overviews/02-architectural-narrative.rst",
+      "title": "Architectural Narrative \u2014 Walking Tour",
+      "audiences": [
+        "new_contributor",
+        "ai_agent"
+      ],
+      "topics": [
+        "request lifecycle walkthrough",
+        "HTTP\u2192controller\u2192SQS\u2192worker",
+        "MDC handoff",
+        "interceptor order"
+      ],
+      "symbols": [
+        "RequestContextInterceptor",
+        "UserContextInterceptor",
+        "AsyncTaskService",
+        "AsyncTaskDispatcher"
+      ]
+    },
+    {
+      "id": "overview-multi-axis-matrix",
+      "path": "overviews/01-multi-axis-matrix.rst",
+      "title": "Multi-Axis Package Matrix",
+      "audiences": [
+        "architect",
+        "ai_agent"
+      ],
+      "topics": [
+        "package size",
+        "tier",
+        "criticality",
+        "test coverage"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "overview-criticality",
+      "path": "overviews/03-criticality-dashboard.rst",
+      "title": "Criticality Dashboard (SRE blast-radius)",
+      "audiences": [
+        "on_call_sre",
+        "ai_agent"
+      ],
+      "topics": [
+        "blast radius",
+        "P0/P1/P2 ranking",
+        "tier classification"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "arch-overview",
+      "path": "architecture/01-architecture-overview.rst",
+      "title": "Architecture Overview",
+      "audiences": [
+        "new_contributor"
+      ],
+      "topics": [
+        "system boundary",
+        "Spring Boot structure",
+        "package layout"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "arch-request-lifecycle",
+      "path": "architecture/02-request-lifecycle.rst",
+      "title": "Request Lifecycle (sync + async)",
+      "audiences": [
+        "new_contributor",
+        "platform_engineer"
+      ],
+      "topics": [
+        "sync HTTP lifecycle",
+        "async SQS lifecycle",
+        "interceptor chain",
+        "context handoff"
+      ],
+      "symbols": [
+        "RequestContextInterceptor",
+        "UserContextInterceptor",
+        "MessageQueueConsumerMiddleware"
+      ]
+    },
+    {
+      "id": "arch-module-catalog",
+      "path": "architecture/03-module-catalog.rst",
+      "title": "Module Catalog (file-by-file)",
+      "audiences": [
+        "new_contributor",
+        "ai_agent"
+      ],
+      "topics": [
+        "package inventory",
+        "file inventory",
+        "LoC per package"
+      ],
+      "symbols": [
+        "all"
+      ]
+    },
+    {
+      "id": "arch-glossary",
+      "path": "architecture/00-glossary.rst",
+      "title": "Glossary",
+      "audiences": [
+        "new_contributor"
+      ],
+      "topics": [
+        "term definitions",
+        "PAI",
+        "Stratus",
+        "MCP",
+        "SHWorkers",
+        "LongRun",
+        "AVI",
+        "Statsig"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-business-goals",
+      "path": "architecture/cross-cutting/01-business-and-technical-goals.rst",
+      "title": "Business & Technical Goals (FY26 H2)",
+      "audiences": [
+        "business_stakeholder",
+        "ai_agent"
+      ],
+      "topics": [
+        "FY26 OKR",
+        "1.5M invocations",
+        "acceptance rate",
+        "Proactive Fans",
+        "TAP throttle",
+        "Confluence 6143084752"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-development-history",
+      "path": "architecture/cross-cutting/02-development-history.rst",
+      "title": "Development History (narrative)",
+      "audiences": [
+        "new_contributor",
+        "architect"
+      ],
+      "topics": [
+        "6-month timeline",
+        "strategic PRs",
+        "team conventions",
+        "Q1/Q2 phases"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-request-context",
+      "path": "architecture/cross-cutting/03-request-context-and-mdc.rst",
+      "title": "Request Context & MDC",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "MDC propagation",
+        "RequestScopedValue",
+        "coroutine context",
+        "ContextSnapshotFactory",
+        "thread-local accessors"
+      ],
+      "symbols": [
+        "LoggingContextImpl",
+        "RequestScopedValueServiceImpl",
+        "RequestAttributesCoroutineContext"
+      ]
+    },
+    {
+      "id": "cc-feature-flags",
+      "path": "architecture/cross-cutting/04-feature-flags.rst",
+      "title": "Feature Flags (Statsig)",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "Statsig SDK",
+        "two-phase context",
+        "limited context",
+        "full context",
+        "exposure logging",
+        "AiFeatureGates",
+        "PermanentFeatureGates"
+      ],
+      "symbols": [
+        "FeatureService",
+        "FeatureFlagContextService",
+        "AiFeatureGates",
+        "PermanentFeatureGates"
+      ]
+    },
+    {
+      "id": "cc-observability",
+      "path": "architecture/cross-cutting/05-observability-and-metrics.rst",
+      "title": "Observability & Metrics",
+      "audiences": [
+        "on_call_sre",
+        "platform_engineer"
+      ],
+      "topics": [
+        "Micrometer",
+        "SignalFx",
+        "Splunk",
+        "MDC keys",
+        "metric prefix",
+        "executor metrics"
+      ],
+      "symbols": [
+        "MetricsService",
+        "CoreMetricsService",
+        "MetricKey",
+        "LaasLogger"
+      ]
+    },
+    {
+      "id": "cc-async-sqs",
+      "path": "architecture/cross-cutting/06-async-tasks-and-sqs.rst",
+      "title": "Async Tasks & SQS",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "AsyncTask envelope",
+        "JSON polymorphism",
+        "@JsonTypeInfo",
+        "SQS message attributes",
+        "DLQ",
+        "MaxReceiveCount",
+        "VisibilityTimeout"
+      ],
+      "symbols": [
+        "AsyncTask",
+        "AsyncTaskHandler",
+        "AsyncTaskDispatcher",
+        "AsyncTaskService",
+        "VisibilityExtendingSQSQueueConsumer"
+      ]
+    },
+    {
+      "id": "cc-ai-gateway",
+      "path": "architecture/cross-cutting/07-ai-gateway-and-stratus.rst",
+      "title": "AI Gateway & Stratus",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "AI Gateway egress",
+        "Stratus agents",
+        "MCP integration",
+        "Integrations Service",
+        "tool discovery",
+        "600s timeout"
+      ],
+      "symbols": [
+        "AIGatewayServiceImpl",
+        "AIGatewayClientConfiguration",
+        "IntegrationServiceMcpServerConfig",
+        "IntegrationServiceToolProvider"
+      ]
+    },
+    {
+      "id": "cc-auth",
+      "path": "architecture/cross-cutting/08-auth-and-tenant.rst",
+      "title": "Auth & Tenant",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "SLAuth",
+        "User-Context header",
+        "tenant context",
+        "anonymous endpoints",
+        "MvcSecurityConfig"
+      ],
+      "symbols": [
+        "UserContextInterceptor",
+        "MvcSecurityConfig",
+        "TenantContext"
+      ]
+    },
+    {
+      "id": "cc-deployment",
+      "path": "architecture/cross-cutting/09-deployment-and-config.rst",
+      "title": "Deployment & Config",
+      "audiences": [
+        "on_call_sre",
+        "platform_engineer"
+      ],
+      "topics": [
+        "Spinnaker",
+        "Nebulae",
+        "Micros",
+        "service-descriptor",
+        "MICROS_GROUP",
+        "scaling",
+        "instance type"
+      ],
+      "symbols": [
+        "WebMvcConfiguration",
+        "MicrosEnvironmentConfig",
+        "OnSHWorkerNodeOrLocalCondition",
+        "OnLongRunWorkerNodeOrLocalCondition"
+      ]
+    },
+    {
+      "id": "cc-vision",
+      "path": "architecture/cross-cutting/10-vision-and-strategy.rst",
+      "title": "Vision & Long-Horizon Strategy (FY26\u2192FY28)",
+      "audiences": [
+        "business_stakeholder",
+        "architect"
+      ],
+      "topics": [
+        "three-horizon view",
+        "G1-G5 metric evolution",
+        "competitive frame",
+        "Glean",
+        "Microsoft Copilot",
+        "sibling team boundaries",
+        "north star"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-metrics-catalog",
+      "path": "architecture/cross-cutting/11-metrics-catalog.rst",
+      "title": "Metrics, SLOs & Alarms \u2014 Source-of-Truth Catalog",
+      "audiences": [
+        "on_call_sre",
+        "ai_agent"
+      ],
+      "topics": [
+        "MetricKey enum",
+        "alarms",
+        "SLO registration status",
+        "histogram boundaries",
+        "common tags",
+        "egress timeouts",
+        "instance sizing"
+      ],
+      "symbols": [
+        "MetricKey",
+        "HistogramMetric",
+        "ResultMetricBase",
+        "HistogramBucket",
+        "Status"
+      ]
+    },
+    {
+      "id": "cc-playbook",
+      "path": "architecture/cross-cutting/12-optimization-playbook.rst",
+      "title": "Optimization Playbook (which lever moves which metric)",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "latency optimisation",
+        "throughput optimisation",
+        "reliability optimisation",
+        "developer velocity",
+        "cross-lever interaction matrix",
+        "anti-patterns"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-history-catalog",
+      "path": "architecture/cross-cutting/13-full-history-catalog.rst",
+      "title": "Full History Catalog (every commit / PR / AIX ticket)",
+      "audiences": [
+        "architect",
+        "ai_agent"
+      ],
+      "topics": [
+        "102 commits",
+        "25 AIX tickets",
+        "contributor distribution",
+        "churn distribution",
+        "process gaps"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-adrs",
+      "path": "architecture/cross-cutting/14-architectural-decisions.rst",
+      "title": "Architectural Decision Records",
+      "audiences": [
+        "architect",
+        "ai_agent"
+      ],
+      "topics": [
+        "ADR-001 worker groups",
+        "ADR-002 SQS",
+        "ADR-003 context replay",
+        "ADR-004 visibility extension",
+        "ADR-005 MCP",
+        "ADR-006 Statsig two-phase",
+        "ADR-007 raw env var",
+        "ADR-009 LaasLogger",
+        "ADR-010 async-first",
+        "ADR-011 t3a.medium",
+        "ADR-012 Low alarms",
+        "ADR-013 no SLO",
+        "RISK-001 bus factor"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "cc-velocity",
+      "path": "architecture/cross-cutting/15-velocity-and-debt.rst",
+      "title": "Contributor Velocity, Debt & Reproducible Analytics",
+      "audiences": [
+        "business_stakeholder",
+        "architect"
+      ],
+      "topics": [
+        "commits per month",
+        "contributor distribution",
+        "AIX ticket coverage",
+        "bug-fix ratio",
+        "test:source ratio",
+        "bot share",
+        "inflection points",
+        "reproducibility script"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "mod-features-rovo-insights",
+      "path": "modules/features/rovo-insights.rst",
+      "title": "Feature: Rovo Insights",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "insight generation",
+        "system types",
+        "Color/Glyph/InsightType",
+        "REST API"
+      ],
+      "symbols": [
+        "RovoInsightsController",
+        "RovoInsightsTestController",
+        "RovoInsightsGenerationTaskHandler",
+        "RovoInsightsGenerationSqsQueueConsumer",
+        "InsightType",
+        "Strategy",
+        "Color",
+        "Glyph"
+      ]
+    },
+    {
+      "id": "mod-features-nudge",
+      "path": "modules/features/nudge.rst",
+      "title": "Feature: Nudge Throttling",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "TAP throttle",
+        "nudge type",
+        "throttle decision"
+      ],
+      "symbols": [
+        "NudgeThrottleController",
+        "NudgeType"
+      ]
+    },
+    {
+      "id": "mod-features-greeting",
+      "path": "modules/features/greeting.rst",
+      "title": "Feature: Greeting (canary)",
+      "audiences": [
+        "new_contributor"
+      ],
+      "topics": [
+        "canary endpoint",
+        "test count metric"
+      ],
+      "symbols": [
+        "WebServiceController"
+      ]
+    },
+    {
+      "id": "mod-platform-config",
+      "path": "modules/platform/config.rst",
+      "title": "Platform: config",
+      "audiences": [
+        "platform_engineer",
+        "on_call_sre"
+      ],
+      "topics": [
+        "WebMvcConfiguration",
+        "executor sizing",
+        "thread propagation",
+        "worker conditions",
+        "MicrosEnvironmentType",
+        "MvcSecurityConfig"
+      ],
+      "symbols": [
+        "WebMvcConfiguration",
+        "MicrosEnvironmentConfig",
+        "MicrosEnvironmentType",
+        "OnSHWorkerNodeOrLocalCondition",
+        "OnLongRunWorkerNodeOrLocalCondition",
+        "MvcSecurityConfig"
+      ]
+    },
+    {
+      "id": "mod-platform-requestcontext",
+      "path": "modules/platform/requestcontext.rst",
+      "title": "Platform: requestcontext",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "RequestScopedValue",
+        "MDC",
+        "thread-local lifecycle"
+      ],
+      "symbols": [
+        "RequestScopedValueService",
+        "LoggingContext",
+        "LoggingContextImpl",
+        "RequestScopedValuesInitter",
+        "MiscellaneousRequestContextVariablesService"
+      ]
+    },
+    {
+      "id": "mod-platform-stratus",
+      "path": "modules/platform/stratus.rst",
+      "title": "Platform: stratus",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "AI Gateway client",
+        "Stratus agents",
+        "MCP server config",
+        "tool provider"
+      ],
+      "symbols": [
+        "AIGatewayServiceImpl",
+        "AIGatewayClientConfiguration",
+        "StratusTestController",
+        "IntegrationServiceMcpServerConfig",
+        "IntegrationServiceMcpSessionManager",
+        "IntegrationServiceToolProvider"
+      ]
+    },
+    {
+      "id": "mod-platform-context",
+      "path": "modules/platform/context.rst",
+      "title": "Platform: context",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "tenant context model",
+        "experience model",
+        "DataWorkspaceType",
+        "Branding"
+      ],
+      "symbols": [
+        "TenantContext",
+        "Product",
+        "DataWorkspaceType",
+        "HelpSeekerExperience",
+        "UseCase",
+        "Branding",
+        "Experience"
+      ]
+    },
+    {
+      "id": "mod-platform-sqs",
+      "path": "modules/platform/sqs.rst",
+      "title": "Platform: sqs",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "SQS consumer middleware",
+        "StreamHub events",
+        "AVI"
+      ],
+      "symbols": [
+        "AnalyticsEventsSqsQueueConsumer",
+        "AnalyticsEventsMessageQueueConsumer",
+        "AnalyticsEnrichedEventHandler",
+        "MessageQueueConsumerMiddleware",
+        "SqsEventConsumerConfig"
+      ]
+    },
+    {
+      "id": "mod-platform-task",
+      "path": "modules/platform/task.rst",
+      "title": "Platform: task",
+      "audiences": [
+        "platform_engineer",
+        "ai_agent"
+      ],
+      "topics": [
+        "AsyncTask interface",
+        "@JsonTypeInfo",
+        "AsyncTaskHandler<T>",
+        "queue registry",
+        "visibility extension"
+      ],
+      "symbols": [
+        "AsyncTask",
+        "AsyncTaskHandler",
+        "AsyncTaskDispatcher",
+        "AsyncTaskService",
+        "AsyncTaskServiceImpl",
+        "AsyncTaskQueueRegistry",
+        "AsyncTaskExecutionContext",
+        "VisibilityExtendingSQSQueueConsumer"
+      ]
+    },
+    {
+      "id": "mod-platform-service-metric",
+      "path": "modules/platform/service-metric.rst",
+      "title": "Platform: service/metric",
+      "audiences": [
+        "platform_engineer",
+        "on_call_sre"
+      ],
+      "topics": [
+        "MetricsService API",
+        "CoreMetricsService",
+        "MetricKey enum",
+        "histogram"
+      ],
+      "symbols": [
+        "MetricsService",
+        "MetricsServiceImpl",
+        "CoreMetricsService",
+        "MetricKey",
+        "HistogramMetric",
+        "ResultMetricBase",
+        "HistogramBucket",
+        "Status"
+      ]
+    },
+    {
+      "id": "mod-platform-featuregate",
+      "path": "modules/platform/featuregate.rst",
+      "title": "Platform: featuregate",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "Statsig SDK",
+        "FeatureService",
+        "two-phase context"
+      ],
+      "symbols": [
+        "FeatureService",
+        "FeatureGate",
+        "FeatureFlagContextService",
+        "FeatureFlagEvaluationTracker",
+        "FeatureFlagContextContextType",
+        "AiFeatureGates",
+        "PermanentFeatureGates"
+      ]
+    },
+    {
+      "id": "mod-platform-client",
+      "path": "modules/platform/client.rst",
+      "title": "Platform: client (HTTP/IdGatekeeper)",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "HTTP client commons",
+        "Slauth headers",
+        "Audiences"
+      ],
+      "symbols": [
+        "HttpClientCommons",
+        "Audiences",
+        "IdGatekeeperClient",
+        "IdGatekeeperClientImpl",
+        "AsyncIdGatekeeperClientImpl"
+      ]
+    },
+    {
+      "id": "mod-platform-interceptor",
+      "path": "modules/platform/interceptor.rst",
+      "title": "Platform: interceptor",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "interceptor order",
+        "RequestContextInterceptor",
+        "UserContextInterceptor"
+      ],
+      "symbols": [
+        "RequestContextInterceptor",
+        "UserContextInterceptor",
+        "CommonContextSetter",
+        "CommonContextSetterImpl",
+        "CommonContextSetterForInterceptors"
+      ]
+    },
+    {
+      "id": "mod-platform-logging",
+      "path": "modules/platform/logging.rst",
+      "title": "Platform: logging (LaasLogger)",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "LaasLogger wrapper",
+        "MDC enrichment",
+        "extension functions"
+      ],
+      "symbols": [
+        "LaasLogger",
+        "LaasLoggerFactory",
+        "InterceptedLogger",
+        "WithUGCLogger",
+        "NoopLogger"
+      ]
+    },
+    {
+      "id": "mod-platform-utility",
+      "path": "modules/platform/utility.rst",
+      "title": "Platform: utility (threading/user/tenant)",
+      "audiences": [
+        "platform_engineer"
+      ],
+      "topics": [
+        "coroutine context",
+        "InstrumentedDispatcher",
+        "User model",
+        "TcsService"
+      ],
+      "symbols": [
+        "RequestAttributesCoroutineContext",
+        "InstrumentedDispatcher",
+        "CoroutineMonitor",
+        "DispatcherMonitor",
+        "ThreadConfig",
+        "User",
+        "UserImpl",
+        "TcsService"
+      ]
+    },
+    {
+      "id": "testing-sop",
+      "path": "TESTING_SOP.md",
+      "title": "Testing SOP \u2014 PR Lifecycle, CI Checks, Test Conventions",
+      "audiences": [
+        "pr_author",
+        "ai_agent",
+        "platform_engineer"
+      ],
+      "topics": [
+        "PR lifecycle (pre-PR, open, review, merge, post-merge)",
+        "CI pipeline blocking checks (5 + 1 advisory)",
+        "test type taxonomy (*Test, *IT, *AcceptanceTest)",
+        "unit-test conventions (MockK, WireMock, JUnit5, AssertJ)",
+        "JaCoCo coverage configuration + exclusions",
+        "policy gaps (G-1..G-14: SonarQube disabled, no coverage threshold, smoke-test-only IT, etc.)",
+        "ktlintCheck + clean build commands"
+      ],
+      "symbols": [
+        "ktlintCheck",
+        "tasks.test",
+        "tasks.intTest",
+        "jacocoTestReport",
+        "RovoInsightsControllerIT",
+        "HealthCheckIT",
+        "NudgeThrottleControllerAcceptanceTest",
+        "WireMockTest",
+        "@SpringBootTest",
+        "RANDOM_PORT",
+        "TestRestTemplate",
+        "CHECK_QUALITY_GATES",
+        "SERVICE_FAILSAFE"
+      ],
+      "verified_against_head": "2026-05-05",
+      "blocks_merge_for": [
+        "any change to controllers, async-task handlers, SQS consumers, or feature-flag-gated paths"
+      ]
+    }
+  ],
+  "agent_first_load_order": [
+    "AGENTS.md",
+    "MANIFEST.json (this file)",
+    "TESTING_SOP.md (if opening a PR or modifying test/CI behaviour)",
+    "PROBLEM_PLAYBOOKS.md (if working on a recognised problem)",
+    "the primary chapter for your problem (per AGENTS.md Section 1)"
+  ],
+  "deprecated_or_orphan_chapters_kept_for_history": [
+    {
+      "path": "modules/rovo-insights/index.rst",
+      "reason": "older multi-page deep-dive; superseded by modules/features/rovo-insights.rst but kept for endpoint-level detail"
+    },
+    {
+      "path": "modules/stratus/index.rst",
+      "reason": "older multi-page deep-dive; superseded by modules/platform/stratus.rst but kept for ai-gateway+mcp-integration sub-pages"
+    },
+    {
+      "path": "modules/nudge/nudge-throttle.rst",
+      "reason": "endpoint-contract level detail; complements modules/features/nudge.rst"
+    }
+  ]
+}

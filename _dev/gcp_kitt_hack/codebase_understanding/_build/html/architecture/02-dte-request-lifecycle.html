@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>DTE request lifecycle (deep) &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Authentication &amp; IAM" href="03-auth-and-iam.html" />
+    <link rel="prev" title="Architecture overview" href="01-architecture-overview.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="dte-request-lifecycle-deep">
+<h1>DTE request lifecycle (deep)<a class="headerlink" href="#dte-request-lifecycle-deep" title="Link to this heading">¶</a></h1>
+<p>This document is the canonical reference for <strong>every step a DTE request
+takes</strong> from the operator’s keyboard to the remote-cluster Argo workflow
+output, with concrete <a class="reference external" href="file:LoC">file:LoC</a> pointers verified on 2026-05-08.</p>
+<section id="sources-of-truth">
+<h2>Sources of truth<a class="headerlink" href="#sources-of-truth" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">amp/DTE_DISTRIBUTED_CLIENT_APIS_AND_FLOWS.md</span></code> (370 LoC) — accepted
+HTTP API surface and message flows.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">INTEGRATION_REVIEW.md</span></code> (root) — cross-component compatibility
+matrix and the <em>POTENTIAL MISMATCH</em> call-out.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">amp/distributed-client/main.go</span></code> (1,868 LoC).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/main.go</span></code> (1,222 LoC).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/helpers.go</span></code> (1,134 LoC).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/cluster_db.go</span></code> (276 LoC).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-client/main.go</span></code> (1,803 LoC) — production
+copy.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-worker/{main.go,helpers.go,cluster_db.go}</span></code>
+(1,178 / 1,134 / 441 LoC) — production copy with extended cluster_db.</p></li>
+</ul>
+</section>
+<section id="phase-0-operator-authenticates">
+<h2>Phase 0 — Operator authenticates<a class="headerlink" href="#phase-0-operator-authenticates" title="Link to this heading">¶</a></h2>
+<p>The user runs (interactively, once per session):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>atlas<span class="w"> </span>slauth<span class="w"> </span>login<span class="w">          </span><span class="c1"># legacy single-token mode</span>
+<span class="c1"># or</span>
+atlas<span class="w"> </span>slauth<span class="w"> </span>token<span class="w"> </span>-a<span class="w"> </span>rollcall<span class="w"> </span>-e<span class="w"> </span>staging<span class="w">   </span><span class="c1"># modern ASAP</span>
+</pre></div>
+</div>
+<p>Behind the scenes the dtecli auth commands wrap this in friendlier output:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dtecli/src/cli/commands/auth/login.ts</span></code> (250 LoC)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtecli/src/cli/commands/auth/token.ts</span></code> (135 LoC)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtecli/src/cli/commands/auth/logout.ts</span></code> (41 LoC)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dtecli/src/cli/commands/auth/index.ts</span></code> (15 LoC) — wiring</p></li>
+</ul>
+<p>The CLI also resolves AD-group membership via the rollcall API
+(<code class="docutils literal notranslate"><span class="pre">dtecli/src/lib/ad-groups.ts</span></code> 114 LoC), filtering for groups whose
+name starts with <code class="docutils literal notranslate"><span class="pre">kube-</span></code>. Equivalent curl in <code class="docutils literal notranslate"><span class="pre">dte-web/README.md</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>TOKEN=$(atlas slauth token -a rollcall)
+curl -X GET &quot;https://rollcall.prod.atl-paas.net/api/v1/people/&lt;user&gt;&quot; \
+  -H &quot;X-Slauth-Authorization: true&quot; \
+  -H &quot;Authorization: SLAUTH $TOKEN&quot; \
+  -H &quot;Accept: application/json&quot; \
+  | jq -r &#39;.memberOf[].name | select(startswith(&quot;kube-&quot;))&#39;
+</pre></div>
+</div>
+</section>
+<section id="phase-1-cli-builds-the-http-request">
+<h2>Phase 1 — CLI builds the HTTP request<a class="headerlink" href="#phase-1-cli-builds-the-http-request" title="Link to this heading">¶</a></h2>
+<p>For <code class="docutils literal notranslate"><span class="pre">dtecli</span> <span class="pre">runner</span> <span class="pre">start</span> <span class="pre">--task</span> <span class="pre">health-check</span> <span class="pre">--cluster</span> <span class="pre">fqk5,mfc2</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dtecli/src/cli/commands/runner/start.ts</span></code> (100 LoC) parses flags.</p></li>
+<li><p>Delegates to <code class="docutils literal notranslate"><span class="pre">dtecli/src/lib/dte-client.ts</span></code> (602 LoC) which:</p>
+<ul>
+<li><p>Loads endpoint from <code class="docutils literal notranslate"><span class="pre">dtecli/src/lib/config.ts</span></code> (135 LoC).</p></li>
+<li><p>Attaches headers based on which token is cached:</p>
+<ul>
+<li><p><strong>Modern</strong>: <code class="docutils literal notranslate"><span class="pre">X-DTE-ASAP</span></code> + <code class="docutils literal notranslate"><span class="pre">X-DTE-SCT</span></code> + <code class="docutils literal notranslate"><span class="pre">X-DTE-GROUPS</span></code>.</p></li>
+<li><p><strong>Legacy</strong>: <code class="docutils literal notranslate"><span class="pre">X-DTE-Auth-Token</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Issues <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=health-check-start&amp;cluster=fqk5,mfc2</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="phase-2-distributed-client-routes-the-request">
+<h2>Phase 2 — distributed-client routes the request<a class="headerlink" href="#phase-2-distributed-client-routes-the-request" title="Link to this heading">¶</a></h2>
+<p>In <code class="docutils literal notranslate"><span class="pre">amp/distributed-client/main.go</span></code>:</p>
+<ol class="arabic">
+<li><p><code class="docutils literal notranslate"><span class="pre">main()</span></code> registers HTTP handlers on a single mux.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unifiedAPIHandler</span></code> (the <code class="docutils literal notranslate"><span class="pre">/api</span></code> route) inspects the
+<code class="docutils literal notranslate"><span class="pre">action</span></code> query parameter and dispatches to:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">handleHealthCheckStartViaAPI</span></code> for <code class="docutils literal notranslate"><span class="pre">health-check-start</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handleServiceDiscoveryStartViaAPI</span></code> for
+<code class="docutils literal notranslate"><span class="pre">service-discovery-start</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handleHelloWorldStartViaAPI</span></code> for <code class="docutils literal notranslate"><span class="pre">hello-world-start</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handleGenericWorkflowStatusViaAPI</span></code> for any <code class="docutils literal notranslate"><span class="pre">…-status</span></code> action</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handleWorkflowExecutionsViaAPI</span></code> for <code class="docutils literal notranslate"><span class="pre">workflow-executions</span></code></p></li>
+</ul>
+</li>
+<li><p>Inside the handler:</p>
+<ol class="loweralpha">
+<li><p><code class="docutils literal notranslate"><span class="pre">extractAuthTokens(r)</span></code> validates the auth invariants (mutually
+exclusive token sets).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cluster</span></code> query param is comma-split.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">DistributedTaskRequest</span></code> struct is populated.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ExecuteWorkflow</span></code> is called on the Temporal client with
+<code class="docutils literal notranslate"><span class="pre">StartWorkflowOptions</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WorkflowOptions</span><span class="p">{</span>
+   <span class="n">ID</span><span class="p">:</span>          <span class="s2">&quot;health-check-multi-&lt;unix-ts&gt;&quot;</span>   <span class="o">//</span> <span class="n">multi</span><span class="o">-</span><span class="n">cluster</span>
+              <span class="o">|</span> <span class="s2">&quot;health-check-&lt;cluster&gt;-&lt;unix-ts&gt;&quot;</span><span class="p">,</span>  <span class="o">//</span> <span class="n">single</span>
+   <span class="n">TaskQueue</span><span class="p">:</span>   <span class="s2">&quot;dte-workflows&quot;</span><span class="p">,</span>                 <span class="o">//</span> <span class="n">HARDCODED</span>
+   <span class="n">Namespace</span><span class="p">:</span>   <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">INTEGRATION_REVIEW.md</span></code> flags the hard-coded task queue as a
+<em>POTENTIAL MISMATCH</em> with the worker (which reads
+<code class="docutils literal notranslate"><span class="pre">TEMPORAL_TASKQUEUE</span></code>) and recommends fixing the client to use
+<code class="docutils literal notranslate"><span class="pre">os.Getenv(&quot;TEMPORAL_TASKQUEUE&quot;)</span></code>.</p>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WorkflowID</span></code> and <code class="docutils literal notranslate"><span class="pre">RunID</span></code> are returned in a
+<code class="docutils literal notranslate"><span class="pre">GenericWorkflowStartResponse</span></code> JSON to the CLI.</p></li>
+</ol>
+</li>
+</ol>
+</section>
+<section id="phase-3-temporal-hands-the-workflow-to-a-worker">
+<h2>Phase 3 — Temporal hands the workflow to a worker<a class="headerlink" href="#phase-3-temporal-hands-the-workflow-to-a-worker" title="Link to this heading">¶</a></h2>
+<p>The worker process (<code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/main.go</span></code>) is registered on
+<code class="docutils literal notranslate"><span class="pre">${TEMPORAL_TASKQUEUE}</span></code>. <code class="docutils literal notranslate"><span class="pre">DistributedTaskExecutionWorkflow</span></code> is invoked
+with the <code class="docutils literal notranslate"><span class="pre">DistributedTaskRequest</span></code> payload.</p>
+<p>The workflow body:</p>
+<ol class="arabic simple">
+<li><p><strong>Validates</strong> <code class="docutils literal notranslate"><span class="pre">request.TaskType</span></code> is one of <code class="docutils literal notranslate"><span class="pre">&quot;hello-world&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;health-check&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;service-discovery&quot;</span></code>.</p></li>
+<li><p><strong>Fans out</strong> by spawning N parallel selector branches, one per
+cluster.</p></li>
+<li><p>For each branch:</p>
+<ul class="simple">
+<li><p>Picks the activity by task type:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">HealthCheckActivity(ctx,</span> <span class="pre">input</span> <span class="pre">map[string]string)</span></code> for
+<code class="docutils literal notranslate"><span class="pre">&quot;health-check&quot;</span></code> (input keys <code class="docutils literal notranslate"><span class="pre">clusterName</span></code>, <code class="docutils literal notranslate"><span class="pre">authToken</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ServiceDiscoveryActivity(ctx,</span> <span class="pre">input)</span></code> for <code class="docutils literal notranslate"><span class="pre">&quot;service-discovery&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HelloWorldActivity(ctx,</span> <span class="pre">input)</span></code> for <code class="docutils literal notranslate"><span class="pre">&quot;hello-world&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ExecuteArgoWorkflowActivity(ctx,</span> <span class="pre">cluster,</span> <span class="pre">taskType)</span></code> is the
+common implementation for the first two — it generates the
+cluster-side Argo workflow YAML and runs it.</p></li>
+</ul>
+</li>
+<li><p>Wraps the call with default timeouts and retry policy.</p></li>
+</ul>
+</li>
+<li><p><strong>Aggregates</strong> <code class="docutils literal notranslate"><span class="pre">[]ClusterTaskResult</span></code> into
+<code class="docutils literal notranslate"><span class="pre">DistributedTaskResponse</span></code>.</p></li>
+</ol>
+<p>Each <code class="docutils literal notranslate"><span class="pre">ClusterTaskResult</span></code> has:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">type</span> <span class="n">ClusterTaskResult</span> <span class="n">struct</span> <span class="p">{</span>
+    <span class="n">ClusterName</span> <span class="n">string</span>
+    <span class="n">Success</span>     <span class="nb">bool</span>
+    <span class="n">Output</span>      <span class="n">string</span>                 <span class="o">//</span> <span class="n">raw</span> <span class="n">activity</span> <span class="n">output</span>
+    <span class="n">Error</span>       <span class="n">string</span>
+    <span class="n">Duration</span>    <span class="n">time</span><span class="o">.</span><span class="n">Duration</span>
+    <span class="n">Metadata</span>    <span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">]</span><span class="n">interface</span><span class="p">{}</span>  <span class="o">//</span> <span class="n">includes</span> <span class="s2">&quot;taskType&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="phase-4-activity-executes-against-the-remote-cluster">
+<h2>Phase 4 — Activity executes against the remote cluster<a class="headerlink" href="#phase-4-activity-executes-against-the-remote-cluster" title="Link to this heading">¶</a></h2>
+<p>This is the meat of the system. Implementation in
+<code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/helpers.go</span></code>:</p>
+<section id="step-a-fetch-clusterinfo">
+<h3>Step A — Fetch <code class="docutils literal notranslate"><span class="pre">ClusterInfo</span></code><a class="headerlink" href="#step-a-fetch-clusterinfo" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">cluster_db.go</span></code> issues a signed AWS S3 GET to:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">kitt</span><span class="o">-</span><span class="n">cluster</span><span class="o">-</span><span class="n">registry</span><span class="o">.</span><span class="n">s3</span><span class="o">.</span><span class="n">amazonaws</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">latest</span><span class="o">/</span><span class="n">apis</span><span class="o">/</span><span class="n">clusterregistry</span><span class="o">.</span><span class="n">k8s</span><span class="o">.</span><span class="n">io</span><span class="o">/</span><span class="n">v1alpha1</span><span class="o">/</span><span class="n">namespaces</span><span class="o">/</span><span class="n">kube</span><span class="o">-</span><span class="n">system</span><span class="o">/</span><span class="n">clusters</span><span class="o">/&lt;</span><span class="n">cluster</span><span class="o">-</span><span class="nb">id</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Returns JSON populating:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>type ClusterInfo struct {
+    Name             string
+    MasterEndpoint   string
+    CACertPEM        string
+    AuthProviderURL  string
+    Network          string
+    Provider         string  // &quot;gcp&quot; | &quot;aws&quot;
+    Region           string
+    // … additional metadata fields
+}
+</pre></div>
+</div>
+</section>
+<section id="step-b-token-introspection">
+<h3>Step B — Token introspection<a class="headerlink" href="#step-b-token-introspection" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">isSCTToken</span></code>, <code class="docutils literal notranslate"><span class="pre">extractTokenIssuer</span></code>, <code class="docutils literal notranslate"><span class="pre">extractGroupsFromToken</span></code> parse
+the operator’s token (these are <em>unsigned</em> parses for routing only).</p>
+</section>
+<section id="step-c-filter-groups">
+<h3>Step C — Filter groups<a class="headerlink" href="#step-c-filter-groups" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">filterGroupsByPattern(groups,</span> <span class="pre">cluster,</span> <span class="pre">logger)</span></code> strips groups that do
+not match the cluster’s allow-list pattern.</p>
+</section>
+<section id="step-d-auth-provider-exchange">
+<h3>Step D — Auth-provider exchange<a class="headerlink" href="#step-d-auth-provider-exchange" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POST</span> <span class="o">&lt;</span><span class="n">cluster</span><span class="o">.</span><span class="n">AuthProviderURL</span><span class="o">&gt;</span>
+<span class="n">Body</span><span class="p">:</span> <span class="p">{</span> <span class="n">token</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">ASAP</span><span class="o">+</span><span class="n">SCT</span> <span class="ow">or</span> <span class="n">SLAuth</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">groups</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">filtered</span><span class="o">&gt;</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>Returns a short-lived bearer token bound to the operator’s filtered AD
+groups. Implemented in
+<code class="docutils literal notranslate"><span class="pre">getClusterTokenFromAuthProvider</span></code>.</p>
+</section>
+<section id="step-e-build-k8s-clients">
+<h3>Step E — Build K8s clients<a class="headerlink" href="#step-e-build-k8s-clients" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">createConfigFromClusterInfo</span></code> produces <code class="docutils literal notranslate"><span class="pre">rest.Config</span></code> with the bearer
+token + CA cert. <code class="docutils literal notranslate"><span class="pre">createClientsFromConfig</span></code> returns
+<code class="docutils literal notranslate"><span class="pre">*kubernetes.Clientset</span></code> and <code class="docutils literal notranslate"><span class="pre">dynamic.Interface</span></code>.</p>
+<p>Optional auth diagnostics:
+<code class="docutils literal notranslate"><span class="pre">logAuthenticatedUser</span></code>, <code class="docutils literal notranslate"><span class="pre">probeKubernetesAuth</span></code>.</p>
+</section>
+<section id="step-f-generate-argo-workflow-yaml">
+<h3>Step F — Generate Argo Workflow YAML<a class="headerlink" href="#step-f-generate-argo-workflow-yaml" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">createHealthCheckWorkflowYAML(cluster</span> <span class="pre">ClusterInfo)</span></code> — produces the
+per-cluster Argo workflow that runs the cluster-side health probes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">createServiceDiscoveryWorkflowYAML(cluster</span> <span class="pre">ClusterInfo)</span></code> — produces
+the service-discovery workflow.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">createArgoWorkflowYAML(cluster,</span> <span class="pre">taskType)</span></code> — generic dispatcher.</p></li>
+</ul>
+</section>
+<section id="step-g-submit-and-poll">
+<h3>Step G — Submit and poll<a class="headerlink" href="#step-g-submit-and-poll" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">createWorkflowViaAPI(ctx,</span> <span class="pre">dynamicClient,</span> <span class="pre">workflowYAML,</span> <span class="pre">clusterName,</span>
+<span class="pre">logger)</span></code> posts the YAML as an Argo <code class="docutils literal notranslate"><span class="pre">Workflow</span></code> CR via the dynamic
+client.</p>
+<p><code class="docutils literal notranslate"><span class="pre">waitForArgoWorkflowCompletion(ctx,</span> <span class="pre">cluster,</span> <span class="pre">workflowID)</span></code> polls
+<code class="docutils literal notranslate"><span class="pre">getWorkflowStatus</span></code> and <code class="docutils literal notranslate"><span class="pre">getWorkflowMessage</span></code> until the workflow
+reaches a terminal phase.</p>
+<p><code class="docutils literal notranslate"><span class="pre">getWorkflowOutput</span></code> reads the output from the workflow status field.</p>
+</section>
+<section id="step-h-post-processing">
+<h3>Step H — Post-processing<a class="headerlink" href="#step-h-post-processing" title="Link to this heading">¶</a></h3>
+<p>For service-discovery only: <code class="docutils literal notranslate"><span class="pre">FilterServiceDiscoveryResultsActivity(ctx,</span>
+<span class="pre">output)</span></code> strips internal fields (consistent with
+<code class="docutils literal notranslate"><span class="pre">dtecli/src/lib/service-discovery-parser.ts</span></code> 363 LoC expectations).</p>
+</section>
+</section>
+<section id="phase-5-workflow-result-returns">
+<h2>Phase 5 — Workflow result returns<a class="headerlink" href="#phase-5-workflow-result-returns" title="Link to this heading">¶</a></h2>
+<p>The workflow output (<code class="docutils literal notranslate"><span class="pre">DistributedTaskResponse</span></code>) is persisted by
+Temporal. The CLI either:</p>
+<ul class="simple">
+<li><p>Polled with <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=health-check-status&amp;workflowId=&lt;id&gt;</span></code>
+via <code class="docutils literal notranslate"><span class="pre">handleGenericWorkflowStatusViaAPI</span></code> (which returns the full
+<code class="docutils literal notranslate"><span class="pre">HelloWorldStatusResponse</span></code>-shaped envelope reused for all generic
+status queries).</p></li>
+<li><p>Or used Temporal’s gRPC <code class="docutils literal notranslate"><span class="pre">GetWorkflow</span></code> if running directly inside the
+cluster.</p></li>
+</ul>
+<p>The CLI’s <code class="docutils literal notranslate"><span class="pre">runner</span> <span class="pre">status</span></code> command (742 LoC) recognises the workflow
+type by ID/metadata and routes parsing to either:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">health-check-parser.ts</span></code> (1,124 LoC) — produces a coloured table per
+cluster.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">service-discovery-parser.ts</span></code> (363 LoC) — produces a service
+inventory output.</p></li>
+</ul>
+</section>
+<section id="headers-and-http-level-matrix">
+<h2>Headers and HTTP-level matrix<a class="headerlink" href="#headers-and-http-level-matrix" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Header</p></th>
+<th class="head"><p>Required when</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">X-DTE-ASAP</span></code></p></td>
+<td><p>Modern auth mode</p></td>
+<td><p>JWT-style ASAP token from <code class="docutils literal notranslate"><span class="pre">atlas</span> <span class="pre">slauth</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">X-DTE-SCT</span></code></p></td>
+<td><p>Modern auth mode</p></td>
+<td><p>Service Context Token. Always paired with ASAP.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">X-DTE-GROUPS</span></code></p></td>
+<td><p>With ASAP+SCT</p></td>
+<td><p>Comma-separated <code class="docutils literal notranslate"><span class="pre">kube-*</span></code> AD groups; required by the worker for
+the auth-provider exchange.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">X-DTE-Auth-Token</span></code></p></td>
+<td><p>Legacy mode</p></td>
+<td><p>Single SLAuth token. Mutually exclusive with the trio above.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="endpoint-reference">
+<h2>Endpoint reference<a class="headerlink" href="#endpoint-reference" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 38.0%" />
+<col style="width: 12.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Endpoint</p></th>
+<th class="head"><p>Method</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/health</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Liveness; returns <code class="docutils literal notranslate"><span class="pre">{status,</span> <span class="pre">timestamp}</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Service info + endpoint discovery.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET|POST</span> <span class="pre">/api?action=hello-world-start&amp;cluster=…</span></code></p></td>
+<td><p>GET/POST</p></td>
+<td><p>Start <code class="docutils literal notranslate"><span class="pre">DistributedTaskExecutionWorkflow</span></code> with
+<code class="docutils literal notranslate"><span class="pre">taskType=&quot;hello-world&quot;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=hello-world-status&amp;workflowId=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Status query.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=health-check-start&amp;cluster=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Start health-check.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=health-check-status&amp;workflowId=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Status query.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=service-discovery-start&amp;cluster=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Start service-discovery.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=service-discovery-status&amp;workflowId=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Status query.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api?action=workflow-executions&amp;workflowId=…</span></code></p></td>
+<td><p>GET</p></td>
+<td><p>Lists matching executions (<code class="docutils literal notranslate"><span class="pre">ListWorkflowExecutions</span></code> if available,
+else describe latest run).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/start-workflow</span></code></p></td>
+<td><p>POST</p></td>
+<td><p>Generic workflow start with body <code class="docutils literal notranslate"><span class="pre">{workflowType,</span> <span class="pre">workflowId?,</span>
+<span class="pre">taskQueue?,</span> <span class="pre">namespace?,</span> <span class="pre">input?,</span> <span class="pre">timeout?}</span></code>. <strong>Auth is NOT
+enforced in this handler</strong> — treat as internal/admin-only behind
+ingress policy.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="worker-side-environment-variables">
+<h2>Worker-side environment variables<a class="headerlink" href="#worker-side-environment-variables" title="Link to this heading">¶</a></h2>
+<p>(<code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/main.go</span></code> and Helm values)</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Env var</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TEMPORAL_ADDRESS</span></code></p></td>
+<td><p>Temporal frontend service (e.g. <code class="docutils literal notranslate"><span class="pre">temporal-frontend.temporal.svc:7233</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TEMPORAL_NAMESPACE</span></code></p></td>
+<td><p>Temporal namespace (default <code class="docutils literal notranslate"><span class="pre">default</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TEMPORAL_TASKQUEUE</span></code></p></td>
+<td><p>Task queue to register on (default <code class="docutils literal notranslate"><span class="pre">dte-workflows</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AUTH_PROVIDER_URL</span></code></p></td>
+<td><p>Per-cluster auth-provider URL (also encoded in ClusterInfo).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AWS_REGION</span></code></p></td>
+<td><p>For Signature V4 to fetch from <code class="docutils literal notranslate"><span class="pre">kitt-cluster-registry</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LOG_LEVEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">slog</span></code> level (defaults to <code class="docutils literal notranslate"><span class="pre">INFO</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="mirror-copy-under-helmfile-dte">
+<h2>Mirror copy under <code class="docutils literal notranslate"><span class="pre">helmfile/dte/</span></code><a class="headerlink" href="#mirror-copy-under-helmfile-dte" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">helmfile/dte/</span></code> tree is the <strong>production-deployed</strong> copy of the
+DTE control-plane and is intentionally a near-mirror of <code class="docutils literal notranslate"><span class="pre">amp/</span></code>. The
+notable differences (verified by <code class="docutils literal notranslate"><span class="pre">wc</span> <span class="pre">-l</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-client/main.go</span></code> is <strong>1,803 LoC</strong> (vs.
+<code class="docutils literal notranslate"><span class="pre">amp/</span></code> 1,868) — small drift in handlers/log messages.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-worker/main.go</span></code> is <strong>1,178 LoC</strong> (vs.
+<code class="docutils literal notranslate"><span class="pre">amp/</span></code> 1,222) — same activities/workflows.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-worker/cluster_db.go</span></code> is <strong>441 LoC</strong> (vs.
+<code class="docutils literal notranslate"><span class="pre">amp/</span></code> 276) — extended cluster registry handling.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">helmfile/dte/distributed-worker/cluster_db_test.go</span></code> is <strong>404 LoC</strong>
+(vs. <code class="docutils literal notranslate"><span class="pre">amp/</span></code> 216) — extended test coverage.</p></li>
+<li><p>New packages under <code class="docutils literal notranslate"><span class="pre">helmfile/dte/pkg/</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">pkg/cluster/cluster_db.go</span></code> (412 LoC) — promoted <code class="docutils literal notranslate"><span class="pre">cluster_db</span></code>
+into a dedicated package.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pkg/types/types.go</span></code> (82 LoC) — same as <code class="docutils literal notranslate"><span class="pre">amp/pkg/types/types.go</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pkg/logger/logger.go</span></code> (295 LoC) — same as <code class="docutils literal notranslate"><span class="pre">amp/pkg/logger/logger.go</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+<p>Treat the two trees as <strong>logically equivalent for documentation
+purposes</strong>, and prefer <code class="docutils literal notranslate"><span class="pre">helmfile/dte/</span></code> as the source-of-truth for
+production runs.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Architecture</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="00-glossary.html">Glossary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-architecture-overview.html">Architecture overview</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DTE request lifecycle (deep)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-auth-and-iam.html">Authentication &amp; IAM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-temporal-topology.html">Temporal topology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-helmfile-deployment-chain.html">Helmfile deployment chain</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Per-module catalog</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Architecture</a><ul>
+      <li>Previous: <a href="01-architecture-overview.html" title="previous chapter">Architecture overview</a></li>
+      <li>Next: <a href="03-auth-and-iam.html" title="next chapter">Authentication &amp; IAM</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/architecture/02-dte-request-lifecycle.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>asi/ — Atlassian Service Identity controller &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="sweeper/ — pod-labelling controller" href="sweeper.html" />
+    <link rel="prev" title="argocd/ — GitOps app-of-apps" href="argocd.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="asi-atlassian-service-identity-controller">
+<h1><code class="docutils literal notranslate"><span class="pre">asi/</span></code> — Atlassian Service Identity controller<a class="headerlink" href="#asi-atlassian-service-identity-controller" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">asi/</span></code> (14 files, Go) is a Kubernetes controller that reconciles the
+<code class="docutils literal notranslate"><span class="pre">ASI</span></code> (Atlassian Service Identity) CRD. For each ASI it manages:</p>
+<ul class="simple">
+<li><p>the K8s <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code> that workloads use as their pod identity</p></li>
+<li><p>the GCP IAM <strong>service account</strong> that the K8s SA federates to (Workload
+Identity)</p></li>
+<li><p>the IAM-policy bindings that grant the GCP SA the roles it needs</p></li>
+</ul>
+<p>It is the foundation of every other module’s “talk to GCP” story.</p>
+</section>
+<section id="tech-stack">
+<h2>Tech stack<a class="headerlink" href="#tech-stack" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Go</strong> with <strong>controller-runtime</strong></p></li>
+<li><p><strong>GCP IAM Admin API</strong> (<code class="docutils literal notranslate"><span class="pre">iamcredentials</span></code>, <code class="docutils literal notranslate"><span class="pre">iam.serviceAccountAdmin</span></code>)</p></li>
+<li><p><strong>Kubernetes ``client-go``</strong></p></li>
+</ul>
+</section>
+<section id="inventory">
+<h2>Inventory<a class="headerlink" href="#inventory" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 10.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>LoC</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">asi/cmd/main.go</span></code></p></td>
+<td><p>344</p></td>
+<td><p>Manager bootstrap, controller registration, leader election</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">asi/cmd/main_test.go</span></code></p></td>
+<td><p>519</p></td>
+<td><p>Manager-level tests</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">asi/api/v1/asi_types.go</span></code></p></td>
+<td><p>119</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ASI</span></code> Go types (Spec/Status, deepcopy)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">asi/api/v1/asi_types_test.go</span></code></p></td>
+<td><p>177</p></td>
+<td><p>Type tests</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">asi/internal/asicore/asi.go</span></code></p></td>
+<td><p>334</p></td>
+<td><p>Core reconciliation logic; <code class="docutils literal notranslate"><span class="pre">UpdateASI</span></code>, <code class="docutils literal notranslate"><span class="pre">bindIAMRole</span></code>, <code class="docutils literal notranslate"><span class="pre">RealIAMService</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">asi/internal/asicore/asi_test.go</span></code></p></td>
+<td><p>266</p></td>
+<td><p>Unit tests for core</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">asi/asi-crd.yaml</span></code></p></td>
+<td><p>—</p></td>
+<td><p>CRD manifest (group <code class="docutils literal notranslate"><span class="pre">platform.atlassian.com</span></code>, kind <code class="docutils literal notranslate"><span class="pre">ASI</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">asi/ReadME.MD</span></code></p></td>
+<td><p>—</p></td>
+<td><p>Required GCP IAM role: <code class="docutils literal notranslate"><span class="pre">roles/iam.serviceAccountAdmin</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="crd-definition">
+<h2>CRD definition<a class="headerlink" href="#crd-definition" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Group:</strong> <code class="docutils literal notranslate"><span class="pre">platform.atlassian.com</span></code></p></li>
+<li><p><strong>Kind:</strong> <code class="docutils literal notranslate"><span class="pre">ASI</span></code> (plural <code class="docutils literal notranslate"><span class="pre">asis</span></code>)</p></li>
+<li><p><strong>Version:</strong> <code class="docutils literal notranslate"><span class="pre">v1</span></code></p></li>
+<li><p><strong>Spec:</strong> <code class="docutils literal notranslate"><span class="pre">name</span></code> (string)</p></li>
+<li><p><strong>Status:</strong> initially empty (no state tracking yet — listed as a gap)</p></li>
+<li><p><strong>Finalizer:</strong> <code class="docutils literal notranslate"><span class="pre">platform.atlassian.com/finalizer</span></code> — deletes IAM
+bindings + GCP SA before allowing CR removal</p></li>
+</ul>
+</section>
+<section id="reconciler-behaviour">
+<h2>Reconciler behaviour<a class="headerlink" href="#reconciler-behaviour" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ASIController.Reconcile()</span></code> performs:</p>
+<ol class="arabic simple">
+<li><p>Project-ID detection from the GCP metadata server.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UpdateASI</span></code> — creates the K8s namespace, the K8s <code class="docutils literal notranslate"><span class="pre">ServiceAccount</span></code>,
+and annotates it with the GCP SA email.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bindIAMRole</span></code> — sets the IAM policy on the GCP SA via
+<code class="docutils literal notranslate"><span class="pre">RealIAMService</span></code> (a wrapper over <code class="docutils literal notranslate"><span class="pre">iamcredentials</span></code>).</p></li>
+<li><p>Finalizer registration on first observation; cleanup on delete.</p></li>
+</ol>
+</section>
+<section id="auth-rbac">
+<h2>Auth &amp; RBAC<a class="headerlink" href="#auth-rbac" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>GCP:</strong> <code class="docutils literal notranslate"><span class="pre">roles/iam.serviceAccountAdmin</span></code> on the project</p></li>
+<li><p><strong>K8s:</strong> <code class="docutils literal notranslate"><span class="pre">ClusterRole</span></code> granting CRUD on <code class="docutils literal notranslate"><span class="pre">serviceaccounts</span></code> and
+the <code class="docutils literal notranslate"><span class="pre">ASI</span></code> CRD</p></li>
+<li><p><strong>Workload identity:</strong> controller pod itself runs as a workload-identity
+bound SA so it can call IAM Admin API without static keys</p></li>
+</ul>
+</section>
+<section id="build-deploy">
+<h2>Build &amp; deploy<a class="headerlink" href="#build-deploy" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Standard Go build + Dockerfile (managed under <code class="docutils literal notranslate"><span class="pre">deploy/charts/asi/</span></code>)</p></li>
+<li><p>Helm chart under <code class="docutils literal notranslate"><span class="pre">deploy/</span></code> Helmfile</p></li>
+</ul>
+</section>
+<section id="integration-with-gcp-kitt">
+<h2>Integration with gcp_kitt<a class="headerlink" href="#integration-with-gcp-kitt" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Provides identity to:</strong> every workload that needs GCP access
+(<code class="docutils literal notranslate"><span class="pre">go-app</span></code>, <code class="docutils literal notranslate"><span class="pre">scraper</span></code>, <code class="docutils literal notranslate"><span class="pre">k8s-metadata-collector</span></code>,
+<code class="docutils literal notranslate"><span class="pre">iam-sidecar</span></code>)</p></li>
+<li><p><strong>Coordinates with:</strong> <code class="docutils literal notranslate"><span class="pre">sweeper</span></code> (label schema overlap)</p></li>
+<li><p><strong>Tested via:</strong> unit tests in <code class="docutils literal notranslate"><span class="pre">asi/api/v1</span></code> and <code class="docutils literal notranslate"><span class="pre">asi/internal/asicore</span></code></p></li>
+</ul>
+</section>
+<section id="hazards">
+<h2>Hazards<a class="headerlink" href="#hazards" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>No status field</strong> populated yet — observability of failed IAM binds
+must come from controller logs.</p></li>
+<li><p><strong>iam.serviceAccountAdmin is a powerful role</strong> — over-broad if granted
+at project level; prefer per-SA grants.</p></li>
+<li><p><strong>Finalizer can hang</strong> if the GCP SA is deleted out-of-band; manual
+<code class="docutils literal notranslate"><span class="pre">kubectl</span> <span class="pre">patch</span></code> to drop the finalizer is the documented escape
+hatch.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="argocd.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">argocd/</span></code> — GitOps app-of-apps</a></li>
+      <li>Next: <a href="sweeper.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">sweeper/</span></code> — pod-labelling controller</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/asi.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

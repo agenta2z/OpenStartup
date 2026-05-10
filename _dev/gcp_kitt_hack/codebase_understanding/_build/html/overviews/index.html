@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Cross-cutting overviews &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Multi-axis matrix of every directory" href="01-multi-axis-matrix.html" />
+    <link rel="prev" title="GCP KITT — Codebase Understanding Documentation" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="cross-cutting-overviews">
+<h1>Cross-cutting overviews<a class="headerlink" href="#cross-cutting-overviews" title="Link to this heading">¶</a></h1>
+<p>These three overview documents are the <strong>best entry-points for any
+high-level question</strong> about <code class="docutils literal notranslate"><span class="pre">gcp_kitt</span></code> (size, narrative, criticality).</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="01-multi-axis-matrix.html">Multi-axis matrix of every directory</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html#axis-1-size-language-primary-purpose">Axis 1 – Size, language, primary purpose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html#axis-2-language-distribution-whole-repo">Axis 2 – Language distribution (whole repo)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html#axis-3-platform-tier">Axis 3 – Platform tier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html#axis-4-primary-external-integrations">Axis 4 – Primary external integrations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html#axis-5-cross-reference-to-per-module-documentation">Axis 5 – Cross-reference to per-module documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="02-architectural-narrative.html">Architectural narrative — a walking tour</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#setting-the-scene">Setting the scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-1-cli-parses-the-command-dtecli">Step 1 – CLI parses the command (<code class="docutils literal notranslate"><span class="pre">dtecli/</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-2-optional-web-ui-hop-dte-web">Step 2 – Optional Web UI hop (<code class="docutils literal notranslate"><span class="pre">dte-web/</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-3-distributed-client-receives-the-request-amp-distributed-client-main-go">Step 3 – Distributed Client receives the request (<code class="docutils literal notranslate"><span class="pre">amp/distributed-client/main.go</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-4-temporal-worker-picks-up-the-workflow-amp-distributed-worker-main-go">Step 4 – Temporal Worker picks up the workflow (<code class="docutils literal notranslate"><span class="pre">amp/distributed-worker/main.go</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-5-activity-reaches-the-remote-cluster-helpers-go-cluster-db-go">Step 5 – Activity reaches the remote cluster (<code class="docutils literal notranslate"><span class="pre">helpers.go</span></code> + <code class="docutils literal notranslate"><span class="pre">cluster_db.go</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#step-6-result-returns-to-the-user">Step 6 – Result returns to the user</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#where-the-operators-fit-in">Where the operators fit in</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#where-the-runbooks-fit-in">Where the runbooks fit in</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#how-everything-is-deployed">How everything is deployed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#why-so-many-go-mod-files">Why so many <code class="docutils literal notranslate"><span class="pre">go.mod</span></code> files?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html#end-of-narrative">End of narrative</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="03-criticality-dashboard.html">Criticality dashboard (SRE / on-call lens)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#methodology">Methodology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#critical-failure-stops-cluster-bring-up-or-operator-workflows">CRITICAL — failure stops cluster bring-up or operator workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#high-significant-degradation-but-no-full-outage">HIGH — significant degradation but no full outage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#medium-operator-inconvenience-but-workloads-keep-running">MEDIUM — operator inconvenience but workloads keep running</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#low-sample-canary-utility">LOW — sample / canary / utility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html#on-call-quick-links">On-call quick links</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Cross-cutting overviews</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="01-multi-axis-matrix.html">Multi-axis matrix of every directory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-architectural-narrative.html">Architectural narrative — a walking tour</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-criticality-dashboard.html">Criticality dashboard (SRE / on-call lens)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Per-module catalog</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">GCP KITT — Codebase Understanding Documentation</a></li>
+      <li>Next: <a href="01-multi-axis-matrix.html" title="next chapter">Multi-axis matrix of every directory</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/overviews/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

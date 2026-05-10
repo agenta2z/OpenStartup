@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>monitoring/ — Prometheus + Grafana for Temporal/dtaske &#8212; GCP KITT — Codebase Understanding 2026-05-08 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=3e6471df"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vocalno/ — Volcano batch scheduler" href="vocalno.html" />
+    <link rel="prev" title="logging/ — Fluent Bit → Elasticsearch ingest pipeline" href="logging.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="monitoring-prometheus-grafana-for-temporal-dtaske">
+<h1><code class="docutils literal notranslate"><span class="pre">monitoring/</span></code> — Prometheus + Grafana for Temporal/dtaske<a class="headerlink" href="#monitoring-prometheus-grafana-for-temporal-dtaske" title="Link to this heading">¶</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">monitoring/</span></code> (10 files) reuses the <strong>Prometheus + Grafana</strong> charts
+already deployed by the platform Temporal Helm release and:</p>
+<ol class="arabic simple">
+<li><p>Patches the Prometheus <code class="docutils literal notranslate"><span class="pre">ConfigMap</span></code> to scrape the <code class="docutils literal notranslate"><span class="pre">dtaske</span></code>
+namespace (and any other namespace via regex).</p></li>
+<li><p>Provisions four pre-built Grafana dashboards covering Temporal,
+KEDA, PostgreSQL and Redis.</p></li>
+<li><p>Configures Grafana persistence (10 GiB EBS GP3 PVC).</p></li>
+</ol>
+</section>
+<section id="tech-stack">
+<h2>Tech stack<a class="headerlink" href="#tech-stack" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Prometheus</strong> + <strong>Grafana</strong> (charts owned by the temporal release)</p></li>
+<li><p><strong>YAML</strong> + <strong>Bash</strong> + <strong>jq</strong> for ConfigMap surgery</p></li>
+</ul>
+</section>
+<section id="inventory">
+<h2>Inventory<a class="headerlink" href="#inventory" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/helmfile.yaml</span></code></p></td>
+<td><p>Helm chart references (temporal-prometheus, temporal-grafana)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/PROMETHEUS_DTASKE_UPDATE.md</span></code></p></td>
+<td><p>ConfigMap patching guide</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/update-prometheus-dtaske.sh</span></code></p></td>
+<td><p>Automated jq-based ConfigMap update</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/temporal-grafana-values.yaml</span></code></p></td>
+<td><p>Persistence config (10 GiB EBS GP3)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/.helmfile.d/values.yaml</span></code></p></td>
+<td><p>ES / Kibana host configuration</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/grafana-keda-scaledobjects.json</span></code></p></td>
+<td><p>KEDA autoscaling dashboard</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/grafana-postgres-overview.json</span></code></p></td>
+<td><p>PostgreSQL dashboard</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/grafana-redis-overview.json</span></code></p></td>
+<td><p>Redis dashboard</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/grafana-temporal-dashboard.json</span></code></p></td>
+<td><p>Temporal workflow / task-queue dashboard</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">monitoring/README.md</span></code></p></td>
+<td><p>Setup &amp; dashboard import instructions</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="recording-rules">
+<h2>Recording rules<a class="headerlink" href="#recording-rules" title="Link to this heading">¶</a></h2>
+<p>Documented in <code class="docutils literal notranslate"><span class="pre">PROMETHEUS_DTASKE_UPDATE.md</span></code> for <code class="docutils literal notranslate"><span class="pre">dte-service-capture</span></code>
+metric aggregations (Temporal task / workflow rates).</p>
+</section>
+<section id="build-deploy">
+<h2>Build &amp; deploy<a class="headerlink" href="#build-deploy" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./update-prometheus-dtaske.sh<span class="w">           </span><span class="c1"># patches ConfigMap</span>
+kubectl<span class="w"> </span>get<span class="w"> </span>configmap<span class="w"> </span>temporal-prometheus-server<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-n<span class="w"> </span>temporal<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.prometheus\.yml}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;regex:&quot;</span>
+<span class="c1"># Force pod restart to pick up new ConfigMap</span>
+kubectl<span class="w"> </span>delete<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>temporal<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>prometheus
+kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>temporal<span class="w"> </span>svc/temporal-prometheus-server<span class="w"> </span><span class="m">9090</span>:80
+<span class="c1"># Grafana UI: http://temporal-grafana.fqk5.kitt-inf.net</span>
+</pre></div>
+</div>
+</section>
+<section id="integration-with-gcp-kitt">
+<h2>Integration with gcp_kitt<a class="headerlink" href="#integration-with-gcp-kitt" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Reuses:</strong> the Prometheus + Grafana from <code class="docutils literal notranslate"><span class="pre">helmfile/</span></code>’s Temporal
+release</p></li>
+<li><p><strong>Scrape targets:</strong> <code class="docutils literal notranslate"><span class="pre">temporal-services-servicemonitors.yaml</span></code> (in
+<code class="docutils literal notranslate"><span class="pre">helmfile/</span></code>)</p></li>
+<li><p><strong>Dashboards consumed by:</strong> any team running workloads in <code class="docutils literal notranslate"><span class="pre">dtaske</span></code></p></li>
+</ul>
+</section>
+<section id="hazards">
+<h2>Hazards<a class="headerlink" href="#hazards" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>ConfigMap edits do not auto-reload.</strong> Must delete the Prometheus
+pod after every <code class="docutils literal notranslate"><span class="pre">update-prometheus-dtaske.sh</span></code> run.</p></li>
+<li><p><strong>Namespace regex is OR-pipe</strong> (<code class="docutils literal notranslate"><span class="pre">|</span></code>) — must update both
+<code class="docutils literal notranslate"><span class="pre">kubernetes-service-endpoints</span></code> and <code class="docutils literal notranslate"><span class="pre">kubernetes-pods</span></code> jobs.</p></li>
+<li><p><strong>Grafana persistence path</strong> <code class="docutils literal notranslate"><span class="pre">/var/lib/grafana</span></code> — without the PVC,
+pod restarts wipe all custom dashboards.</p></li>
+<li><p><strong>Dashboards imported manually via UI</strong> — drift between repo JSON and
+live UI is common; treat repo as source of truth.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">GCP KITT — Codebase Understanding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting overviews</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overviews/index.html">Cross-cutting overviews</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Per-module catalog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Per-module catalog</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="index.html#distributed-task-execution-dte">Distributed Task Execution (DTE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#helm-deployed-platform">Helm-deployed platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#kubernetes-operators">Kubernetes operators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#temporal-workflow-services">Temporal workflow services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#edge-sidecar-services">Edge / sidecar services</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#observability-stack">Observability stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#batch-gpu-workloads">Batch / GPU workloads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#cryptography-routing-libs">Cryptography &amp; routing libs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#lambda-serverless">Lambda / serverless</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reporting-analytics">Reporting &amp; analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#reference-workloads-misc">Reference workloads &amp; misc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#at-a-glance-counts">At-a-glance counts</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Per-module catalog</a><ul>
+      <li>Previous: <a href="logging.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">logging/</span></code> — Fluent Bit → Elasticsearch ingest pipeline</a></li>
+      <li>Next: <a href="vocalno.html" title="next chapter"><code class="docutils literal notranslate"><span class="pre">vocalno/</span></code> — Volcano batch scheduler</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Atlassian KITT team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/modules/monitoring.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
