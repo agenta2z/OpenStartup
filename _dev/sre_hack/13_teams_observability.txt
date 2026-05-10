@@ -1,1 +1,0 @@
-stdout=/tmp/twg/1777672705/run.WVXREj/stdout.json

@@ -18,3 +18,9 @@ roles/
 
 # Temp files
 tmp_rovodev_*
+
+# Development directories (tracked on dev branch, ignored on main)
+_dev/
+_archive/
+_docs/
+_plan/
