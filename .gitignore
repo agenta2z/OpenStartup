@@ -16,5 +16,15 @@ roles/
 *.jsonl
 *.jsonl.parts/
 
+# System files
+.DS_Store
+Thumbs.db
+*.pid
+.venv_v2.path
+
+# IDE
+.idea/
+.vscode/
+
 # Temp files
 tmp_rovodev_*

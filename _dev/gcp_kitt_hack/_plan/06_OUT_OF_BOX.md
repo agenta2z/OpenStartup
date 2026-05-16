@@ -1,5 +1,7 @@
 # Out-of-Box / Strategic Refactor Proposals
 
+> **See also:** [`helmfile_enhancement_plan/02_FINDINGS_CATALOG.md`](helmfile_enhancement_plan/02_FINDINGS_CATALOG.md) Appendix B + C — OOB-1, OOB-2, OOB-6 are mirrored into the helmfile-specific plan as **HF-46** (`pkg/dte` extraction), **HF-47** (`pkg/clusterauth` extraction), and **HF-49** (`pkg/observability` GitOps fabric). OOB-3, OOB-4, OOB-5 stay in this file as their canonical home (sweeper + scraper-only items).
+
 > Reserved for **larger-effort** ideas that require a real business case. Each proposal lists the **cost**, the **expected gain**, the **alternative** (do-nothing or smaller fix), and a **PR sequencing plan** (because no large refactor should ever land in one PR).
 
 ---

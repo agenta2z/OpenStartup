@@ -1,5 +1,7 @@
 # Findings Catalog
 > Every finding is normalized to: **id**, **file:line**, **current behaviour**, **quantified impact**, **risk**, **fix sketch**, **type**, **score**.
+> **See also:** [`helmfile_enhancement_plan/02_FINDINGS_CATALOG.md`](helmfile_enhancement_plan/02_FINDINGS_CATALOG.md) for the helmfile-specific findings catalog (49 entries: HF-01..HF-49). The A1/A2/E2 items below have child entries HF-43/44/45 with file:line evidence and verified diff numbers.
+
 > Findings are grouped by component prefix:
 > - **A** = DTE distributed-client / distributed-worker (`amp/*` and `helmfile/dte/*`)
 > - **B** = Scraper (`scraper/temporal-pg-redis/*`)

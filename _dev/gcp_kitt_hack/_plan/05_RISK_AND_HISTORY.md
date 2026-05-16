@@ -1,5 +1,7 @@
 # Risk Register & Recent-History Cross-Check
 
+> **See also:** [`helmfile_enhancement_plan/05_RISK_AND_VALIDATION.md`](helmfile_enhancement_plan/05_RISK_AND_VALIDATION.md) for the helmfile-specific risk register (22 per-PR risks + 6 integration risks R-INT-1..R-INT-6 + 10 refuted parent claims with file:line counter-evidence). The R12, R-S3, R-S4 entries below are mirrored into the child plan as meta-risks against HF-46, HF-01/HF-31, and HF-43.
+
 > Per the user's hard constraints: "double-check if your plan aligns or conflicts with historical development".
 > This file maps each risky proposal to the recent commits that touched the same area, asks the "did they remove this on purpose?" question, and gives the mitigation.
 

@@ -999,5 +999,79 @@ with:
 #. Owner / sponsor names
 
 This is a **process improvement** that would unblock multiple downstream
+work and is recommended as a follow-up.
+
+==================================================
+18. BOOST Plan v1 (added 2026-05-14)
+==================================================
+
+**Source**: ``_dev/convo_ai_hack/_plan/convo_ai_boost2/BOOST_PLAN_v1.md``
+
+The **BOOST plan** is the third wave of opportunities, layered on top of
+the v7 Integrated Plan and the 18 currently-open PRs (catalogued under
+``_dev/convo_ai_hack/open_prs/INDEX.md``). It contains **23 NEW
+high-impact items** across 4 workstreams:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 12 22 22 22
+
+   * - Workstream
+     - Items
+     - Goal anchor
+     - Headline impact
+     - Top item
+   * - **B-Refactor**
+     - 6 (R1, R2, R5, R6, R8, R10)
+     - Dev velocity + reliability
+     - ~3,000 LoC removed; consistent retry/DLQ across handlers
+     - **R8** TCS cache consolidation (-15-20% perm-check latency)
+   * - **B-Reliability+**
+     - 6 (S1-S6)
+     - 99.85% chat SLO + Trust pillar
+     - 0 silent memory-loss; 0 duplicate post-workflow mutations
+     - **S1** Fire-and-forget DLQ for memory ingest
+   * - **B-Cost+**
+     - 10 (X1-X10)
+     - $168-290K/mo cost (additive)
+     - **+ -$30-73K/mo additive**
+     - **X7** Sonnet → Haiku for routing/classification (-$16.8-43.5K/mo)
+   * - **B-Latency+**
+     - 5 (Y1-Y5)
+     - TTFB / p99 + 150k MAU activation
+     - -700-2,500ms p95 TTFB
+     - **Y3** Parallel tool-call execution (-500-2,000ms p95 multi-tool)
+
+**Status**: PROPOSED 2026-05-14. Pending v7 measurement infra (M1-M9)
+being live before any BOOST claim can be validated.
+
+**Companion docs**:
+
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/BOOST_PLAN_v1.md` —
+  master plan (TOP-12 + sequencing + anti-goals + cut-tier)
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/BUSINESS_GOALS_DELTA.md` —
+  what changes vs this document
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/boost_items/B-Refactor.md`
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/boost_items/B-Reliability+.md`
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/boost_items/B-Cost+.md`
+* :file:`_dev/convo_ai_hack/_plan/convo_ai_boost2/boost_items/B-Latency+.md`
+
+**3 NEW measurement plan items** (added to v7 §6):
+
+* **M10** — BOOST cost claims (X-series): per-feature token attribution panel
+* **M11** — BOOST refactor velocity: per-week LoC-removed counter
+* **M12** — BOOST silent-bug counters: DLQ depth, duplicate-post-workflow, etc.
+
+**5 NEW anti-goals** (added to v7 §8):
+
+37. Do not ship X7 without LLM-judge accuracy A/B test demonstrating ≤5pp delta
+38. Do not ship R1/R5/R6/R10 refactors without v7's E-series PRs landing first
+39. Do not promote Y3 (parallel tool calls) to >5% rollout until R-6A live ≥7 days
+40. Do not measure BOOST cost claims using LLM-token counters alone — use M4 Socrates
+41. Do not refactor a class because it is "ugly" — must show measurable velocity / reliability impact within 6 weeks
+
+**Original section text follows for archive purposes:**
+
+This is a **process improvement** that would unblock multiple downstream
 docs (this file, :doc:`05-open-questions-resolved`, and any future
 quarterly reviews).

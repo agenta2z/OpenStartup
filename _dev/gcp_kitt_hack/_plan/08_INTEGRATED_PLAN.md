@@ -8,6 +8,19 @@
 
 ---
 
+## See also: helmfile_enhancement_plan/ (added 2026-05-11)
+
+The H-SERIES section below is **deepened and operationalised** in the sibling directory:
+
+- **`helmfile_enhancement_plan/00_README.md`** — index for a 7-file, ~2 800-line plan family that decomposes the 22 H-series helmfile findings into PR-quality artifacts (file:line + unified diff + acceptance + rollback + risk-of-being-wrong).
+- **`helmfile_enhancement_plan/04_PR_BREAKDOWN.md`** — every HF-NN finding decomposed into one PR.
+- **`helmfile_enhancement_plan/06_TESTING_STRATEGY.md`** — 5-layer testing pyramid (lint → unit → contract → smoke → chaos) + 12 PR-T-NN testing-infrastructure patches that wire CI/lint/contract/E2E/chaos around the HF-NN PRs. Maps every HF acceptance command to a testing layer + runner.
+- **`helmfile_enhancement_plan/patches/`** — 12 git-apply-ready unified diffs (`PR-T-01.patch` … `PR-T-12.patch`) for the testing infrastructure.
+
+**When in doubt, the helmfile_enhancement_plan files are MORE current and MORE evidence-grounded** than the H-SERIES summary tables in this file. The summaries here are receipts of the original investigation; the sibling plan is the ship-it artifact.
+
+---
+
 ## TL;DR — what changed and why
 
 The two plans are **complementary, not redundant**. A critical-validation pass (using `bash` against the actual source) found:

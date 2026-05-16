@@ -21,6 +21,7 @@
 | `06_OUT_OF_BOX.md` | Innovative refactor proposals (consolidation, observability fabric) |
 | `07_STABILITY_PLAN.md` | **EPIC P0-S** (Stability) — added 2026-05-08 in response to user crash report; ships as Phase 0.5 |
 | **`08_INTEGRATED_PLAN.md`** | **CANONICAL merged plan (2026-05-08)** — reconciles `07_STABILITY_PLAN.md` with `~/.claude/plans/taking-a-deep-look-modular-hopper.md`; adds 10 scraper-deep findings (N1–N10), 5 cross-cutting gaps (G1–G5); drops 4 validation-refuted claims. **Read this first.** |
+| **`helmfile_enhancement_plan/`** | **Helmfile-specific child plan (2026-05-11) — END-TO-END INTEGRATED.** 49 findings (HF-01..HF-49), 22 PR-HF + 12 PR-T patches, full testing strategy with 5-layer pyramid + git-apply-ready `patches/*.patch`. All helmfile-relevant content from this directory is captured here as either an HF entry or an OUT-OF-SCOPE disposition. **Read after 08_INTEGRATED_PLAN.md when working on `atlassian_packages/gcp_kitt/helmfile/`.** |
 
 The plan is intentionally **structured for both humans and machine-followable agents** (each PR has a stable ID, branch suggestion, file list, and acceptance metrics).
 

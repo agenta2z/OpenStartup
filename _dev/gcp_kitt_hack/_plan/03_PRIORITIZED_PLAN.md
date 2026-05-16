@@ -1,5 +1,7 @@
 # Prioritized Plan (P0 → P3)
 
+> **See also:** [`helmfile_enhancement_plan/03_PRIORITIZED_PLAN.md`](helmfile_enhancement_plan/03_PRIORITIZED_PLAN.md) for the helmfile-specific tier-by-tier sequencing of HF-01..HF-49 across a 15-day rollout (T0/T1/T2/T3 + Q3 strategic backlog). PHASE0-CI rule (drift-fence amp↔helmfile/dte) is mirrored as **HF-45** with a concrete CI patch in `helmfile_enhancement_plan/patches/PR-T-01.patch`.
+
 > Each item lists: **scope, target metric movement, dependencies, owner-hint, time-box.**
 > Items reference findings in `02_FINDINGS_CATALOG.md` and PRs in `04_PR_BREAKDOWN.md`.
 

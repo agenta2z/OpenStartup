@@ -2,6 +2,8 @@
 **Trigger:** User report — *"the current service is unstable and very often crashes"*.
 **Status:** This file is a **NEW EPIC P0-S** added on top of the existing plan in this directory.
 
+> **See also:** [`helmfile_enhancement_plan/02_FINDINGS_CATALOG.md`](helmfile_enhancement_plan/02_FINDINGS_CATALOG.md) Appendix C — **S4** (DTE HTTP listener `os.Exit`) is mirrored as **HF-27** in the helmfile-specific plan. The remaining S-series items (S1, S2, S3, S5–S15) are explicitly OUT-OF-SCOPE for the helmfile child plan because they live under `kitt-runbooks/`, `scraper/`, `iam-sidecar/`, `asi/`, `forgeapp-controller/`, or `k8s-metadata-collector/`. Disposition for each S-item is documented in the child plan's Appendix C.
+
 ---
 
 ## TL;DR — alignment with the existing plan

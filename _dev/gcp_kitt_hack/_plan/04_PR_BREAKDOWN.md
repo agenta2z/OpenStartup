@@ -14,6 +14,8 @@
 
 ## Phase 0 — Observability + drift fence
 
+> **See also:** [`helmfile_enhancement_plan/04_PR_BREAKDOWN.md`](helmfile_enhancement_plan/04_PR_BREAKDOWN.md) and [`helmfile_enhancement_plan/patches/`](helmfile_enhancement_plan/patches/) for the helmfile-specific PR breakdown (22 PR-HF-NN + 12 PR-T-NN PRs with branch names, unified diffs, acceptance commands, and rollback commands). PR-PHASE0-01 below is mirrored as **HF-48**; PR-PHASE0-04 is mirrored as **HF-45**.
+
 ### `PR-PHASE0-01` Add Prom metrics + `/metrics` to DTE worker (amp + helmfile copies)
 - Branch: `chore/dte-worker-metrics`
 - Files: `amp/distributed-worker/main.go`, `helmfile/dte/distributed-worker/main.go`, new `pkg/metrics/metrics.go` (or per-binary if no shared module yet)
