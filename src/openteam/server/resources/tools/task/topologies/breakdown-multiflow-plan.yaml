@@ -46,7 +46,7 @@
 # (OmegaConf resolves ${_params.*} from the config root).
 _params:
   workspace_root: ???                # REQUIRED: injected by _run_topology via overrides
-  default_inferencer: ClaudeCodeCLI
+  default_inferencer: RovoDevCLI
   plan_max_breakdown: 3
   flow_max_dynamic_steps: 3
   consensus_max_iterations: 3
@@ -67,7 +67,7 @@ _template_manager:
     - ${templates_dir}
     - ${modpath:agent_foundation.resources.prompt_templates}
   active_template_type: main
-  predefined_variables: false
+  predefined_variables: true
   default_template_key: initial
   enable_templated_feed: true
 
