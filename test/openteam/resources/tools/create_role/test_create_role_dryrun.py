@@ -378,7 +378,7 @@ class TestPipelineWiring:
                 f"Expected RovoDevCliInferencer, got "
                 f"{type(inferencer.aggregator_inferencer).__name__}"
             )
-            assert inferencer.aggregator_inferencer.working_dir == tmpdir
+            assert inferencer.aggregator_inferencer.effective_cwd == tmpdir
             assert inferencer.aggregator_inferencer.yolo is True
             # agent_mode not used with acli
 

@@ -1,5 +1,6 @@
 {
   "name": "role_setup",
+  "slash_enabled": true,
   "asynchronous": true,
   "is_bridge": true,
   "executor": "openteam.server.resources.tools.role_setup.executor:execute",

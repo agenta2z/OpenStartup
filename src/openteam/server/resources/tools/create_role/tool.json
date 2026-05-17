@@ -1,5 +1,6 @@
 {
   "name": "create_role",
+  "slash_enabled": true,
   "asynchronous": true,
   "is_bridge": true,
   "executor": "openteam.server.resources.tools.create_role.executor:execute",

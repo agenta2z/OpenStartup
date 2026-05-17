@@ -122,11 +122,17 @@ def run_cli(
         print(f"[cli] error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
 
-    if isinstance(result, dict):
-        print(result.get("text", ""))
-        ctx = result.get("context_updates")
-        if ctx:
-            print(f"\n[workspace] {ctx.get('workspace_path', '')}", file=sys.stderr)
+    if hasattr(result, "result") and hasattr(result, "context_updates"):
+        print(result.result or "", flush=True)
+        ctx = result.context_updates or {}
+    elif isinstance(result, dict):
+        print(result.get("result") or result.get("text") or "", flush=True)
+        ctx = result.get("context_updates") or {}
     else:
-        print(result)
+        print(str(result), flush=True)
+        ctx = {}
+
+    for key, value in sorted(ctx.items()):
+        if (key.endswith("_path") or key.endswith("_dir")) and isinstance(value, str) and value:
+            print(f"[{key}] {value}", file=sys.stderr)
     return 0

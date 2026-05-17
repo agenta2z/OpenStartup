@@ -1,4 +1,4 @@
-"""Standalone CLI for the create_role tool."""
+"""Standalone CLI for the project_onboarding executor."""
 from openteam.bootstrap import ensure_siblings_on_path
 ensure_siblings_on_path()
 

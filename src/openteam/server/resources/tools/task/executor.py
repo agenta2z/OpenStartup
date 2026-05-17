@@ -367,7 +367,11 @@ async def _run_topology(
     #     The YAML's `_params.workspace_root: ???` (MISSING sentinel) fails
     #     loud at load time if the override is missing.
     #   - ClaudeCodeCli / KiroCli (single-leaf YAMLs) → use `target_path`.
-    overrides.setdefault("target_path", str(working_dir))
+    #   - `_target_path` (underscore prefix) cascades to ALL descendant
+    #     leaves via _instantiate.py's auto-injection mechanism. Without
+    #     the prefix, only the root node gets it — children fall through
+    #     to os.getcwd() (a narrow per-task subdir).
+    overrides.setdefault("_target_path", str(working_dir))
     overrides["_params.workspace_root"] = str(working_dir)
     if resume_workspace:
         overrides["resume_workspace"] = str(working_dir)
@@ -486,14 +490,14 @@ async def _run_topology(
         keys = list(cfg.keys()) if isinstance(cfg, dict) else "(non-dict cfg)"
         return _error(f"Instantiation failed: {exc}\nTopology root keys: {keys}")
 
-    interactive = sc.get("interactive")
-    if interactive is not None and task_id:
-        try:
-            from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
-            inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
-            _logger.info("[task] WebSocketGraphReporter attached (task_id=%s)", task_id)
-        except Exception as exc:
-            _logger.warning("[task] graph_reporter attach failed: %s", exc)
+    try:
+        from agent_foundation.ui.graph_reporter_factory import make_graph_reporter
+        inferencer.graph_reporter = make_graph_reporter(sc, task_id)
+        if inferencer.graph_reporter is not None:
+            _logger.info("[task] graph_reporter attached: %s",
+                         type(inferencer.graph_reporter).__name__)
+    except Exception as exc:
+        _logger.warning("[task] graph_reporter attach failed: %s", exc)
 
     # /task-confirm: PTI's enable_checkpoint_plan_review (set above) routes to
     # async-native checkpoint_plan_review which uses asend_response/aget_input —

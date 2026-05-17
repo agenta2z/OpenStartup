@@ -434,7 +434,7 @@ def build_create_role_inferencer(
     # 3. Aggregator inferencer (no wrapper — prompt injected via builder)
     if aggregator_type == "rovodev":
         rovodev_kwargs = dict(
-            working_dir=aggregator_working_dir or ".",
+            target_path=aggregator_working_dir or ".",
             yolo=True,
         )
         if streaming_cache_dir:

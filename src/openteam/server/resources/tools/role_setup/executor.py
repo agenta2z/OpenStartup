@@ -310,6 +310,8 @@ def build_breakdown_only(
 
     # Build breakdown inferencer — uses RovoDevCliInferencer for local file access
     rovodev_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
+    if workspace_root:
+        rovodev_kwargs["target_path"] = workspace_root
     if inferencer_logger is not None:
         rovodev_kwargs["logger"] = inferencer_logger
     breakdown_inf = RovoDevCliInferencer(
@@ -490,6 +492,8 @@ def _build_inner_bta(
 
     # Inner breakdown uses RovoDevCliInferencer for local file access
     rovodev_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
+    if workspace_root:
+        rovodev_kwargs["target_path"] = workspace_root
     if streaming_cache_dir:
         rovodev_kwargs["cache_folder"] = streaming_cache_dir
     if inferencer_logger is not None:
@@ -518,6 +522,8 @@ def _build_inner_bta(
         if use_rovodev:
             _logger.info("  Inner worker %d (INVESTIGATION/%s): %.60s...", index, preamble_name, sub_query)
             rovodev_worker_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
+            if workspace_root:
+                rovodev_worker_kwargs["target_path"] = workspace_root
             if streaming_cache_dir:
                 rovodev_worker_kwargs["cache_folder"] = streaming_cache_dir
             if inferencer_logger is not None:
@@ -560,7 +566,7 @@ def _build_inner_bta(
     # Inner aggregator
     if aggregator_type == "rovodev":
         agg_kwargs = dict(
-            working_dir=aggregator_working_dir or ".",
+            target_path=aggregator_working_dir or ".",
             yolo=True,
         )
         if streaming_cache_dir:
@@ -774,7 +780,7 @@ def build_role_setup_inferencer(
     # === Outer Aggregator ===
     if aggregator_type == "rovodev":
         outer_agg_kwargs = dict(
-            working_dir=aggregator_working_dir or ".",
+            target_path=aggregator_working_dir or ".",
             yolo=True,
         )
         if streaming_cache_dir:
@@ -1097,6 +1103,8 @@ def build_inner_research_only(
         if use_rovodev:
             _logger.info("  Worker %d (INVESTIGATION/%s): %.60s...", index, preamble_name, sub_query)
             rovodev_worker_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
+            if workspace_root:
+                rovodev_worker_kwargs["target_path"] = workspace_root
             if streaming_cache_dir:
                 rovodev_worker_kwargs["cache_folder"] = streaming_cache_dir
             worker_inf = RovoDevCliInferencer(**rovodev_worker_kwargs)
@@ -1136,13 +1144,16 @@ def build_inner_research_only(
         return inference_input
 
     # 6. Build BTA — workers only (breakdown is pre-done, aggregation is noop)
+    bta_breakdown_kwargs = dict(
+        yolo=True,
+        template_manager=tm,
+        template_key="initial",
+        template_root_space="task_breakdown",
+    )
+    if workspace_root:
+        bta_breakdown_kwargs["target_path"] = workspace_root
     bta = BreakdownThenAggregateInferencer(
-        breakdown_inferencer=RovoDevCliInferencer(
-            yolo=True,
-            template_manager=tm,
-            template_key="initial",
-            template_root_space="task_breakdown",
-        ),
+        breakdown_inferencer=RovoDevCliInferencer(**bta_breakdown_kwargs),
         breakdown_parser=parse_inner_breakdown_response,
         worker_factory=worker_factory,
         task_type_arg_name="task_preamble",

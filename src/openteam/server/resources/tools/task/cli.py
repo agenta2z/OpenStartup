@@ -9,10 +9,13 @@ Usage::
     python -m openteam.server.resources.tools.task "Write docs" --agent-config breakdown-multiflow-plan
     python -m openteam.server.resources.tools.task "Refactor API" --model opus
 """
-from pathlib import Path
+from openteam.bootstrap import ensure_siblings_on_path
+ensure_siblings_on_path()
 
-from openteam.server.services.tool_cli import run_cli
-from .executor import execute
+from pathlib import Path  # noqa: E402
+
+from openteam.server.services.tool_cli import run_cli  # noqa: E402
+from .executor import execute  # noqa: E402
 
 _TOOL_JSON = Path(__file__).parent / "tool.json"
 _MODE_MUTEX = [{"--plan", "--execute", "--full", "--confirm"}]
