@@ -930,11 +930,10 @@ async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
     overrides = {
         # Critical: swap leaves to RovoDevCLI (or whatever caller chose)
         "_params.default_inferencer": "RovoDevCLI",
-        # _target_path cascade points at the codebase to investigate. Reaches
-        # ClaudeCodeCli leaves only (RovoDevCli has no `target_path` attrib —
-        # the cascade auto-injection at _instantiate.py:487 silently skips
-        # leaves that don't accept the param). RovoDevCli reads the codebase
-        # via its tool calls inside the prompt instead.
+        # _target_path cascade points at the codebase to investigate. After
+        # the axes refactoring, ALL terminal leaves (including RovoDevCli)
+        # inherit target_path from TerminalInferencerBase — the cascade
+        # reaches every leaf and sets their subprocess cwd via effective_cwd.
         "_target_path": str(PAI_CODEBASE_PATH),
         # Templates: still load from OpenStartup (the topology lives here).
         "templates_dir": str(TEMPLATES_DIR),
@@ -1120,6 +1119,215 @@ async def test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd
 
 
 # ===========================================================================
+# Test 4: Real-CLI subprocess test — invokes `python -m openteam.server.resources.tools.task`
+# ===========================================================================
+#
+# Why this exists (Hybrid Option C from PTI preflight plan v1.0):
+#
+# The other test methods (test_real_dual_outside_bta_pti_mfdual_dual,
+# test_real_pai_codebase_understanding_with_rovodev,
+# test_plan_only_pai_codebase_understanding_with_rovodev) all call
+# `_run_topology(...)` directly. That bypasses 6 distinct code paths
+# that live in the actual CLI module:
+#
+#   1. Argument parsing (argparse via tool.json)
+#   2. Mode flag mutex (--plan / --execute / --full / --confirm)
+#   3. --override key-value parsing
+#   4. Topology name → YAML resolution
+#   5. Environment variable handling
+#   6. Subprocess exit code propagation
+#
+# This test spawns the actual CLI as a subprocess to validate ALL of those
+# paths. It uses --plan mode and a minimal request to keep cost low (~$1-5).
+#
+# Per Hybrid Option C: this complements (does NOT replace) the in-process
+# tests. The in-process tests give us fast structural feedback; this gives
+# us end-to-end CLI validation.
+
+
+def _build_minimal_cli_smoke_request() -> str:
+    """Minimal request for CLI smoke test — fast, cheap, deterministic."""
+    return (
+        "Write a one-page plan for a simple Python script that prints "
+        "'Hello, World!' to stdout. Include: 1) the script content, "
+        "2) how to run it, 3) expected output. Keep it under 200 lines."
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@pytest.mark.timeout(60 * 60 * 2)  # 2h cap
+async def test_real_cli_subprocess_plan_mode(tmp_path, capfd):
+    """Real-CLI test: spawn `python -m openteam.server.resources.tools.task ...`
+    as a subprocess to validate the full CLI module code path.
+
+    Unlike the other integration tests in this file (which call
+    `_run_topology()` directly), this test exercises:
+      - Argument parsing via tool.json
+      - Mode flag mutex (--plan flag handling)
+      - --override key-value parsing
+      - --agent-config topology resolution
+      - Real subprocess stdout/stderr capture
+      - Exit code propagation
+
+    Uses --plan mode (cheaper, faster) with a minimal request to keep
+    cost ~$1-5. Skipped if acli (Rovo Dev CLI) is not available.
+
+    This is the canonical smoke test for the CLI itself.
+    """
+    if not _cli_available("acli"):
+        pytest.skip("acli (Rovo Dev CLI) not available on PATH")
+
+    import sys as _sys
+
+    # Build the PYTHONPATH the way the production launcher script does.
+    # _HERE is .../OpenStartup/test/openteam/resources/tools/task/
+    # parents[4] = .../OpenStartup
+    openstartup_root = _HERE.parents[4]
+    coreprojects_root = openstartup_root.parent  # .../CoreProjects
+    pythonpath_parts = [
+        str(openstartup_root / "src"),
+        str(coreprojects_root / "AgentFoundation" / "src"),
+        str(coreprojects_root / "RichPythonUtils" / "src"),
+        # OpenTeam (in rovoteam dir, sibling to CoreProjects)
+        str(coreprojects_root.parent / "rovoteam" / "OpenTeam" / "src"),
+    ]
+    existing_pythonpath = os.environ.get("PYTHONPATH", "")
+    if existing_pythonpath:
+        pythonpath_parts.append(existing_pythonpath)
+    pythonpath = ":".join(pythonpath_parts)
+
+    env = {
+        **os.environ,
+        "PYTHONPATH": pythonpath,
+    }
+
+    # Use the plan-only YAML (cheaper, validated working on task-a755c721 +
+    # task-b3d7ea5a). The full PTI YAML can be tested via a separate method
+    # once the PTI preflight plan is complete.
+    request = _build_minimal_cli_smoke_request()
+
+    print(f"\n[real-cli-subprocess] cwd: {openstartup_root}")
+    print(f"[real-cli-subprocess] PYTHONPATH parts: {len(pythonpath_parts)}")
+    print(f"[real-cli-subprocess] request: {request[:80]}...")
+
+    # Optional target_path override: lets the test point RovoDev's CLI subagent
+    # sandbox at a specific codebase (e.g., conversational-ai-platform when the
+    # request asks the agent to investigate that repo). When omitted, subagents
+    # are sandboxed to the workspace directory only (the default behavior).
+    # Pass via env var:  BMP_TARGET_PATH=/abs/path/to/codebase  pytest ...
+    # Or via env var when using the __main__ launcher (--target-path=...).
+    target_path = os.environ.get("BMP_TARGET_PATH", "").strip()
+
+    # Optional request override (lets each run use a different prompt without
+    # editing the source). Pass via env var:  BMP_REQUEST_FILE=/abs/path.txt
+    request_override_file = os.environ.get("BMP_REQUEST_FILE", "").strip()
+    if request_override_file and Path(request_override_file).is_file():
+        request = Path(request_override_file).read_text(encoding="utf-8").strip()
+        print(f"[real-cli-subprocess] request loaded from BMP_REQUEST_FILE "
+              f"({len(request)} chars): {request_override_file}")
+
+    cmd = [
+        _sys.executable, "-m", "openteam.server.resources.tools.task",
+        "--plan",
+        "--agent-config", "breakdown-multiflow-plan",
+        "--override", f"_params.default_inferencer={_DEFAULT_INFERENCER}",
+        "--override", "_params.plan_max_breakdown=2",  # minimal breakdown
+        "--override", "_params.flow_max_dynamic_steps=1",  # minimal iteration
+        "--override", "_params.consensus_max_iterations=1",
+    ]
+    if target_path:
+        # Verify path exists before launching so we fail loudly instead of
+        # silently producing speculative output from sandboxed subagents.
+        if not Path(target_path).is_dir():
+            raise AssertionError(
+                f"BMP_TARGET_PATH={target_path!r} is not a directory. "
+                f"Cannot proceed — subagents would be sandboxed to the "
+                f"workspace and produce shallow speculative output."
+            )
+        cmd.extend(["--override", f"_target_path={target_path}"])
+        print(f"[real-cli-subprocess] _target_path: {target_path}")
+    else:
+        print("[real-cli-subprocess] _target_path: (not set; subagents sandboxed "
+              "to workspace only)")
+    cmd.append(request)
+    print(f"[real-cli-subprocess] cmd: {' '.join(cmd[:5])} ... (request elided)")
+
+    log_path = tmp_path / "cli_subprocess.log"
+    print(f"[real-cli-subprocess] log: {log_path}")
+
+    # Spawn the actual CLI as a subprocess
+    result = subprocess.run(
+        cmd,
+        cwd=str(openstartup_root),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60 * 90,  # 90 minutes max
+    )
+
+    # Persist logs for debugging on failure
+    log_path.write_text(
+        f"=== ARGV ===\n{cmd}\n\n"
+        f"=== RETURNCODE ===\n{result.returncode}\n\n"
+        f"=== STDOUT ===\n{result.stdout}\n\n"
+        f"=== STDERR ===\n{result.stderr}\n"
+    )
+
+    # ----- Exit code -----
+    assert result.returncode == 0, (
+        f"CLI subprocess failed (exit={result.returncode}). "
+        f"Last stderr lines:\n{result.stderr[-3000:]}"
+    )
+
+    # ----- Workspace artifacts -----
+    # The CLI allocates workspaces under
+    # OpenStartup/src/openteam/server/_runtime/tasks/task_task-<hash>/
+    runtime_tasks = (
+        openstartup_root / "src" / "openteam" / "server" / "_runtime" / "tasks"
+    )
+    if runtime_tasks.exists():
+        # Find the workspace created during THIS test (by mtime, most recent)
+        all_workspaces = sorted(
+            runtime_tasks.glob("task_task-*"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        assert all_workspaces, (
+            f"No task workspace created under {runtime_tasks}. "
+            f"Last stdout:\n{result.stdout[-2000:]}"
+        )
+        latest_workspace = all_workspaces[0]
+        print(f"[real-cli-subprocess] workspace: {latest_workspace}")
+
+        # Verify the top-level output.md was produced
+        top_output = latest_workspace / "outputs" / "output.md"
+        assert top_output.exists(), (
+            f"Expected top-level outputs/output.md missing at {top_output}. "
+            f"Workspace contents: {list(latest_workspace.rglob('output.md'))[:10]}"
+        )
+        content = top_output.read_text()
+        assert len(content) > 100, (
+            f"Top-level output.md too short ({len(content)} chars). "
+            f"Content preview: {content[:500]!r}"
+        )
+        print(f"[real-cli-subprocess] top-level output.md: {len(content)} chars")
+
+    # ----- Regression checks: anomalies that prior runs had fixed -----
+    full_log = result.stdout + result.stderr
+    assert "NameError" not in full_log, (
+        f"NameError detected in CLI output (regression of Bug B fix). "
+        f"Excerpt: {full_log[full_log.find('NameError'):full_log.find('NameError') + 500]!r}"
+    )
+    sharing_warnings = full_log.count("share inferencer")
+    assert sharing_warnings == 0, (
+        f"Detected {sharing_warnings} 'share inferencer' warnings "
+        f"(regression of Fix #11 LazyConfigFactory)"
+    )
+    print("[real-cli-subprocess] ✅ All regression checks passed")
+
+
+# ===========================================================================
 # Direct invocation: `python <this_file> [--pai] [--plan]`
 # ===========================================================================
 
@@ -1127,11 +1335,27 @@ if __name__ == "__main__":
     """Run an integration test directly without pytest.
 
     Usage:
-        python test_task_agent_config_brta_with_multiflow_pti.py [--pai] [--plan]
+        python test_task_agent_config_brta_with_multiflow_pti.py [MODE_FLAG] [OPTIONS]
 
-    Without flags: runs the canonical real integration test.
-    --pai: runs the PAI codebase-understanding test (RovoDevCLI default).
-    --plan: runs the plan-only PAI test (standalone planner topology).
+    Mode flags (pick one; omitted = canonical):
+        (none)              canonical real integration test
+        --pai               PAI codebase-understanding test (RovoDevCLI default)
+        --plan              plan-only PAI test (standalone planner topology)
+        --cli-subprocess    real-CLI subprocess test (spawns `python -m
+                            openteam.server.resources.tools.task` as subprocess)
+
+    Options (apply to --cli-subprocess):
+        --target-path=PATH    Absolute path to the codebase that RovoDev's
+                              subagents should sandbox into (e.g.,
+                              /Users/tchen7/MyProjects/atlassian_packages/
+                              conversational-ai-platform). Without this,
+                              subagents are sandboxed to the workspace only
+                              and produce shallow speculative output for any
+                              request that references external paths.
+        --request-file=PATH   Absolute path to a text file containing the
+                              request body (replaces the default minimal smoke
+                              request). Useful for re-running with a specific
+                              prompt without editing the source.
     """
     import asyncio
     import sys
@@ -1150,6 +1374,18 @@ if __name__ == "__main__":
 
     use_pai = "--pai" in sys.argv
     use_plan = "--plan" in sys.argv
+    use_cli_subprocess = "--cli-subprocess" in sys.argv
+
+    # Per-run config flags for the --cli-subprocess test method.
+    # Forwarded via environment variables that the test reads at runtime.
+    # Examples:
+    #   --target-path=/Users/tchen7/MyProjects/atlassian_packages/conversational-ai-platform
+    #   --request-file=/tmp/my_sop_request.txt
+    for _arg in sys.argv[1:]:
+        if _arg.startswith("--target-path="):
+            os.environ["BMP_TARGET_PATH"] = _arg.split("=", 1)[1].strip()
+        elif _arg.startswith("--request-file="):
+            os.environ["BMP_REQUEST_FILE"] = _arg.split("=", 1)[1].strip()
 
     async def _main():
         with tempfile.TemporaryDirectory() as td:
@@ -1159,7 +1395,10 @@ if __name__ == "__main__":
                     return type("R", (), {"out": "", "err": ""})()
             capfd = _StubCapfd()
 
-            if use_plan:
+            if use_cli_subprocess:
+                print(f"[direct-run] mode=cli-subprocess default_inferencer={_DEFAULT_INFERENCER!r}")
+                await test_real_cli_subprocess_plan_mode(tmp_path, capfd)
+            elif use_plan:
                 print(f"[direct-run] mode=plan default_inferencer={_DEFAULT_INFERENCER!r}")
                 await test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
             elif use_pai:

@@ -1,5 +1,6 @@
 {
   "name": "project_onboarding",
+  "slash_enabled": true,
   "asynchronous": true,
   "is_bridge": true,
   "executor": "openteam.server.resources.tools.project_onboarding.executor:execute",

@@ -1,0 +1,6 @@
+[console_scripts]
+openteam-create-role = openteam.server.resources.tools.create_role.cli:main
+openteam-mcp = openteam.mcp_server.cli:app
+openteam-project-onboarding = openteam.server.resources.tools.project_onboarding.cli:main
+openteam-role-setup = openteam.server.resources.tools.role_setup.cli:main
+openteam-task = openteam.server.resources.tools.task.cli:main

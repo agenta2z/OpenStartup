@@ -159,12 +159,15 @@ async def execute(
     cfg = load_config(str(yaml_path), overrides=overrides)
     inferencer = instantiate(cfg)
 
-    # Attach graph reporter for UI visualization
-    interactive = session_context.get("interactive")
-    task_id = session_context.get("task_id", "")
-    if interactive is not None and task_id:
-        from agent_foundation.ui.graph_interactive_adapter import WebSocketGraphReporter
-        inferencer.graph_reporter = WebSocketGraphReporter(interactive, task_id)
+    try:
+        from agent_foundation.ui.graph_reporter_factory import make_graph_reporter
+        task_id = session_context.get("task_id", "")
+        inferencer.graph_reporter = make_graph_reporter(session_context, task_id)
+        if inferencer.graph_reporter is not None:
+            _logger.info("[project_onboarding] graph_reporter attached: %s",
+                         type(inferencer.graph_reporter).__name__)
+    except Exception as exc:
+        _logger.warning("[project_onboarding] graph_reporter attach failed: %s", exc)
 
     # Read project document
     project_doc_text = (

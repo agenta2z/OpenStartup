@@ -186,14 +186,14 @@ def _rovodev_factory(ctx: BackendBuildContext) -> Any:
     )
 
     base = RovoDevCliInferencer(
-        working_dir=ctx.working_dir,
+        target_path=ctx.working_dir,
         idle_timeout_seconds=600,
         tool_use_idle_timeout_seconds=600,
         cache_folder=ctx.cache_dir,
         enable_legacy=True,
     )
     logger.info(
-        "RovoDevCliInferencer initialized (working_dir=%s, acli=%s, cache=%s)",
+        "RovoDevCliInferencer initialized (target_path=%s, acli=%s, cache=%s)",
         ctx.working_dir,
         base.acli_path,
         ctx.cache_dir,
