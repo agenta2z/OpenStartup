@@ -156,5 +156,7 @@ worker_query_fields:
   - description
   - todos
 max_breakdown: ${_params.max_facets}
-debug_mode: true
+# NOTE: cleanup 2026-05-18 — removed `debug_mode: true` here;
+# redundant with top-level `_debug_mode: true` cascade (line 64) which
+# already injects debug_mode=true into BTA itself (Debuggable subclass).
 output_path: "role_document.md"
