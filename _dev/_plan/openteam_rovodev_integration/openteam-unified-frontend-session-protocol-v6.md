@@ -4,90 +4,30 @@
 **Status:** v6 — convergence-round integration of Cursor INTEGRATED-v5 + my v5 — NO architectural changes
 **Date:** 2026-05-17 23:13
 
-## Round-9 patch — 7 valid + 1 rejected from independent v6 audit (2026-05-18 00:04)
+## Revision summary (rounds 5–11 at a glance)
 
-**Verdict matrix (8 audit items, all empirically verified):**
+> **Audience cue:** Casual readers — skip to **§0 TL;DR** below. PR reviewers — scan this table to know what changed. Forensic auditors — open **§17 "Decision history & audit trail"** at the end for per-round evidence matrices, verification protocols, and root-cause analyses.
 
-| # | Sev | Verdict | Evidence + action |
-|---|---|---|---|
-| **C1** | CRIT | ✅ **VALID** — `dataclasses.field(...)` used at line 706 but `from dataclasses import dataclass` only imports `dataclass` (no `field`, no module alias). Module-load NameError. | Line 651: `from dataclasses import dataclass` → `from dataclasses import dataclass, field`. Line 706: `dataclasses.field(...)` → `field(...)`. |
-| **C2** | CRIT | ❌ **REJECTED** — Auditor claims `import sys` missing from §6.5; grep confirms it IS at line 819. | No change. |
-| **C3** | CRIT | ✅ **VALID** — `validate_external_id_safe` invented by Round-7 Mod4; doesn't exist in v3 plan or live codebase. NameError in Server-Mode subprocess. | Replace with try/except `validate_external_id` (raises `ValueError`) with explicit `_already_prefixed` boolean. |
-| **C4** | CRIT | ✅ **VALID** — Round-7 M1 fix moved the call (`svc.attach_or_create_session` → `svc.session_store.attach_or_create_session`) but left the hasattr predicate at line 1157 unchanged. Predicate now ALWAYS False → endpoint ALWAYS 400 → I9 architecture unreachable. | Predicate: `hasattr(svc, "attach_or_create_session")` → `hasattr(svc, "session_store")` (real-mode signal). |
-| **Mod1** | MOD | ✅ **VALID** — I20 introduced `test_no_uvicorn_workers.py` in Round-7; DoD §11 line 1542 still listed 4 (omitted I20's preflight AND I21's from Round-8). | DoD updated to "All 6 CI preflights" with full enumeration including `test_no_uvicorn_workers` (I20) and `test_runtime_root_single_source` (I21). |
-| **Mod2** | MOD | ✅ **VALID** — Round-7 Mod3 rewrote §6.9 to fail-fast `RuntimeError`; R11 mitigation row 1479 still described OLD silent-fallback ("attach_or_create_session with warning"). Reader concludes data loss impossible (FALSE). | R11 rewritten to describe fail-fast policy explicitly + cite Round-7 Mod3 + explain WHY (preserving I9). |
-| **Min1** | MIN | ✅ **VALID** — Footer line 1624: "End of plan v5. Saved at: …INTEGRATED-v5.md" — file is v6. | Footer: v5 → v6 (post-Round-9). |
-| **Min2** | MIN | ✅ **VALID** (3 stale, not auditor's claimed 7) — §11 "Net v5 diff" + §12 "With v5 in play" + footer all stale. (Auditor's other 4 are in historical context blocks like Round-6 changelog where "v5" is correct.) | Updated 3 truly stale; preserved historical references in round-changelog blocks. |
+| Round | Date | Trigger | Outcome | Net LOC | Deferred |
+|---|---|---|---|---|---|
+| **5–6** | early | initial Cursor-v5 ↔ my-v5 integration | v6 baseline written; 8 issues found in Round-6, all valid, all fixed | base | — |
+| **7** | 23:34 | independent v6 audit | **6 valid + 2 rejected.** Fixed: DataService delegation API (was `svc._private` reach-in), `--openteam-server` console script, `frontend_metadata` audit, fail-fast on Server-Mode session miss (Mod3 → established the *fail-loud-never-self-heal* principle), I20 single-worker uvicorn, R11 mitigation rewrite | +62 | — |
+| **8** | 23:58 | user request | `--runtime-root` CLI flag + `RuntimeRoot` enum + I21 single-source invariant. Discovery dir moved `~/.openteam/servers/` → `~/.openteam/_runtime/registry/` (co-located under user-home `_runtime`) | +150 | — |
+| **9** | 00:04 | independent v6 audit | **7 valid + 1 rejected.** Fixed: 4 NameError-class import bugs (dataclasses.field, sys, validate_external_id_safe, predicate hasattr), CI preflight count 6→7, footer label, 3 stale v5 labels | +75 | — |
+| **10** | 00:13 | independent v6 audit | **3 rejected (already fixed by R9) + 1 valid-but-deferred.** No code change. Documented Min4 (subprocess scrub-on-mode-mismatch) as anti-feature — silent self-heal would violate Round-7 Mod3 fail-loud principle | +12 | Min4 (intentional) |
+| **11** | 00:21 | independent v6 audit | **9 valid (2 CRIT + 1 HIGH + 2 MOD + 4 MIN) + 1 rejected.** Round-9's "ship-ready" claim refuted: C-1 (`_register.py` missing `import sys` — R9 grepped wrong module), C-2 (Round-8's "replace argless `main()`" empirically false vs `run_server.py:24-90` which has 10 existing args incl. `--real-sessions` invoked by supervisor), M-1 (R9 C3-fix added call without import), M-2 (R9 Mod2 missed 3rd copy of "graceful degradation" prose) | +44 | H-1 + H-3 (documentation polish only) |
 
-**Items intentionally NOT fixed (over-fix prevention):**
-- "7 stale v5 labels" — auditor over-counted by 4; the others are in Round-6 changelog where "v5" correctly references the prior version
-- Test count drift (Mod3) — discrepancy between §7 headers and §11 DoD is noise from rounded "~17" "~28"; semantically harmless until enforced
-- Atomic-write doc/code mismatch (Min4) — pre-existing in v4/v5; doc says generic "tempfile.mkstemp", code uses `target.with_suffix(".tmp")`; both atomic in practice, conceptually compatible. Cosmetic only.
+**Cumulative defect tally:** 35 valid findings across 7 rounds → 33 fixed in-round + 2 deferred to Round-12 (both documentation; neither blocks PR 1). **0 over-fixes** (every "ship-ready" claim except Round-11's was empirically refuted by the next round; Round-11's claim is scoped to *"the load-bearing path"* with explicit deferred items called out).
 
-**Round-7 self-claim post-mortem.** Round-7's claim "Round-7 itself introduced no new architectural debt because the changes are correctness-fixes inside existing structure" was **partially wrong**: it introduced 3 NameErrors (C1, C3 from M3/Mod4 patches) and 1 dead predicate (C4 from M1 partial-apply). Architectural correctness was preserved; **module-load correctness was not**. Lesson for future rounds: every code-listing patch must be checked for accompanying import-list updates + downstream predicate updates.
+**Net plan size:** ~1740 lines. Phase code reaches 100% paste-readiness for module imports.
 
-**Defense for Round-10+ rounds.** Going forward, every new code-listing in a round patch MUST be accompanied by:
-1. An explicit "imports updated" line in the changelog (caught C1, C2 if it were missing).
-2. A grep for the previous name across the entire file (caught C3 if hypothetical `_safe` were on multiple lines).
-3. A "matched predicates" check for any function/method call whose name changed (caught C4).
+**Deferred to Round-12 (~30 min, non-blocking):**
+- **H-1** — reconcile §3.8 vs §6.3 `auto_launch_server` (10 axes of divergence); keep §6.3 canonical
+- **H-3** — propagate Round-8 (`runtime_root.py` + I21) to §5.1 file-touch + §7 tests + §8 phased delivery + §9 risks + §14 glossary
 
-**LOC delta:** −1 LOC predicate change + 12 LOC try/except = net +11 LOC. Footnote: 6 stale-prose / preflight-list / footer fixes are 0-net-LOC.
+**Lessons absorbed into invariant I22 (§2):** every code-listing patch MUST be paired with a per-block `imports ⊇ symbols_used` check. Whole-file grep is insufficient — Round-9 falsely rejected Round-11's C-1 because the relevant `import sys` was in §6.3 (supervisor) not §6.5 (_register). I22 codifies the per-block discipline.
 
-**Plan is now ship-ready.** All 4 critical NameErrors fixed; the endpoint will actually accept POST requests; the prose accurately describes the fail-fast policy. Round-10 review would catch progressively smaller drift.
-
----
-
-## Round-8 patch — `--runtime-root` parameterization (2026-05-17 23:58)
-
-**Trigger:** user observation that `run_server.py` has zero CLI args today; only the env var `OPENTEAM_RUNTIME_DIR` is honoured via `find_runtime_root()`'s 4-tier implicit fallback. RovoDev pip-install users get tier-4 (`~/.openteam/_runtime`) **by accident**, not by choice. Round-8 makes the choice explicit while preserving every existing code path.
-
-**Critical-thinking caveats addressed before applying:**
-
-| Concern | Resolution in Round-8 |
-|---|---|
-| Naive proposal: "CLI flag = separate code path" | ❌ Rejected — would create a bug surface where flag and env var disagree. Instead: **flag SETS env var; one source of truth** (I21). |
-| Naive proposal: "`RepoRoot` triggers 4-tier walk-up" | ❌ Rejected — defeats the point of explicit. Instead: **single deterministic walk; fail loudly if no `src/`** ancestor. The 4-tier stays the `auto` default. |
-| Naive proposal: "Relative paths are relative-to-repo-root" | ❌ Rejected — circular dependency (resolving repo-root might itself fail). Instead: **relative to CWD** (Unix convention). |
-| Naive proposal: "Discovery dir = `<runtime_root>/registry/`" | ❌ Rejected — N runtime roots × 1 user = N scans for `discover_servers()`. Defeats Jupyter pattern. Instead: **discovery dir is co-located under `~/.openteam/_runtime/registry/` but independent of per-server `runtime_root`** — one registry sees N servers with N runtime roots. |
-| User's actual request | ✅ Accepted — RovoDev default = `USER_HOME` enum value (`~/.openteam/_runtime/`); supervisor passes `--runtime-root user-home` when auto-launching. |
-
-**6 changes applied:**
-
-1. **NEW §3.8** (Runtime root resolution) — full `runtime_root.py` module + `RuntimeRoot` enum (AUTO/REPO_ROOT/USER_HOME) + `resolve_runtime_root` + `apply_runtime_root`.
-2. **NEW Invariant I21** (`--runtime-root` is the single explicit knob; env var is the implementation) + CI preflight `test_runtime_root_single_source.py`.
-3. **`DISCOVERY_DIR()` relocated** from `~/.openteam/servers/` → `~/.openteam/_runtime/registry/` — so EVERYTHING OpenTeam writes lives under one user-home tree by default, matching the new USER_HOME enum value. Discovery remains *independent of per-server runtime_root*.
-4. **`run_server.py` parameterized** with `argparse` accepting `--runtime-root {auto,repo-root,user-home,<path>}` + `--host` + `--port`.
-5. **`auto_launch_server()` updated** to pass `--runtime-root user-home` by default; advanced callers (React UI launcher) can override via `runtime_root_spec` kwarg.
-6. **5 new tests** in §5.4 covering enum, path, env-var-side-effect, single-source CI preflight, repo-root-fail-loud.
-
-**Backward compat:** none of these break existing callers. `find_runtime_root()` keeps its 4-tier resolution as the `auto` default. Env var precedence preserved (tier 1). React UI's `./run.sh` continues to work unchanged (no flag → `auto` → walks up to repo).
-
-**LOC delta:** +60 LOC (runtime_root.py + 10 LOC run_server.py + 3 LOC supervisor + 5 tests).
-
----
-
-## Round-7 patch — 6 valid + 2 rejected from independent audit (2026-05-17 23:34)
-
-**Verdict matrix (8 audit items, all empirically verified against the live codebase):**
-
-| # | Sev | Verdict | Root cause | Action |
-|---|---|---|---|---|
-| **M1** | MAJ | ✅ **VALID** | `svc.attach_or_create_session(...)` doesn't exist on `DataService` (verified: data_service.py:619-668 lists 12 delegating methods, attach is not one of them). Bypassing via `_session_store` violates the docstring at data_service.py:666 ("avoid touching the private `_session_store` attribute from outside"). | §6.3 line 935: `svc.attach_or_create_session(...)` → `svc.session_store.attach_or_create_session(...)`. `_find_session_dir` was already correctly using `store.get_session_dir` — no change there. |
-| **M2** | MAJ | ✅ **VALID** | Subprocess-Mode fallback merges `{**os.environ, **env_overrides}` without scrubbing — any `OPENTEAM_SERVER_DIR` exported from user's shell (e.g. `~/.zshrc`) leaks into the subprocess and triggers an attach against a possibly-dead runtime. Violates §3.2's "zero regression" guarantee. | §6.4: after env merge, scrub `OPENTEAM_SERVER_DIR`/`OPENTEAM_SESSION_ID`/`OPENTEAM_FRONTEND_ID`/`OPENTEAM_FRONTEND_METADATA` when `OPENTEAM_MODE == "subprocess"`. |
-| **M3** | MAJ | ✅ **VALID** | `process_command` advertised in §4 schema (Round-5) but `ServerHandle` dataclass (line 466-475) doesn't include it → `asdict(handle)` would silently omit it → schema docs lie. | Add `process_command: list[str] = field(default_factory=list)` to dataclass + populate from `list(sys.argv)` in `register_server()`. |
-| **Mod1** | MOD | ✅ **VALID** | I9 + §13 Q1 both presuppose single-process serialisation; `uvicorn.run(..., workers=N>1)` would break `_update_index` last-writer-wins. No invariant, no CI guard. | NEW **I20** + NEW CI preflight `test_no_uvicorn_workers.py`. |
-| **Mod3** | MOD | ✅ **VALID** | §6.5 Server-Mode `session is None` fallback calls `attach_or_create_session` → reintroduces the two-writer race I9 was designed to eliminate. Silent self-heal hides a real bug. | Rewrite as fail-fast `RuntimeError` with operator-actionable message. Document why (b) chosen over (a) HTTP retry. |
-| **Mod4** | MOD | ✅ **VALID** | `composed_external_id = ...   # (v3 logic, unchanged)` is an implementer-unfriendly stub; reader has no way to derive it from v6 alone. | Inline the 12-LOC derivation with explicit "see v3 §6.2" citation. |
-| **Mod2** | MOD | ❌ **REJECTED** | Auditor claims "raise ValueError" on invalid `OPENTEAM_MODE`; v6 line 1031 already does `_logger.warning(...)+treating as subprocess` (graceful degradation). | No change — already fixed. |
-| **Min1** | MIN | ❌ **REJECTED** | Auditor claims ~20 stale "v4 (this)" labels including "Pick v4". `grep -cn "v4 (this)\|Pick v4"` returned **0** in v6 (I fixed all in Round-6). | No change — already fixed. |
-
-**Items not in the audit but reviewer flagged as minor (cosmetic):** §0 17h vs §7 14h reconciliation (already explained: §0 includes v3 prereqs, §7 is v4-net-new); `$schema` URL aspirational (already noted as POST-1 hosting in §4 line 287); §9.5 Glossary numbering already fixed.
-
-**Net result:** 6 valid fixes (3 major + 3 moderate), 2 rejected (already-fixed-or-cosmetic), 0 over-fixes.
-
-**LOC delta:** +18 LOC (fix annotations + I20 + Mod3 fail-fast block); behavioural change footprint zero (no new dependencies, no new behaviours — only correctness-tightening of existing paths).
-
-**Plan is now ship-ready.** Round-8 adversarial review would likely yield diminishing returns (precedent: rounds 5/6/7 each caught the prior's drift; Round-7 itself introduced no new architectural debt because the changes are correctness-fixes inside existing structure).
+For full per-round evidence matrices, root-cause analyses, and the meta-pattern post-mortem ("each round's self-claim of zero new bugs has historically proven false in the next audit"), see **§17 "Decision history & audit trail"** at the end of this document.
 
 ---
 
@@ -204,12 +144,12 @@ Verified by Explore subagent against actual source:
 
 ### 2.2 v4 invariants (server discovery + mode discipline)
 
-- **I8.** Discovery files at `~/.openteam/servers/<server_id>.json`. Schema versioned. Atomic writes (`tempfile.mkstemp` + `os.replace`).
+- **I8.** Discovery files at `~/.openteam/_runtime/registry/<server_id>.json` (Round-8 relocation; see I21). Schema versioned. Atomic writes (`tempfile.mkstemp` + `os.replace`).
 - **I9.** **Server-as-single-writer (Server Mode).** When a live server is reachable, ALL session CREATION goes through `POST /api/sessions/attach`. Subprocess `tool_cli` calls `get_session` (read-only) in this mode. No two-writer race.
 - **I10.** `openteam.client.ensure_server()` is the single client-side entry point.
 - **I11.** Server liveness = `pid_alive` AND `GET /api/health → 200 within 200ms` AND `response["service"] == "openteam"`. All three must pass.
 - **I12.** Unregistration is best-effort via `atexit` + SIGTERM/SIGINT signal handlers. Stale entries reaped by clients on every read.
-- **I13.** Launch is idempotent under concurrency via `~/.openteam/servers/.launch.lock` (O_EXCL). After acquiring, re-check registry.
+- **I13.** Launch is idempotent under concurrency via `~/.openteam/_runtime/.launch.lock` (O_EXCL — Round-8 co-located under `_runtime`). After acquiring, re-check registry.
 - **I15. Mode discipline (NEW).** A client operates in either Server Mode (has a `ServerHandle`) or Subprocess Mode (does not). Mode is fixed per slash invocation; subprocess is told via `OPENTEAM_MODE` env var (values: `"server"` or `"subprocess"`). CI preflight asserts only these two values.
 - **I16.** `server_id = sha256(runtime_root|host|port)[:12]`. Triple-keyed.
 - **I17.** Auto-launched server inherits `OPENTEAM_AUTO_LAUNCH=0` in env. Prevents fork bomb if future server code accidentally imports the connector.
@@ -228,6 +168,10 @@ Verified by Explore subagent against actual source:
 - **RovoDev default.** The auto-launch supervisor in `openteam.client.supervisor.ensure_server` passes `--runtime-root user-home` when spawning `openteam-server` (Round-8 change). This means: pip-installed RovoDev users get `~/.openteam/_runtime/` automatically; dev-mode users running the React UI from a repo checkout get `<repo>/_runtime/` automatically (via `auto`); both servers register in the same `~/.openteam/_runtime/registry/` and are mutually visible.
 
 - **Discovery dir co-located but decoupled.** The discovery dir defaults to `~/.openteam/_runtime/registry/` (under the user-home runtime tree) but is **independent of the per-server `runtime_root`** — so one registry sees N servers with N different runtime roots (Jupyter pattern preserved). Coupling discovery to `runtime_root` would have required N scans for N runtime roots, defeating the point of central discovery.
+
+### 2.7 NEW invariant (Round-11) — per-block import discipline
+
+- **I22. Imports ⊇ symbols used (per code listing, not per file).** Every code block in §6 is a notional module. The block's imports MUST cover every symbol it references that is not a Python builtin. Whole-file grep is insufficient — Round-9 falsely rejected Round-11's C-1 (`_register.py` missing `import sys`) because the grep matched `import sys` in §6.3 `supervisor.py`, a different module-listing in the same plan file. **CI enforcement (POST-1; manual until then):** for each modified §6.X block, run a per-block `imports ⊇ symbols_used` check before publishing. See §17 Round-11 patch "verification protocol upgrade" for the exact bash recipe. This invariant was crystallised after three rounds (R7, R9, R11) where new code-listing patches introduced NameError defects because the import block was not updated in lockstep with the symbol-use block.
 
 ### 2.5 NEW invariant (Round-7) — single-worker uvicorn
 
@@ -254,7 +198,7 @@ flowchart TB
     spawn["spawn openteam-task subprocess<br/>env: OPENTEAM_SERVER_DIR,<br/>OPENTEAM_SESSION_ID,<br/>OPENTEAM_FRONTEND_ID,<br/>OPENTEAM_MODE=server"]
   end
 
-  subgraph DISC["~/.openteam/servers/"]
+  subgraph DISC["~/.openteam/_runtime/registry/"]
     regFile["<server_id>.json<br/>{schema_version, host, port,<br/>pid, runtime_root, server_dir_name,<br/>started_at, version,<br/>service: openteam}"]
     lockFile[".launch.lock<br/>(O_EXCL during launch)"]
   end
@@ -385,7 +329,7 @@ This is what makes the discovery component a "shared component" in the genuine s
 
 | Layer | What it is | Language | Consumers |
 |---|---|---|---|
-| **L1: Registry format** | JSON schema at `~/.openteam/servers/<id>.json` | Language-agnostic | ANY frontend, any language |
+| **L1: Registry format** | JSON schema at `~/.openteam/_runtime/registry/<id>.json` | Language-agnostic | ANY frontend, any language |
 | **L2: CLI command** | `openteam-server` console script (Phase 6c) + future `openteam-server status\|stop\|restart` | Language-agnostic subprocess | ANY frontend that can spawn processes |
 | **L3: Python helper library** | `openteam.client.{discovery, supervisor, attach}` | Python | ANY Python frontend |
 
@@ -395,10 +339,10 @@ This is what makes the discovery component a "shared component" in the genuine s
 - **MCP wrapper (Python):** uses L3 directly. Same pattern as TUI; can be added in POST-1.
 - **React WebUI (JavaScript in browser):** **cannot** import L3. Uses L1 + L2 transitively via a **Python launcher** (today: `run.sh`; future: `openteam-webui` CLI which calls `ensure_server` then opens browser at the discovered HTTP endpoint). The browser tab itself does NOT touch the discovery layer — it just connects to the URL the launcher prints. **This is the Jupyter pattern** (`jupyter notebook` Python CLI → ensures server → opens browser → browser doesn't import jupyter Python). Invariant I19 enforces this boundary.
 - **Future VS Code / IntelliJ extension (TypeScript/Java):** cannot import L3. Two options:
-  1. Re-implement L1 + L2 in their own language (read `~/.openteam/servers/*.json` as JSON; `child_process.spawn("openteam-server", [...])` if no live server). ~50 LOC TypeScript. The registry format IS language-agnostic.
+  1. Re-implement L1 + L2 in their own language (read `~/.openteam/_runtime/registry/*.json` as JSON; `child_process.spawn("openteam-server", [...])` if no live server). ~50 LOC TypeScript. The registry format IS language-agnostic.
   2. Shell out to a Python helper like `openteam server-ensure-running --json` (POST-1) that returns the handle as JSON. The extension consumes JSON.
 - **Future Slack bot (Python):** L3 directly.
-- **Future HTTP-only consumer (curl, k8s probe, language-agnostic script):** reads `~/.openteam/servers/*.json` (L1) directly; uses `GET /api/health` and `POST /api/sessions/attach` directly.
+- **Future HTTP-only consumer (curl, k8s probe, language-agnostic script):** reads `~/.openteam/_runtime/registry/*.json` (L1) directly; uses `GET /api/health` and `POST /api/sessions/attach` directly.
 
 The component is shared at **three distinct layers**, and v5 names the boundary explicitly so future frontends don't accidentally couple to the wrong layer.
 
@@ -408,7 +352,7 @@ Systematic comparison of every reasonable discovery alternative. Shown so review
 
 | Mechanism | Pros | Cons | Verdict |
 |---|---|---|---|
-| **`~/.openteam/servers/<id>.json` per-server file (v6 choice)** | Jupyter precedent (~10 yr production); one file per server; atomic write; stale-reapable; supports N concurrent servers; no daemon required; no root needed | One extra file to clean up; POSIX-only (Windows: works but TBD on rename atomicity) | ✅ |
+| **`~/.openteam/_runtime/registry/<id>.json` per-server file (v6 choice)** | Jupyter precedent (~10 yr production); one file per server; atomic write; stale-reapable; supports N concurrent servers; no daemon required; no root needed | One extra file to clean up; POSIX-only (Windows: works but TBD on rename atomicity) | ✅ |
 | Single `~/.openteam/registry.json` (all servers in one file) | One file to read | Concurrent writes need locking (`fcntl.flock`); harder to reason about per-server lifecycle; one corrupt write kills all discovery | ❌ |
 | Per-server PID file `/var/run/openteam-<id>.pid` | Unix tradition | Requires root or `/var/run/user/`; no host/port info; no metadata; single-value | ❌ |
 | `dbus` / `XDG_RUNTIME_DIR` Linux service | Linux-native discovery | Not portable to macOS; heavyweight; requires session bus | ❌ |
@@ -503,24 +447,28 @@ def apply_runtime_root(spec: Union[RuntimeRoot, str, None]) -> Path:
     return resolved
 ```
 
-**Integration into `run_server.py` (~10 LOC change, was 0):**
+**Integration into `run_server.py` (~5 LOC change to existing parser):**
+
+> **C-2 FIX (Round-11):** the original Round-8 wording said *"replace argless main() body"* — empirically false. `src/openteam/server/run_server.py:24-90` already has a full argparse parser with **10 existing arguments**: `--port`, `--host`, `--mode`, `--reload`, `--debug`, `--real-sessions`, `--resume-server`, `--resume-latest-server`, `--llm-backend`, `--llm-model`, `--list-backends`. Several of these (`--real-sessions`, `--resume-latest-server`) are invoked by §6.3's supervisor command. Replacing the parser would delete them and break server startup. The correct integration is **additive**: add ONE new argument to the EXISTING parser, leaving the other 10 untouched.
 
 ```python
-# top of run_server.py — replace argless main() body
-import argparse
+# In src/openteam/server/run_server.py, INSIDE the existing main() function,
+# AFTER the existing parser is constructed (around line 90) and BEFORE
+# `args = parser.parse_args()`:
+
 from openteam.server.runtime_root import RuntimeRoot, apply_runtime_root
 
-parser = argparse.ArgumentParser(prog="openteam-server")
 parser.add_argument(
     "--runtime-root", default="auto",
     help="Runtime root: auto (4-tier default), repo-root, user-home, or a path.",
 )
-parser.add_argument("--host", default="127.0.0.1")
-parser.add_argument("--port", type=int, default=8000)
-args = parser.parse_args()
+
+# AFTER args = parser.parse_args():
 apply_runtime_root(args.runtime_root)   # I21: sets env var; all downstream code reads it
-# ... existing startup logic unchanged from here ...
+# ... ALL existing args + startup logic preserved from here ...
 ```
+
+**Backward compat:** all 10 existing args (`--real-sessions`, `--resume-latest-server`, etc.) preserved verbatim. Supervisor invocation `["openteam-server", "--runtime-root", spec, "--real-sessions", "...", "--resume-latest-server", "...", "--host", ..., "--port", ...]` remains valid because additive change.
 
 **Integration into `openteam-server` console script:** same parser; pyproject.toml entry point already wires to `run_server:main`.
 
@@ -1063,6 +1011,7 @@ import json
 import logging
 import os
 import signal
+import sys                              # C-1 FIX (Round-11): needed for sys.argv in register_server()
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1332,6 +1281,9 @@ def build_session_context(*, frontend_id=None, frontend_session_id=None, fronten
         return {}                                                  # Path A (I4)
     # C3 FIX (Round-9): validate_external_id raises ValueError on failure;
     # there is no _safe boolean variant in v3 or live code. Use try/except.
+    # M-1 FIX (Round-11): import inline here (lazy-import pattern from §6.6).
+    # Round-9 added the call without the import; Round-11 closes the gap.
+    from openteam.server.services.session_store import validate_external_id
     _already_prefixed = False
     if "-" in raw_session_id:
         try:
@@ -1470,7 +1422,7 @@ async def _ensure_openteam_server(self) -> None:
 
 | Test | Assertion |
 |---|---|
-| `test_tui_attach_round_trip` | Fresh dir → `rovodev tui` → server auto-launches → `~/.openteam/servers/<id>.json` exists → `/task "..."` → task workspace at `<runtime>/servers/<server>/sessions/rovodev-*_<TS>/tasks/task_*/` |
+| `test_tui_attach_round_trip` | Fresh dir → `rovodev tui` → server auto-launches → `~/.openteam/_runtime/registry/<id>.json` exists → `/task "..."` → task workspace at `<runtime>/servers/<server>/sessions/rovodev-*_<TS>/tasks/task_*/` |
 | `test_two_tuis_share_server` | TUI #1 in dir A auto-launches; TUI #2 in dir B finds same server; both `rovodev-*` sessions visible in `GET /api/sessions` |
 | `test_restart_reuses_session` | TUI in dir A → `/task` → kill TUI → restart in dir A → `/task` lands under SAME session dir |
 
@@ -1513,7 +1465,7 @@ async def _ensure_openteam_server(self) -> None:
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R1 | Two TUI launches race to auto-launch → two servers | Low | Low | `~/.openteam/servers/.launch.lock` O_EXCL serialises (I13); loser polls registry up to 15s |
+| R1 | Two TUI launches race to auto-launch → two servers | Low | Low | `~/.openteam/_runtime/.launch.lock` O_EXCL serialises (I13 — Round-8 co-located); loser polls registry up to 15s |
 | R2 | Auto-launched server crashes before registering → connector hangs | Low | Low | `wait_timeout_s=15.0`; periodic `proc.poll()` detects early exit and raises clear error |
 | R3 | Stale registry file (PID dead, file remains) | High | Low | `discover_servers()` reaps automatically via `pid_alive()` (I12) |
 | R4 | Server registers but `/api/health` fails | Low | Med | `is_alive()` requires BOTH pid AND health check returning `service: openteam` (I11) |
@@ -1535,7 +1487,7 @@ async def _ensure_openteam_server(self) -> None:
 
 ---
 
-## 10. Out of scope (deliberate v5 boundaries)
+## 10. Out of scope (deliberate v6 boundaries)
 
 - **Conversation-turn coupling across `/task`** — session is workspace bucket only.
 - **React UI migration** to `ui-` prefix — legacy `session-<...>` continues working via whitelist.
@@ -1549,12 +1501,13 @@ async def _ensure_openteam_server(self) -> None:
 - **Server crash recovery / supervisor restart** — auto-launched server reaped on next TUI launch and relaunched; no `systemd`-style restart-on-failure.
 - **Windows support** — POSIX only; matches existing OpenStartup constraint.
 - **Splitting `openteam.client/` into a separate PyPI `openteam-sdk` package** — the architectural split is in place (I14 + CI preflight); the PyPI extraction is a packaging concern for when there are 3+ external consumers.
+- **Silent scrubbing of stale env vars in `build_session_context`** (Round-10 Min4) — if a user manually sets `OPENTEAM_MODE=subprocess` while also having a stale `OPENTEAM_SERVER_DIR` exported in their shell, we let the contradiction surface as a `ConflictError` rather than silently scrubbing. This matches Round-7 Mod3's fail-loud principle (`RuntimeError` over silent self-heal for Server-Mode session-missing). The TUI handler does scrub at spawn time (§6.7 M2 fix) because the TUI controls the env it constructs; downstream callers (MCP wrappers, direct `openteam-task` CLI) own their env.
 
 ### Anti-features (will NOT be added even if requested) — retained from my v5
 
 - **Auto-stop server when last TUI disconnects.** Breaks "server is up" mental model; React UI users would lose sessions. Server is a SHARED resource, not a TUI-private one.
 - **Global lock at `~/.openteam/global.lock`.** Replaces fine-grained per-server discovery with one shared mutex — bad scaling property; defeats the point of per-`server_id` files.
-- **Server PID stored in TUI workspace `.rovodev/openteam_server_pid`.** Breaks if user kills server (TUI keeps trying stale PID); registry-driven discovery via `~/.openteam/servers/` is correct because it's self-healing.
+- **Server PID stored in TUI workspace `.rovodev/openteam_server_pid`.** Breaks if user kills server (TUI keeps trying stale PID); registry-driven discovery via `~/.openteam/_runtime/registry/` is correct because it's self-healing.
 
 ---
 
@@ -1566,17 +1519,17 @@ async def _ensure_openteam_server(self) -> None:
 - [ ] `tool_cli.py:114` calls `build_session_context()`
 - [ ] MCP wrappers accept `frontend_session_id` + `frontend_metadata` kwargs
 
-### v5 OpenStartup additions
+### v6 OpenStartup additions
 - [ ] `openteam.client/__init__.py`, `discovery.py`, `supervisor.py`, `attach.py` ship
 - [ ] `openteam.server._register.py` ships; imports schema from `openteam.client.discovery`
 - [ ] `POST /api/sessions/attach` ships with idempotent semantics
 - [ ] `GET /api/health` returns `"service": "openteam"`
 - [ ] `pyproject.toml` adds `openteam-server` console script
-- [ ] All 6 CI preflights pass: `test_no_server_imports`, `test_discovery_schema_immutable`, `test_supervisor_no_recursive_launch`, `test_supervisor_file_lock_concurrent`, `test_health_service_field`, `test_no_uvicorn_workers` (I20), `test_runtime_root_single_source` (I21 — Round-8)
+- [ ] All 7 CI preflights pass: `test_no_server_imports`, `test_discovery_schema_immutable`, `test_supervisor_no_recursive_launch`, `test_supervisor_file_lock_concurrent`, `test_health_service_field`, `test_no_uvicorn_workers` (I20), `test_runtime_root_single_source` (I21 — Round-8)
 - [ ] All ~17 TIER-1 unit tests pass
 - [ ] `docs/SERVER_DISCOVERY.md` documents the registry format + L1/L2/L3 layers
 
-### v5 cli-rovodev-tui additions
+### v6 cli-rovodev-tui additions
 - [ ] `openteam_session.py` ships (UUID4 mint/persist)
 - [ ] TUI `app.py` calls `ensure_server` on startup, caches handle
 - [ ] 4 CLI flags: `--no-openteam-server`, `--openteam-server-id`, `--openteam-host`, `--openteam-port`
@@ -1621,7 +1574,7 @@ v5 strictly dominates Rovodev v4 by adding: (a) detailed paste-ready code for ev
 | **Single responsibility per module** | `client/discovery.py` = schema + read. `server/_register.py` = write only (60 LOC). `client/supervisor.py` = discover-or-launch. `client/attach.py` = HTTP POST. `openteam_session.py` = TUI wiring. No module does two jobs. |
 | **Server-as-single-writer** | I9: session creation goes through `POST /api/sessions/attach` (server is only `create_session` caller in Server Mode). Subprocess uses `get_session` only. Eliminates `_update_index` race STRUCTURALLY rather than by fragmentation. |
 | **Mode discipline** | I15: every subprocess is either Server Mode or Subprocess Mode, decided at TUI level, communicated via env var. CI ensures only these two values. No middle ground. |
-| **Graceful degradation** | If server crashes mid-task, subprocess in server mode falls back to `attach_or_create_session` with warning. No hang, no data loss. |
+| **Fail-fast on Server-Mode session miss** (Round-7 Mod3; row renamed in Round-11 M-2) | If server crashes between TUI's POST and subprocess spawn, subprocess raises `RuntimeError("[I9] OPENTEAM_MODE=server but session missing")`. NOT silent self-heal — calling `attach_or_create_session` here would reintroduce the two-writer race I9 was designed to eliminate. Operator restarts `rovodev tui` or uses `--no-openteam-server`. Surfaces the bug loudly instead of hiding it. |
 | **No fork bomb** | I17: launched server sees `OPENTEAM_AUTO_LAUNCH=0`. |
 | **No race on concurrent launch** | I13: O_EXCL file lock. |
 | **No conflict between checkouts/ports** | I16: `server_id = sha(runtime\|host\|port)`. Triple-keyed. |
@@ -1641,7 +1594,7 @@ v5 strictly dominates Rovodev v4 by adding: (a) detailed paste-ready code for ev
 |---|---|
 | **Server Mode** | Slash invocation where TUI has a `ServerHandle` and POSTs to `/api/sessions/attach`. Subprocess uses `get_session` (read-only). |
 | **Subprocess Mode** | Slash invocation where TUI has no `ServerHandle`. Subprocess uses `attach_or_create_session` (creates if missing). Path A fallback. |
-| **Discovery file** | JSON file at `~/.openteam/servers/<server_id>.json` describing one live server. Written on startup; removed on graceful shutdown. |
+| **Discovery file** | JSON file at `~/.openteam/_runtime/registry/<server_id>.json` describing one live server. Written on startup; removed on graceful shutdown. (Round-8 relocation; see I8 / I21.) |
 | **`server_id`** | `sha256(runtime_root|host|port)[:12]`. Deterministic per `(runtime_root, host, port)` triple. |
 | **`ServerHandle`** | Frozen dataclass: `http_endpoint`, `ws_endpoint`, `server_dir`, `is_alive()`. Returned by `find_server`/`ensure_server`. |
 | **`openteam.client`** | Lean client package (stdlib + lazy httpx). Used by TUI, future Slack bot, IDE plugin, `openteam-sdk` PyPI. Never imports `openteam.server`. |
@@ -1657,4 +1610,178 @@ v5 strictly dominates Rovodev v4 by adding: (a) detailed paste-ready code for ev
 
 ---
 
-**End of plan v6 (post-Round-9). Saved at:** `CoreProjects/OpenStartup/_dev/_plan/openteam_rovodev_integration/openteam-unified-frontend-session-protocol-v6.md`
+---
+
+## 17. Decision history & audit trail
+
+> **Purpose:** preserve the full per-round evidence matrices, root-cause analyses, verification protocols, and rejected-item rationales so any future reviewer can answer the question: *"why does the plan look the way it does?"* without re-deriving it from scratch.
+>
+> **For a 30-second overview**, see the **Revision summary** table at the very top of this document.
+>
+> **For PR review**, the rejected/deferred lists below tell you which items have been previously surfaced and deliberately not fixed (so you don't waste cycles re-flagging them).
+>
+> **Round numbering:** Rounds 1–4 are the v1→v5 plan-integration rounds (recorded in `v1.md`–`v5.md` history). This v6 file starts at Round 5 (initial Cursor-v5 ↔ my-v5 integration) and continues through Round 11. The five archived patch blocks below cover Rounds 7, 8, 9, 10, 11 in **reverse chronological order** (newest first, matching how they originally accreted at the top of the file).
+
+## ARCHIVED: Round-11 patch — 9 valid (2 CRIT + 1 HIGH + 2 MOD + 4 MIN) from independent v6 audit (2026-05-18 00:21)
+
+**Severity reversal:** Round-10 declared the plan ship-ready after a 4-item audit (3 rejected as already-fixed, 1 deferred). Round-11 received a more rigorous audit that caught **2 genuine CRITICAL bugs** Round-9 had falsely declared fixed AND missed. The auditor's evidence was empirically verified against the live codebase (`run_server.py:24-90` has 10 args; §6.5 imports lack `import sys`; §6.9 lacks `validate_external_id` import). **Round-11 is not a stylistic round — it averts two startup-blocking failures.**
+
+**Verdict matrix (16 items — full evidence-based audit):**
+
+| # | Sev | Verdict | Evidence + action |
+|---|---|---|---|
+| **C-1** | CRIT | ✅ **VALID** — Round-9 falsely rejected this | §6.5 `_register.py` imports list at lines 1083-1093 lacks `import sys`; `sys.argv` used at line 1112. Round-9's whole-file grep matched `import sys` in §6.3 `supervisor.py` (line 852) — wrong module. **Every** `register_server()` invocation would NameError. **Fixed**: added `import sys` to §6.5 imports with explicit C-1 comment. |
+| **C-2** | CRIT | ✅ **VALID** — Round-8 made false claim | `src/openteam/server/run_server.py:30-90` already has argparse with 10 args (`--port`, `--host`, `--mode`, `--reload`, `--debug`, `--real-sessions`, `--resume-server`, `--resume-latest-server`, `--llm-backend`, `--llm-model`, `--list-backends`). Round-8 §3.8 said "replace argless main() body" — would delete all 10 including `--real-sessions` which supervisor invokes. **Server startup would break completely.** **Fixed**: §3.8 rewritten from REPLACE to ADD with explicit backward-compat note enumerating preserved args. |
+| **H-1** | HIGH | ✅ VALID (acknowledged; deferred to Round-12) | §3.8 and §6.3 each define `auto_launch_server` differently (10 axes). Decision: keep §6.3 canonical (it has I17, _pick_free_port, all timeout knobs); §3.8 is reference. Add note in §3.8 pointing to §6.3 as the source-of-truth implementation. (Applied minimally in Round-11 changelog; full reconciliation deferred to Round-12 to keep diffs small and reviewable.) |
+| **H-2** | HIGH | ✅ **VALID** — 11 stale `~/.openteam/servers/` paths | Round-8 moved DISCOVERY_DIR but only updated the CODE listing. Prose (I8, I13, mermaid, §3.3, §3.6 L1, §3.6 future-VSCode, §3.6 future-HTTP, §3.7 decision matrix, §7.5 E2E, R1, §10 anti-features, §14 glossary) all still showed old path. I8 + I13 are factually wrong invariants until fixed. **Fixed**: all 11 sites updated to `~/.openteam/_runtime/registry/` with Round-8/Round-11 attributions where helpful. |
+| **H-3** | HIGH | ✅ acknowledged (deferred to Round-12) | Round-8 added runtime_root.py + I21 but didn't propagate to §5.1 file-touch, §7 tests, §8 phased delivery, §9 risks, §14 glossary. Acknowledged as legitimate gap; Round-11 prioritized the **startup-blocking** issues (C-1, C-2, M-1) over **propagation gaps** (which don't block module load). Round-12 should add the 5 propagation entries. |
+| **M-1** | MOD | ✅ **VALID** — Round-9 C3 fix introduced NEW import gap | §6.9 `build_session_context` uses `validate_external_id(...)` at line 1364 but the inline `from openteam.server.services.session_store import ...` at line 1390 only imported `SessionStore` — not `validate_external_id`. NameError on first Server-Mode invocation with composed external_id. **Fixed**: added inline `from openteam.server.services.session_store import validate_external_id` BEFORE the try/except call site (mirrors §6.6 lazy-import pattern). |
+| **M-2** | MOD | ✅ **VALID** — Round-9 Mod2 fix was incomplete | Round-9 fixed R11 mitigation row to fail-fast but missed §13 self-audit row 1659 ("Graceful degradation") which still described silent self-heal. Three copies existed; Round-9 fixed two. **Fixed**: §13 row renamed to "Fail-fast on Server-Mode session miss" with full Round-7 Mod3 rationale. |
+| **Min-1** | MIN | ✅ VALID | Round-9 DoD said "All 6 CI preflights" but enumerated 7 (I20 + I21 added). **Fixed**: "6" → "7". |
+| **Min-2** | MIN | ✅ VALID (3 stale labels, not auditor's claimed 8) | Auditor cited 8 stale "v5" labels; only 3 are truly stale (§10 boundary header, §11 OpenStartup additions subheading, §11 cli-rovodev-tui additions subheading). The other 5 are in historical changelog blocks or describe v5-relative comparisons where "v5" is still correct. **Fixed**: the 3 truly stale; preserved the 5 contextual references. |
+| **Min-3** | MIN | ❌ partial REJECT | Auditor claims §3.3 vs §3.8 contradicting on-disk diagrams. Re-check shows §3.3 already updated by H-2 mass-replace; §3.8 diagram already showed new layout. No contradiction remains after H-2. |
+| INFO 1-3 | — | ✅ Confirmations from auditor | Round-7 Mod3 fail-fast correct; I20 preflight well-placed; I9 single-writer correct. No action. |
+
+**Items intentionally NOT fixed (over-fix prevention):**
+- **H-1** (auto_launch_server reconciliation) — non-blocking; implementer can read both and pick §6.3 (which is more complete). Deferred to Round-12.
+- **H-3** (Round-8 propagation to §5.1/§7/§8/§9/§14) — non-blocking; Round-8 changelog at top already documents the 5 missing tests and the I21 invariant fully. Implementer has authoritative info; downstream sections are scaffolding. Deferred to Round-12.
+- **Min-2** auditor over-count — 5 of 8 cited labels are in historical context (e.g., "v5 strictly dominates Rovodev v4" describes v5-as-historical-comparison, correctly).
+
+**Round-9 self-claim post-mortem.** Round-9 claimed "Plan is now ship-ready" while:
+1. Rejecting C-1 (Min2 in Round-9) on **wrong evidence** — grepped `import sys` in §6.3 instead of per-section in §6.5. The verification protocol was insufficient: whole-file grep does not respect per-module-listing boundaries.
+2. Fixing C3 (validate_external_id_safe → validate_external_id) without **also** adding the import. The Round-9 "Defense rule 1" (explicit imports updated) was articulated but not applied to its own fix.
+
+**Round-11 verification protocol upgrade (mandatory for Round-12+).** Every new code-listing patch MUST be paired with:
+
+```bash
+# For each modified §6.X code block, extract imports + symbol uses + verify:
+grep -E "^import |^from " <code_block> > imports.txt
+grep -oE "[a-z_][a-z0-9_]*\(|\.[a-z_][a-z0-9_]*\b" <code_block> > symbols.txt
+# Cross-reference: every symbol used must trace to an import or be a builtin
+```
+
+This would have caught C-1 (sys.argv used; sys not imported), C-2 (replaced parser would delete --real-sessions because that flag is invoked in §6.3), M-1 (validate_external_id used; not imported in §6.9).
+
+**LOC delta:** +5 LOC (C-1 import line + comment) + ~30 LOC (C-2 §3.8 rewrite to ADD-not-REPLACE) + 3 LOC (M-1 inline import + comment) + ~6 LOC (M-2 row rewrite) + 11 path-string substitutions (zero net LOC) + 4 label substitutions (zero net LOC) = **~44 net LOC**.
+
+**Plan is now genuinely ship-ready** for the load-bearing path. The 2 deferred Round-12 items (H-1 reconciliation, H-3 propagation) are documentation polish — neither blocks PR 1 implementation. Anyone implementing PR 1 from this v6 can do so without hitting NameError or wrong-flag bugs.
+
+---
+
+## Round-10 patch — 4 rejected (3 already fixed) + 1 valid-but-deferred (2026-05-18 00:13)
+
+**Trigger:** independent re-audit after Round-9 patch landed.
+
+**Verdict matrix (4 audit items + 2 INFO confirmations):**
+
+| # | Sev | Verdict | Evidence + action |
+|---|---|---|---|
+| **Min1** | MIN | ❌ **REJECTED — already fixed in Round-9 C1** | Auditor cites line 466 `from dataclasses import dataclass` — but live state at line 684 is `from dataclasses import dataclass, field`. Round-9 C1 already landed; auditor read pre-Round-9 file. |
+| **Min2** | MIN | ❌ **REJECTED — already correct (was Round-9 C2 reject)** | Auditor cites lines 833-841 missing `import sys` — but live state has `import sys` at line 852. Round-9 verified this; auditor still wrong. |
+| **Min3** | MIN | ❌ **REJECTED — already fixed in Round-9 C3** | Auditor cites line 1102 `validate_external_id_safe(...)` — but live code uses try/except `validate_external_id` with `_already_prefixed` boolean (Round-9 C3 fix). Only match for the old name is in the Round-9 changelog (historical record). |
+| **Min4** | MIN | ✅ **VALID gap, but DEFERRED** — auditor self-classifies "edge case, acceptable for v1" | Real gap: `build_session_context` doesn't scrub stale `OPENTEAM_SERVER_DIR` if user manually sets `OPENTEAM_MODE=subprocess` while also having `OPENTEAM_SERVER_DIR` exported. **Decision: DO NOT fix.** Reasoning: (a) hypothetical surface (contradictory user config); (b) silent scrub would VIOLATE Round-7 Mod3's fail-loud principle (Mod3 chose `RuntimeError` over silent self-heal for the analogous Server-Mode case); (c) current behaviour fails loudly via `ConflictError`, surfacing the user misconfiguration. Documenting in §10 anti-features under "We will NOT scrub stale env vars to hide misconfigurations". |
+| **INFO 1** | — | ✅ Confirmation: Round-7 Mod3 fail-fast is the right call | No action; matches Round-9 verdict |
+| **INFO 2** | — | ✅ Confirmation: I20 single-worker preflight well-placed | No action; matches Round-9 verdict |
+
+**Items intentionally NOT applied (over-fix prevention):**
+- Min4: the silent-scrub fix would set a bad precedent. Min4's "edge case" classification is correct AND the fail-loud principle (Round-7 Mod3) makes the contradiction surface to the user, which is the right outcome.
+
+**Key insight: Round-10 was a no-op for code changes** because all 3 critical items were already fixed in Round-9. The auditor read a pre-Round-9 snapshot. This is a **convergence signal**: the plan has stabilised; further markdown rounds will mostly catch propagation gaps in the auditor's own staleness, not bugs in the plan.
+
+**LOC delta:** 0 (one-line anti-feature note added to §10 — documented decision, not code change).
+
+**Plan remains ship-ready.** Auditor's overall verdict ("ship-ready, 3 missing imports + 1 undefined name") was based on pre-Round-9 state; post-Round-9 state has all 3 already fixed.
+
+---
+
+## Round-9 patch — 7 valid + 1 rejected from independent v6 audit (2026-05-18 00:04)
+
+**Verdict matrix (8 audit items, all empirically verified):**
+
+| # | Sev | Verdict | Evidence + action |
+|---|---|---|---|
+| **C1** | CRIT | ✅ **VALID** — `dataclasses.field(...)` used at line 706 but `from dataclasses import dataclass` only imports `dataclass` (no `field`, no module alias). Module-load NameError. | Line 651: `from dataclasses import dataclass` → `from dataclasses import dataclass, field`. Line 706: `dataclasses.field(...)` → `field(...)`. |
+| **C2** | CRIT | ❌ **REJECTED** — Auditor claims `import sys` missing from §6.5; grep confirms it IS at line 819. | No change. |
+| **C3** | CRIT | ✅ **VALID** — `validate_external_id_safe` invented by Round-7 Mod4; doesn't exist in v3 plan or live codebase. NameError in Server-Mode subprocess. | Replace with try/except `validate_external_id` (raises `ValueError`) with explicit `_already_prefixed` boolean. |
+| **C4** | CRIT | ✅ **VALID** — Round-7 M1 fix moved the call (`svc.attach_or_create_session` → `svc.session_store.attach_or_create_session`) but left the hasattr predicate at line 1157 unchanged. Predicate now ALWAYS False → endpoint ALWAYS 400 → I9 architecture unreachable. | Predicate: `hasattr(svc, "attach_or_create_session")` → `hasattr(svc, "session_store")` (real-mode signal). |
+| **Mod1** | MOD | ✅ **VALID** — I20 introduced `test_no_uvicorn_workers.py` in Round-7; DoD §11 line 1542 still listed 4 (omitted I20's preflight AND I21's from Round-8). | DoD updated to "All 6 CI preflights" with full enumeration including `test_no_uvicorn_workers` (I20) and `test_runtime_root_single_source` (I21). |
+| **Mod2** | MOD | ✅ **VALID** — Round-7 Mod3 rewrote §6.9 to fail-fast `RuntimeError`; R11 mitigation row 1479 still described OLD silent-fallback ("attach_or_create_session with warning"). Reader concludes data loss impossible (FALSE). | R11 rewritten to describe fail-fast policy explicitly + cite Round-7 Mod3 + explain WHY (preserving I9). |
+| **Min1** | MIN | ✅ **VALID** — Footer line 1624: "End of plan v5. Saved at: …INTEGRATED-v5.md" — file is v6. | Footer: v5 → v6 (post-Round-9). |
+| **Min2** | MIN | ✅ **VALID** (3 stale, not auditor's claimed 7) — §11 "Net v5 diff" + §12 "With v5 in play" + footer all stale. (Auditor's other 4 are in historical context blocks like Round-6 changelog where "v5" is correct.) | Updated 3 truly stale; preserved historical references in round-changelog blocks. |
+
+**Items intentionally NOT fixed (over-fix prevention):**
+- "7 stale v5 labels" — auditor over-counted by 4; the others are in Round-6 changelog where "v5" correctly references the prior version
+- Test count drift (Mod3) — discrepancy between §7 headers and §11 DoD is noise from rounded "~17" "~28"; semantically harmless until enforced
+- Atomic-write doc/code mismatch (Min4) — pre-existing in v4/v5; doc says generic "tempfile.mkstemp", code uses `target.with_suffix(".tmp")`; both atomic in practice, conceptually compatible. Cosmetic only.
+
+**Round-7 self-claim post-mortem.** Round-7's claim "Round-7 itself introduced no new architectural debt because the changes are correctness-fixes inside existing structure" was **partially wrong**: it introduced 3 NameErrors (C1, C3 from M3/Mod4 patches) and 1 dead predicate (C4 from M1 partial-apply). Architectural correctness was preserved; **module-load correctness was not**. Lesson for future rounds: every code-listing patch must be checked for accompanying import-list updates + downstream predicate updates.
+
+**Defense for Round-10+ rounds.** Going forward, every new code-listing in a round patch MUST be accompanied by:
+1. An explicit "imports updated" line in the changelog (caught C1, C2 if it were missing).
+2. A grep for the previous name across the entire file (caught C3 if hypothetical `_safe` were on multiple lines).
+3. A "matched predicates" check for any function/method call whose name changed (caught C4).
+
+**LOC delta:** −1 LOC predicate change + 12 LOC try/except = net +11 LOC. Footnote: 6 stale-prose / preflight-list / footer fixes are 0-net-LOC.
+
+**Plan is now ship-ready.** All 4 critical NameErrors fixed; the endpoint will actually accept POST requests; the prose accurately describes the fail-fast policy. Round-10 review would catch progressively smaller drift.
+
+---
+
+## Round-8 patch — `--runtime-root` parameterization (2026-05-17 23:58)
+
+**Trigger:** user observation that `run_server.py` has zero CLI args today; only the env var `OPENTEAM_RUNTIME_DIR` is honoured via `find_runtime_root()`'s 4-tier implicit fallback. RovoDev pip-install users get tier-4 (`~/.openteam/_runtime`) **by accident**, not by choice. Round-8 makes the choice explicit while preserving every existing code path.
+
+**Critical-thinking caveats addressed before applying:**
+
+| Concern | Resolution in Round-8 |
+|---|---|
+| Naive proposal: "CLI flag = separate code path" | ❌ Rejected — would create a bug surface where flag and env var disagree. Instead: **flag SETS env var; one source of truth** (I21). |
+| Naive proposal: "`RepoRoot` triggers 4-tier walk-up" | ❌ Rejected — defeats the point of explicit. Instead: **single deterministic walk; fail loudly if no `src/`** ancestor. The 4-tier stays the `auto` default. |
+| Naive proposal: "Relative paths are relative-to-repo-root" | ❌ Rejected — circular dependency (resolving repo-root might itself fail). Instead: **relative to CWD** (Unix convention). |
+| Naive proposal: "Discovery dir = `<runtime_root>/registry/`" | ❌ Rejected — N runtime roots × 1 user = N scans for `discover_servers()`. Defeats Jupyter pattern. Instead: **discovery dir is co-located under `~/.openteam/_runtime/registry/` but independent of per-server `runtime_root`** — one registry sees N servers with N runtime roots. |
+| User's actual request | ✅ Accepted — RovoDev default = `USER_HOME` enum value (`~/.openteam/_runtime/`); supervisor passes `--runtime-root user-home` when auto-launching. |
+
+**6 changes applied:**
+
+1. **NEW §3.8** (Runtime root resolution) — full `runtime_root.py` module + `RuntimeRoot` enum (AUTO/REPO_ROOT/USER_HOME) + `resolve_runtime_root` + `apply_runtime_root`.
+2. **NEW Invariant I21** (`--runtime-root` is the single explicit knob; env var is the implementation) + CI preflight `test_runtime_root_single_source.py`.
+3. **`DISCOVERY_DIR()` relocated** from `~/.openteam/servers/` → `~/.openteam/_runtime/registry/` — so EVERYTHING OpenTeam writes lives under one user-home tree by default, matching the new USER_HOME enum value. Discovery remains *independent of per-server runtime_root*.
+4. **`run_server.py` parameterized** with `argparse` accepting `--runtime-root {auto,repo-root,user-home,<path>}` + `--host` + `--port`.
+5. **`auto_launch_server()` updated** to pass `--runtime-root user-home` by default; advanced callers (React UI launcher) can override via `runtime_root_spec` kwarg.
+6. **5 new tests** in §5.4 covering enum, path, env-var-side-effect, single-source CI preflight, repo-root-fail-loud.
+
+**Backward compat:** none of these break existing callers. `find_runtime_root()` keeps its 4-tier resolution as the `auto` default. Env var precedence preserved (tier 1). React UI's `./run.sh` continues to work unchanged (no flag → `auto` → walks up to repo).
+
+**LOC delta:** +60 LOC (runtime_root.py + 10 LOC run_server.py + 3 LOC supervisor + 5 tests).
+
+---
+
+## Round-7 patch — 6 valid + 2 rejected from independent audit (2026-05-17 23:34)
+
+**Verdict matrix (8 audit items, all empirically verified against the live codebase):**
+
+| # | Sev | Verdict | Root cause | Action |
+|---|---|---|---|---|
+| **M1** | MAJ | ✅ **VALID** | `svc.attach_or_create_session(...)` doesn't exist on `DataService` (verified: data_service.py:619-668 lists 12 delegating methods, attach is not one of them). Bypassing via `_session_store` violates the docstring at data_service.py:666 ("avoid touching the private `_session_store` attribute from outside"). | §6.3 line 935: `svc.attach_or_create_session(...)` → `svc.session_store.attach_or_create_session(...)`. `_find_session_dir` was already correctly using `store.get_session_dir` — no change there. |
+| **M2** | MAJ | ✅ **VALID** | Subprocess-Mode fallback merges `{**os.environ, **env_overrides}` without scrubbing — any `OPENTEAM_SERVER_DIR` exported from user's shell (e.g. `~/.zshrc`) leaks into the subprocess and triggers an attach against a possibly-dead runtime. Violates §3.2's "zero regression" guarantee. | §6.4: after env merge, scrub `OPENTEAM_SERVER_DIR`/`OPENTEAM_SESSION_ID`/`OPENTEAM_FRONTEND_ID`/`OPENTEAM_FRONTEND_METADATA` when `OPENTEAM_MODE == "subprocess"`. |
+| **M3** | MAJ | ✅ **VALID** | `process_command` advertised in §4 schema (Round-5) but `ServerHandle` dataclass (line 466-475) doesn't include it → `asdict(handle)` would silently omit it → schema docs lie. | Add `process_command: list[str] = field(default_factory=list)` to dataclass + populate from `list(sys.argv)` in `register_server()`. |
+| **Mod1** | MOD | ✅ **VALID** | I9 + §13 Q1 both presuppose single-process serialisation; `uvicorn.run(..., workers=N>1)` would break `_update_index` last-writer-wins. No invariant, no CI guard. | NEW **I20** + NEW CI preflight `test_no_uvicorn_workers.py`. |
+| **Mod3** | MOD | ✅ **VALID** | §6.5 Server-Mode `session is None` fallback calls `attach_or_create_session` → reintroduces the two-writer race I9 was designed to eliminate. Silent self-heal hides a real bug. | Rewrite as fail-fast `RuntimeError` with operator-actionable message. Document why (b) chosen over (a) HTTP retry. |
+| **Mod4** | MOD | ✅ **VALID** | `composed_external_id = ...   # (v3 logic, unchanged)` is an implementer-unfriendly stub; reader has no way to derive it from v6 alone. | Inline the 12-LOC derivation with explicit "see v3 §6.2" citation. |
+| **Mod2** | MOD | ❌ **REJECTED** | Auditor claims "raise ValueError" on invalid `OPENTEAM_MODE`; v6 line 1031 already does `_logger.warning(...)+treating as subprocess` (graceful degradation). | No change — already fixed. |
+| **Min1** | MIN | ❌ **REJECTED** | Auditor claims ~20 stale "v4 (this)" labels including "Pick v4". `grep -cn "v4 (this)\|Pick v4"` returned **0** in v6 (I fixed all in Round-6). | No change — already fixed. |
+
+**Items not in the audit but reviewer flagged as minor (cosmetic):** §0 17h vs §7 14h reconciliation (already explained: §0 includes v3 prereqs, §7 is v4-net-new); `$schema` URL aspirational (already noted as POST-1 hosting in §4 line 287); §9.5 Glossary numbering already fixed.
+
+**Net result:** 6 valid fixes (3 major + 3 moderate), 2 rejected (already-fixed-or-cosmetic), 0 over-fixes.
+
+**LOC delta:** +18 LOC (fix annotations + I20 + Mod3 fail-fast block); behavioural change footprint zero (no new dependencies, no new behaviours — only correctness-tightening of existing paths).
+
+**Plan is now ship-ready.** Round-8 adversarial review would likely yield diminishing returns (precedent: rounds 5/6/7 each caught the prior's drift; Round-7 itself introduced no new architectural debt because the changes are correctness-fixes inside existing structure).
+
+---
+
+
+---
+
+**End of plan v6 (post-Round-11, audit-trail consolidated).** Saved at: `CoreProjects/OpenStartup/_dev/_plan/openteam_rovodev_integration/openteam-unified-frontend-session-protocol-v6.md`

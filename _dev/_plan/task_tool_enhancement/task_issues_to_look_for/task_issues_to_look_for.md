@@ -312,6 +312,89 @@ These are bugs that have been previously diagnosed and fixed; check that they ha
 
 ---
 
+## §5.5 Session Log Integrity (NEW — Check R)
+
+### Check R — `logs/session/*.jsonl.parts/` Directories Are Properly Populated
+
+Every inferencer that actually ran must have a populated `logs/session/<InferencerType>-<id>.jsonl.parts/` directory with at minimum the `InferenceArgs/` AND `InferenceInput/` subdirs (and `InferenceResponse/` if the inferencer is a leaf that actually generated a response).
+
+**Why it matters**: An empty or missing `.jsonl.parts/` dir means the inferencer was constructed but never invoked, OR its Debuggable logging hook failed silently. Both indicate serious orchestration bugs (e.g., a worker that was skipped, a dispatch that fired and was lost, an inferencer that crashed before any args/input were recorded).
+
+**Per-orchestrator-class expectations** (verified empirically against baseline `task-e0b67640`):
+
+| Inferencer Class | Min `.jsonl.parts/` Subdir Count | Required Subdirs |
+|---|---|---|
+| **LeafInferencer** (RovoDevCLI, ClaudeCodeCLI, etc.) | ≥3 | `InferenceArgs/`, `InferenceInput/`, `InferenceResponse/` |
+| **DualInferencer** | ≥3 | `InferenceArgs/`, `InferenceInput/`, `InferenceResponse/` (+ `Round*` per consensus iteration) |
+| **MultiFlowDualInferencer** | ≥3 | Same as Dual (it inherits) |
+| **PlanThenImplementInferencer** | ≥2 | `InferenceArgs/`, `InferenceInput/` (no own response — delegates entirely) |
+| **LinearWorkflowInferencer** | ≥2 | `InferenceArgs/`, `InferenceInput/` (no own response — delegates) |
+| **BTA** (BreakdownThenAggregate, inside PTI worker) | ≥3 | `InferenceArgs/`, `InferenceInput/`, `InferenceResponse/` |
+| **MultiFlowInferencer** (inside MFDual) | ≥3 | Same as BTA |
+
+**Detection**:
+```bash
+WS="<workspace_path>"
+# Should produce 0 results (every parts dir must have at least 2 items)
+find $WS -name "*.jsonl.parts" -type d | while read d; do
+  cnt=$(ls "$d" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$cnt" -lt 2 ]; then
+    echo "TOO FEW ($cnt): $d"
+  fi
+done
+
+# Should produce 0 results (every parts dir for a LEAF inferencer must have InferenceResponse/)
+find $WS -name "RovoDevCliInferencer-*.jsonl.parts" -o -name "ClaudeCodeCliInferencer-*.jsonl.parts" \
+  -o -name "OpenaiApiInferencer-*.jsonl.parts" -o -name "ClaudeApiInferencer-*.jsonl.parts" -type d \
+| while read d; do
+  for required in InferenceArgs InferenceInput InferenceResponse; do
+    if [ ! -d "$d/$required" ]; then
+      echo "MISSING $required: $d"
+    fi
+  done
+done
+
+# Should produce 0 results (the rolled-up JSONL companion file must exist for every parts dir)
+find $WS -name "*.jsonl.parts" -type d | while read parts; do
+  jsonl="${parts%.parts}"
+  if [ ! -f "$jsonl" ]; then
+    echo "MISSING JSONL ROLL-UP: $jsonl"
+  fi
+done
+
+# Should produce 0 results (each required subdir must have ≥1 file)
+find $WS -name "*.jsonl.parts" -type d | while read d; do
+  for sub in InferenceArgs InferenceInput; do
+    if [ -d "$d/$sub" ]; then
+      cnt=$(ls "$d/$sub" 2>/dev/null | wc -l | tr -d ' ')
+      [ "$cnt" -eq 0 ] && echo "EMPTY $sub: $d/$sub"
+    fi
+  done
+done
+```
+
+**Root causes if any check fails**:
+1. **`.jsonl.parts/` dir missing entirely** → Inferencer was constructed but never `ainfer()`-ed. Could indicate: dispatch silently dropped, a parent orchestrator's dispatch logic excluded this inferencer, or a `LazyConfigFactory` instantiated an inferencer that no caller invoked.
+2. **`InferenceArgs/` missing** → Debuggable logging hook on `_log_input_args()` failed; possibly an exception thrown in pre-inference setup.
+3. **`InferenceInput/` missing** → Inferencer never received a prompt; possibly a fatal error during `_render_template()`.
+4. **`InferenceResponse/` missing for leaf** → LLM call was made but response wasn't logged (crashed during streaming?) OR leaf was actually an orchestrator misclassified as a leaf.
+5. **Companion `.jsonl` file missing** → JSONL roll-up writer crashed; parts captured but not consolidated. Indicates logger lifecycle bug.
+6. **Subdir empty (zero files)** → Inferencer started but crashed before emitting; check `WorkflowStepError/` for crash detail.
+
+**Acceptance criteria** (additions to §9):
+- AC19: Every `.jsonl.parts/` dir has ≥2 subdirs populated
+- AC20: Every LEAF inferencer's `.jsonl.parts/` dir has `InferenceArgs/`, `InferenceInput/`, `InferenceResponse/`
+- AC21: Every `.jsonl.parts/` dir has its companion `.jsonl` file
+- AC22: No `.jsonl.parts/` subdir is empty (when present)
+
+**Empirical examples**:
+- ✅ GOOD (LWI, 2 items): `logs/session/LinearWorkflowInferencer-010c2f4c.jsonl.parts/` containing only `InferenceArgs/` + `InferenceInput/`
+- ✅ GOOD (Dual, 5 items): `logs/session/DualInferencer-3ce9a020.jsonl.parts/` containing `InferenceArgs/`, `InferenceInput/`, `InferenceResponse/`, `Round01/`, `WorkflowStepError/`
+- ✅ GOOD (RovoDev leaf, 6 items): `logs/session/RovoDevCliInferencer-*.jsonl.parts/` containing the 3 required + optional cache/round dirs
+- ❌ BAD (regression marker): `.jsonl.parts/` dir with 0 or 1 item — inferencer was constructed but never properly ran
+
+---
+
 ## §6 Run Health Indicators
 
 ### Check K — Process Stability

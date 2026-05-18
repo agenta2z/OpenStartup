@@ -101,6 +101,44 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             data_svc = RealSessionDataService(fixtures_dir, session_store)
 
+            # ── Discovery registry (v6 unified frontend protocol) ─────────
+            # Register this live server in ~/.openteam/_runtime/registry/ so
+            # other frontends (RovoDev TUI, future IDE extensions) can
+            # discover it. Best-effort: registration failures are logged but
+            # do NOT block server startup — discovery is a convenience for
+            # clients, not a hard dependency.
+            try:
+                from openteam.server import _register as _registry
+                from openteam.server import __version__ as _server_version  # may not exist
+            except ImportError:
+                _server_version = "unknown"  # type: ignore[assignment]
+                from openteam.server import _register as _registry
+
+            host = getattr(app.state, "bind_host", "127.0.0.1")
+            port = getattr(app.state, "bind_port", 8000)
+            try:
+                _handle = _registry.register_server(
+                    runtime_root=session_store.runtime_root,
+                    host=host,
+                    port=port,
+                    server_dir_name=session_store.server_name,
+                    version=_server_version,
+                )
+                app.state.discovery_handle = _handle
+                logger.info(
+                    "Registered in discovery registry: %s (sid=%s)",
+                    _handle.registry_file, _handle.server_id,
+                )
+            except _registry.ConflictError as _e:
+                # Another live server owns the same (runtime_root, host, port).
+                # Surface clearly but don't crash — operator may have started
+                # this server intentionally for a different purpose.
+                logger.warning("[discovery] %s", _e)
+                app.state.discovery_handle = None
+            except Exception as _e:  # noqa: BLE001
+                logger.warning("[discovery] failed to register: %s", _e)
+                app.state.discovery_handle = None
+
             # Initialize conversation service
             # LLM backend: "mock" (default), "rovodev" (real AI via acli)
             # Set via env var OPENTEAM_LLM_BACKEND or app.state.llm_backend

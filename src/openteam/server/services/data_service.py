@@ -640,6 +640,30 @@ class RealSessionDataService(MockDataService):
     def create_session(self, title: str | None = None) -> dict:
         return self._session_store.create_session(title=title)
 
+    def attach_or_create_session(
+        self,
+        *,
+        external_id: str,
+        frontend_id: str | None = None,
+        frontend_metadata: dict | None = None,
+        title: str | None = None,
+    ) -> dict:
+        """Delegation for the unified frontend session protocol (v6).
+
+        Exposed at the DataService layer so routes can call
+        ``svc.attach_or_create_session(...)`` symmetrically with
+        ``svc.create_session(...)`` without reaching into the private
+        ``_session_store`` attribute. The capability-detection idiom
+        ``hasattr(svc, 'attach_or_create_session')`` mirrors the existing
+        mock-mode gate used by the session_routes module.
+        """
+        return self._session_store.attach_or_create_session(
+            external_id=external_id,
+            frontend_id=frontend_id,
+            frontend_metadata=frontend_metadata,
+            title=title,
+        )
+
     def delete_session(self, session_id: str) -> bool:
         return self._session_store.delete_session(session_id)
 
