@@ -143,7 +143,19 @@ async def execute(
         arguments.get("--max-inner-facets", arguments.get("max_inner_facets", 5))
     )
 
-    working_dir = session_context.get("working_dir")
+    # Allocate workspace via shared allocator (closes security bug: slash-path
+    # previously set working_dir to src/openteam/server/ → outputs in source tree).
+    from openteam.server.resources.tools._shared.workspace_allocator import (
+        allocate_tool_workspace,
+    )
+    _sr = (session_context or {}).get("session_root", "")
+    if _sr:
+        _tasks_base = Path(_sr) / "tasks"
+        _tasks_base.mkdir(parents=True, exist_ok=True)
+        workspace = allocate_tool_workspace("project_onboarding", base_dir=_tasks_base)
+    else:
+        workspace = allocate_tool_workspace("project_onboarding", base_dir=None)
+
     yaml_path = Path(__file__).parent / "project_onboarding.yaml"
 
     overrides: dict = {
@@ -152,9 +164,8 @@ async def execute(
         "_template_manager.templates": str(
             Path(__file__).resolve().parent.parent.parent / "prompt_templates"
         ),
+        "workspace.root": str(workspace),
     }
-    if working_dir:
-        overrides["workspace.root"] = str(working_dir)
 
     cfg = load_config(str(yaml_path), overrides=overrides)
     inferencer = instantiate(cfg)

@@ -39,6 +39,7 @@ class BackendBuildContext:
     cache_dir: Optional[str] = None
     session_store: Optional[Any] = None
     model_name: Optional[str] = None
+    session_id: str = ""
 
 
 class BackendFactory(Protocol):

@@ -544,11 +544,17 @@ async def execute(
     yaml_path = Path(__file__).parent / "create_role_bta.yaml"
     templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
-    # Pre-allocate workspace so per-slot ClaudeCodeCli `target_path` overrides have
-    # the concrete path. _run_topology will reuse this dir via the safe-hint heuristic.
-    task_id = session_context.get("task_id") or "create_role"
-    workspace = _resolve_workspace(session_context, task_id)
-    # Bake the resolved path back into session_context so _run_topology picks it up.
+    # Pre-allocate workspace via shared allocator (closes literal-task_id collision bug).
+    from openteam.server.resources.tools._shared.workspace_allocator import (
+        allocate_tool_workspace,
+    )
+    _sr = (session_context or {}).get("session_root", "")
+    if _sr:
+        _tasks_base = Path(_sr) / "tasks"
+        _tasks_base.mkdir(parents=True, exist_ok=True)
+        workspace = allocate_tool_workspace("create_role", base_dir=_tasks_base)
+    else:
+        workspace = allocate_tool_workspace("create_role", base_dir=None)
     session_context = {**session_context, "working_dir": str(workspace)}
 
     overrides: dict = {

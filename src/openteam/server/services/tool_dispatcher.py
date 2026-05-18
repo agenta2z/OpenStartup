@@ -200,14 +200,21 @@ class ToolDispatcher:
 
         interactive_ref = self._interactive  # capture for closure
 
-        # Compute per-task working_dir under server_dir/tasks/ if available
-        server_dir = self._session_context.get("server_dir", "")
-        if server_dir:
+        # Allocate per-task workspace via shared helper.
+        # Path B (server-affiliated): session_root → <session>/tasks/<tool>_<TS>_<uuid8>/
+        # Path A (standalone): no session_root → _runtime/tasks/<tool>/<tool>_<TS>_<uuid8>/
+        from openteam.server.resources.tools._shared.workspace_allocator import (
+            allocate_tool_workspace,
+        )
+        session_root_str = self._session_context.get("session_root", "")
+        if session_root_str:
             from pathlib import Path as _Path
-            task_working_dir = str(_Path(server_dir) / "tasks" / f"{tool_name}_{task_id}")
-            _Path(task_working_dir).mkdir(parents=True, exist_ok=True)
+            tasks_parent = _Path(session_root_str) / "tasks"
+            tasks_parent.mkdir(parents=True, exist_ok=True)
+            task_workspace = allocate_tool_workspace(tool_name, base_dir=tasks_parent)
         else:
-            task_working_dir = self._session_context.get("working_dir", "")
+            task_workspace = allocate_tool_workspace(tool_name, base_dir=None)
+        task_working_dir = str(task_workspace)
 
         async def _run() -> None:
             try:
@@ -217,6 +224,7 @@ class ToolDispatcher:
                 task_context = {
                     **self._session_context,
                     "task_id": task_id,
+                    "session_root": session_root_str,
                     "working_dir": task_working_dir,
                     "interactive": interactive_ref,
                 }

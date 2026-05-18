@@ -107,6 +107,7 @@ async def _try_dev_slash_command(
     send_safe: Any,
     dev_tool_tasks: "dict[str, asyncio.Task[Any]]" = None,
     dev_tool_input_queues: "dict[str, asyncio.Queue[Any]]" = None,
+    session_store=None,
 ) -> bool:
     """Intercept ``/command-name --args`` slash commands.
 
@@ -207,14 +208,21 @@ async def _try_dev_slash_command(
                 mod = importlib.import_module(module_path)
                 execute_fn = getattr(mod, func_name)
 
+                _session_root = ""
+                if session_store is not None and sid:
+                    try:
+                        _session_root = str(session_store.get_session_dir(sid))
+                    except Exception:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(
+                            "slash-path: could not resolve session_root for sid=%s; "
+                            "falling back to standalone workspace", sid,
+                        )
                 session_context = {
                     "interactive": interactive,
                     "task_id": task_id,
-                    # Patch 3.1 / R5b — executor allocates a safe per-task workspace under
-                    # server/_runtime/tasks/. We still pass the legacy server dir so
-                    # existing tools (mock_task, create_role) that don't allocate their
-                    # own workspace fall back to the original behavior.
-                    "working_dir": str(tools_dir.parent.parent),
+                    "session_id": sid,
+                    "session_root": _session_root,
                 }
                 result = await execute_fn(parsed_args, session_context)
 
@@ -318,10 +326,10 @@ async def manager_websocket(websocket: WebSocket) -> None:
         nonlocal active_input_queue
 
         # Dev slash commands: intercept before conversation flow
-        if await _try_dev_slash_command(text, sid, send_safe, dev_tool_tasks, dev_tool_input_queues):
-            return
-
         data_svc = websocket.app.state.data_service
+        _ss = getattr(data_svc, "session_store", None)
+        if await _try_dev_slash_command(text, sid, send_safe, dev_tool_tasks, dev_tool_input_queues, session_store=_ss):
+            return
         conv_svc = getattr(websocket.app.state, "conversation_service", None)
 
         if not conv_svc or not hasattr(data_svc, "append_message"):

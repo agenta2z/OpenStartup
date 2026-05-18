@@ -253,6 +253,7 @@ class ConversationService:
             cache_dir=self._cache_dir,
             session_store=self._session_store,
             model_name=model,
+            session_id=session_id,
         )
         try:
             inferencer = get_registry().create(backend, ctx)

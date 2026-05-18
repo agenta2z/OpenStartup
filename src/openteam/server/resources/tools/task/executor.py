@@ -146,30 +146,35 @@ def _derive_mode_from_flags(arguments: dict) -> Optional[str]:
     return None
 
 
-def _allocate_workspace(task_id: str) -> Path:
-    """R5b — allocate per-task workspace at server/_runtime/tasks/.
+def _allocate_workspace(
+    task_id: str, session_context: Optional[dict] = None
+) -> Path:
+    """Allocate workspace via the shared helper.
 
-    From this file at .../tools/task/executor.py:
-        parents[0] = task/, parents[1] = tools/, parents[2] = resources/, parents[3] = server/
+    Path B (server-affiliated): session_context["session_root"] set
+        → <session_root>/tasks/task_<TS>_<uuid8>/
+    Path A (standalone): no session_root
+        → <repo>/_runtime/tasks/task/task_<TS>_<uuid8>/
     """
-    server_dir = Path(__file__).resolve().parents[3]
-    runtime_root = server_dir / "_runtime" / "tasks"
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    ws = runtime_root / f"task_{task_id}_{ts}"
-    ws.mkdir(parents=True, exist_ok=True)
-    return ws
+    from openteam.server.resources.tools._shared.workspace_allocator import (
+        allocate_tool_workspace,
+    )
+    sc = session_context or {}
+    session_root_str = sc.get("session_root", "")
+    if session_root_str:
+        base = Path(session_root_str) / "tasks"
+        base.mkdir(parents=True, exist_ok=True)
+        return allocate_tool_workspace("task", base_dir=base)
+    return allocate_tool_workspace("task", base_dir=None)
 
 
 def _resolve_workspace(session_context: Optional[dict], task_id: str) -> Path:
-    """R1.3 — respect dispatcher-provided working_dir IF it looks like a per-task subdir,
-    else allocate a fresh one under server/_runtime/tasks/.
+    """Resolve workspace: accept dispatcher pre-allocated path or allocate fresh.
 
-    The agent-path dispatcher (tool_dispatcher.py) pre-allocates `server_dir/tasks/<id>`
-    and passes via session_context["working_dir"]; respecting it avoids double-allocation
-    and aligns the WS `task_completed.workspace` field with the actual run dir.
-
-    The slash-path dispatcher (manager_websocket_routes.py) currently passes the server
-    source dir — UNSAFE. The heuristic below rejects it and falls through to allocation.
+    Branch 1 (backward-compat): if working_dir is set and looks like a
+        per-task workspace (contains /tasks/ or /_runtime/), use it as-is.
+        This handles the dispatcher's pre-allocated paths and resume scenarios.
+    Branch 2 (default): allocate via shared helper, routing by session_root.
     """
     sc = session_context or {}
     candidate = sc.get("working_dir", "")
@@ -178,14 +183,11 @@ def _resolve_workspace(session_context: Optional[dict], task_id: str) -> Path:
             posix = Path(candidate).as_posix()
         except Exception:
             posix = ""
-        # Per-task subdir heuristic: path contains /tasks/ or /_runtime/.
-        # The slash dispatcher's `working_dir = tools_dir.parent.parent` (= openteam/server/)
-        # has neither, so it falls through to _allocate_workspace and gets the safety dir.
         if "/tasks/" in posix or "/_runtime/" in posix:
             ws = Path(candidate)
             ws.mkdir(parents=True, exist_ok=True)
             return ws
-    return _allocate_workspace(task_id)
+    return _allocate_workspace(task_id, session_context)
 
 
 def _apply_resume(path_str: str, *, copy_workspace: bool, in_place: bool) -> Path:

@@ -302,20 +302,22 @@ def test_resolve_workspace_respects_safe_dispatcher_hint(tmp_path=None):
     assert Path(got).resolve() == safe_root.resolve(), \
         f"expected {safe_root}, got {got}"
 
-def test_resolve_workspace_unsafe_hint_falls_through():
+def test_resolve_workspace_unsafe_hint_falls_through(monkeypatch, tmp_path):
     """R1.3 — when session_context's working_dir does NOT look like a per-task subdir
     (e.g. server source dir), _resolve_workspace should allocate a fresh one."""
+    monkeypatch.setenv("OPENTEAM_RUNTIME_DIR", str(tmp_path))
     sc = {"working_dir": "/some/server/dir"}
     got = ex._resolve_workspace(sc, "test-id")
     posix = Path(got).as_posix()
-    # Falls through to _allocate_workspace which creates under server/_runtime/tasks/
-    assert "/_runtime/tasks/" in posix, f"expected fallback, got {posix}"
+    # Falls through to _allocate_workspace which creates under _runtime/tasks/task/
+    assert "/_runtime/" in posix or "/tasks/" in posix, f"expected fallback, got {posix}"
 
-def test_resolve_workspace_no_hint_allocates():
-    """R1.3 — no working_dir hint → allocate fresh."""
+def test_resolve_workspace_no_hint_allocates(monkeypatch, tmp_path):
+    """R1.3 — no working_dir hint → allocate fresh via shared helper."""
+    monkeypatch.setenv("OPENTEAM_RUNTIME_DIR", str(tmp_path))
     got = ex._resolve_workspace({}, "test-id-no-hint")
     posix = Path(got).as_posix()
-    assert "/_runtime/tasks/" in posix and "test-id-no-hint" in posix
+    assert "/tasks/" in posix, f"expected tasks/ in path, got {posix}"
 
 def test_template_feed_via_override_reaches_inferencer():
     """A1#6 / R3.4 — proves --template-feed flag is unnecessary: BTA's

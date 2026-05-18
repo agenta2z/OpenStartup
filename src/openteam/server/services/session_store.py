@@ -314,14 +314,41 @@ class SessionStore:
             logger.warning("Failed to read turn data %s: %s", turn_file, e)
             return None
 
-    def get_session_dir(self, session_id: str) -> Path | None:
-        """Public accessor for the session's on-disk directory.
+    def find_session_dir(self, session_id: str) -> Path | None:
+        """Return the session directory if it exists, or None.
 
-        Wraps the private `_find_session_dir` so that callers (e.g.,
-        `data_service.get_session_dir`) don't need to depend on a private API.
-        Used for per-turn JsonLogger wiring and streaming cache placement.
+        Read-only accessor for callers that need None-on-missing semantics
+        (e.g., data_service, conversation_service caching/JsonLogger wiring).
         """
         return self._find_session_dir(session_id)
+
+    def get_session_dir(self, session_id: str) -> Path:
+        """Return the per-session directory, creating it if absent.
+
+        Ensure-create: always returns a Path (never None). Should rarely
+        need to create because create_session() eagerly creates the dir.
+        Handles edge cases: flat-file-only sessions from prior runs, or
+        directories manually deleted between create and tool dispatch.
+        """
+        existing = self._find_session_dir(session_id)
+        if existing is not None:
+            return existing
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        new_dir = self._dir / f"{session_id}_{ts}"
+        new_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Ensure-created session dir for %s: %s", session_id, new_dir.name)
+        return new_dir
+
+    def get_session_tasks_dir(self, session_id: str) -> Path:
+        """Return <session_dir>/tasks/, creating it if absent.
+
+        Single source of truth for where per-session task workspaces live.
+        Used by allocate_tool_workspace(base_dir=...) callers.
+        """
+        session_dir = self.get_session_dir(session_id)
+        tasks_dir = session_dir / "tasks"
+        tasks_dir.mkdir(parents=True, exist_ok=True)
+        return tasks_dir
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session file or directory. Returns True if deleted, False if not found."""

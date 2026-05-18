@@ -624,6 +624,11 @@ class RealSessionDataService(MockDataService):
             session_store._dir,
         )
 
+    @property
+    def session_store(self):
+        """Public accessor for the underlying SessionStore."""
+        return self._session_store
+
     # ── Overridden reads ─────────────────────────────────────────
     def get_sessions(self) -> list[dict]:
         return self._session_store.list_sessions()
