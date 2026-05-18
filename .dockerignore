@@ -1,0 +1,26 @@
+# Runtime artifacts (workspaces, sessions, cache)
+_runtime/
+
+# Git
+.git/
+.gitignore
+
+# Dev tools
+.claude/
+.cursor/
+_dev/
+_archive/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Node artifacts
+node_modules/
+build/
+
+# Environment
+.env
+.env.*

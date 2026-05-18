@@ -108,7 +108,20 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     integration_executor = build_integration_executor()
 
     # (e) + (f) Dispatcher
+    _sid = getattr(ctx, "session_id", "") or ""
+    _session_root = ""
+    if (
+        _sid
+        and ctx.session_store is not None
+        and hasattr(ctx.session_store, "get_session_dir")
+    ):
+        try:
+            _session_root = str(ctx.session_store.get_session_dir(_sid))
+        except Exception:
+            pass
     session_context = {
+        "session_id": _sid,
+        "session_root": _session_root,
         "working_dir": ctx.working_dir,
         "server_dir": (
             str(ctx.session_store.server_dir)
