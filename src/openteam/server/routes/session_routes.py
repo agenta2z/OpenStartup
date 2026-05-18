@@ -1,10 +1,11 @@
 """Manager session endpoints."""
 
 from datetime import datetime, timezone
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
@@ -15,6 +16,32 @@ class CreateSessionRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     message: str
+
+
+# ── v6 unified frontend session protocol ────────────────────────────────────
+class AttachSessionRequest(BaseModel):
+    """Request body for ``POST /api/sessions/attach``."""
+
+    external_id: str = Field(
+        ..., description="Prefix-validated external session id (e.g. rovodev-<uuid4>)."
+    )
+    frontend_id: str | None = Field(
+        None,
+        description="Optional frontend tag; defaults to the parsed prefix.",
+    )
+    frontend_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Opaque key/value pairs persisted alongside the session.",
+    )
+    title: str | None = None
+
+
+class AttachSessionResponse(BaseModel):
+    """Response body for ``POST /api/sessions/attach``."""
+
+    session_id: str
+    session_root: str
+    created: bool
 
 
 def _make_timestamp() -> str:
@@ -48,6 +75,60 @@ async def create_session(
         raise HTTPException(400, "Session creation not available in mock mode")
     session = svc.create_session(title=body.title)
     return {"data": session}
+
+
+@router.post("/attach", response_model=AttachSessionResponse)
+async def attach_session(
+    request: Request, body: AttachSessionRequest,
+) -> AttachSessionResponse:
+    """Attach to or create a session by external_id (v6 unified frontend protocol).
+
+    Idempotent: the same ``external_id`` always returns the same session
+    (``created=False`` on the second call). This is the SOLE HTTP path that
+    creates frontend-prefixed sessions (e.g. ``rovodev-...``), making the
+    server the single writer for session creation (Invariant I9).
+
+    Validates ``external_id`` via the prefix whitelist
+    (:func:`openteam.server.services.session_store.validate_external_id`);
+    bad prefixes return HTTP 400.
+
+    Mock-mode safety (Invariant I18): returns HTTP 400 when the data service
+    is the mock variant (no ``attach_or_create_session`` capability).
+    """
+    # Lazy import — keeps the route registration import-time light and
+    # mirrors the pattern used elsewhere in this module.
+    from openteam.server.services.session_store import validate_external_id
+
+    svc = request.app.state.data_service
+    # Capability check on the route layer (mock_data_service lacks attach).
+    # Round-9 C4 fix: the predicate matches the actual call path we use below.
+    if not hasattr(svc, "attach_or_create_session"):
+        raise HTTPException(400, "Session attach not available in mock mode")
+
+    try:
+        prefix, _ = validate_external_id(body.external_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    # Detect created-vs-existing BEFORE the idempotent call. Two HTTP requests
+    # racing here would both observe the same final state (one returns
+    # created=True, the other created=False) thanks to the asyncio event-loop
+    # serialisation of a single uvicorn worker (Invariant I20).
+    existing = svc.get_session(body.external_id)
+    created = existing is None
+
+    session = svc.attach_or_create_session(
+        external_id=body.external_id,
+        frontend_id=body.frontend_id or prefix,
+        frontend_metadata=body.frontend_metadata,
+        title=body.title,
+    )
+    return AttachSessionResponse(
+        session_id=session["id"],
+        # Use the public DataService accessor; never reach into _session_store.
+        session_root=str(svc.get_session_dir(session["id"])),
+        created=created,
+    )
 
 
 @router.delete("/{session_id}")

@@ -29,6 +29,7 @@ openteam-task               = "openteam.server.resources.tools.task.cli:main"
 openteam-create-role        = "openteam.server.resources.tools.create_role.cli:main"
 openteam-role-setup         = "openteam.server.resources.tools.role_setup.cli:main"
 openteam-project-onboarding = "openteam.server.resources.tools.project_onboarding.cli:main"
+openteam-server             = "openteam.server.run_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

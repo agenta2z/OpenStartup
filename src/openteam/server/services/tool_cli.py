@@ -111,7 +111,18 @@ def run_cli(
         # the same key shape from both CLI and slash paths.
         arguments[k.replace("_", "-")] = v
 
-    session_context: dict[str, Any] = {}
+    # v6 unified frontend session protocol: when the parent (TUI / MCP wrapper)
+    # set OPENTEAM_SESSION_ID + OPENTEAM_SERVER_DIR, populate session_context
+    # so tools land their workspaces under the right session dir. Empty dict
+    # (Path A fallback) when no frontend context is present — today's CLI
+    # behavior preserved.
+    from openteam.server.services.frontend_context import build_frontend_session_context
+    try:
+        session_context: dict[str, Any] = build_frontend_session_context()
+    except RuntimeError as e:
+        # I9 fail-fast: Server Mode + missing session is a hard error.
+        print(f"[cli] {e}", file=sys.stderr)
+        return 2
 
     try:
         result = asyncio.run(execute_fn(arguments, session_context))

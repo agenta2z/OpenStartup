@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -37,6 +38,61 @@ from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+
+# ── Unified frontend session protocol (v6) ──────────────────────────────────
+#
+# Frontends supply prefix-validated external session ids (e.g. "rovodev-<uuid4>",
+# "webui-<unix>-<hex6>"). Prefixes are whitelisted so a frontend cannot impersonate
+# another frontend; the remainder is constrained to a safe character set so the
+# id can safely become a directory name.
+#
+# The whitelist is immutable except via the CI preflight
+# `test_frontend_prefix_whitelist_immutable.py`; any addition requires explicit
+# review.
+_VALID_FRONTEND_PREFIXES: frozenset[str] = frozenset({
+    "rovodev",   # RovoDev TUI (v6 primary user)
+    "webui",     # React WebUI (POST-1 migration target)
+    "mcp",       # MCP wrapper (POST-4)
+    "session",   # Legacy server-minted ids (backward compat)
+    "slack",     # Reserved for future Slack bot
+    "vscode",    # Reserved for future VS Code extension
+})
+
+_EXTERNAL_ID_REMAINDER_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
+
+
+def validate_external_id(external_id: str) -> tuple[str, str]:
+    """Split and validate an external session id.
+
+    Returns ``(prefix, remainder)`` on success. Raises ``ValueError`` if the id
+    is malformed: missing prefix, prefix not in whitelist, or remainder fails
+    the character / length check.
+
+    The remainder regex (``^[A-Za-z0-9_.\\-]{1,128}$``) rejects path-traversal
+    sequences (``/``, ``..``-as-first-char is fine because the regex itself
+    allows ``.`` but the id can never escape its containing directory due to
+    the leading ``<prefix>-`` segment), shell metacharacters, and overly long
+    ids. The id is intended to be safely usable as a filesystem directory name.
+    """
+    if not isinstance(external_id, str) or not external_id:
+        raise ValueError("external_id must be a non-empty string")
+    if "-" not in external_id:
+        raise ValueError(
+            f"external_id {external_id!r} is missing the `<prefix>-<id>` separator"
+        )
+    prefix, _, remainder = external_id.partition("-")
+    if prefix not in _VALID_FRONTEND_PREFIXES:
+        raise ValueError(
+            f"external_id prefix {prefix!r} is not in the whitelist "
+            f"{sorted(_VALID_FRONTEND_PREFIXES)!r}"
+        )
+    if not _EXTERNAL_ID_REMAINDER_RE.match(remainder):
+        raise ValueError(
+            f"external_id remainder {remainder!r} fails validation regex "
+            "(allowed: alphanumerics, underscore, dot, hyphen; 1-128 chars)"
+        )
+    return prefix, remainder
 
 
 class SessionStore:
@@ -156,20 +212,42 @@ class SessionStore:
             logger.warning("Failed to read session_state.json for %s: %s", session_id, e)
             return None
 
-    def create_session(self, title: str | None = None) -> dict[str, Any]:
+    def create_session(
+        self,
+        title: str | None = None,
+        *,
+        _explicit_id: str | None = None,
+        _frontend_id: str | None = None,
+        _frontend_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new session directory and return the full session object.
 
-        - ID format: session-<unix_timestamp>-<6_hex_chars>
-        - Directory: <session_id>_<YYYYMMDD_HHMMSS>/session_state.json
+        - ID format (default): ``session-<unix_timestamp>-<6_hex_chars>``
+        - ID format (frontend-supplied): ``<prefix>-<remainder>`` where prefix
+          ∈ ``_VALID_FRONTEND_PREFIXES`` (validated via ``_explicit_id``)
+        - Directory: ``<session_id>_<YYYYMMDD_HHMMSS>/session_state.json``
         - Primary agent: always Orchestrator
         - Initial message: welcome message from Orchestrator
+
+        The underscore-prefixed kwargs are part of the unified frontend session
+        protocol (v6). Public callers use :meth:`attach_or_create_session`; the
+        legacy ``create_session(title=...)`` form continues to mint server-side
+        ids for the React UI.
         """
-        now = time.time()
-        session_id = f"session-{int(now)}-{uuid4().hex[:6]}"
+        if _explicit_id is not None:
+            # Validate explicit id against the prefix whitelist. Bypassing
+            # validation here would let a frontend create sessions outside
+            # its assigned prefix space.
+            validate_external_id(_explicit_id)
+            session_id = _explicit_id
+        else:
+            now = time.time()
+            session_id = f"session-{int(now)}-{uuid4().hex[:6]}"
+
         timestamp = _iso_now()
         dir_timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-        session = {
+        session: dict[str, Any] = {
             "id": session_id,
             "title": title or "Orchestrator Session",
             "created_at": timestamp,
@@ -192,6 +270,15 @@ class SessionStore:
                 },
             ],
         }
+        # Persist frontend provenance so list/detail views can attribute the
+        # session to the originating frontend. Optional — legacy server-minted
+        # sessions don't carry these fields.
+        if _frontend_id is not None:
+            session["frontend_id"] = _frontend_id
+        if _frontend_metadata:
+            session["frontend_metadata"] = dict(_frontend_metadata)
+        if _explicit_id is not None:
+            session["external_id"] = _explicit_id
 
         # Create session directory
         session_dir = self._dir / f"{session_id}_{dir_timestamp}"
@@ -200,6 +287,49 @@ class SessionStore:
         self._update_index()
         logger.info("Created session: %s (%s) in %s", session_id, title or "Orchestrator Session", session_dir.name)
         return session
+
+    def attach_or_create_session(
+        self,
+        *,
+        external_id: str,
+        frontend_id: str | None = None,
+        frontend_metadata: dict[str, Any] | None = None,
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        """Idempotently return the session identified by ``external_id``.
+
+        If a session with the given id already exists on disk, return it as-is
+        (frontend_metadata + frontend_id are NOT overwritten on attach; clients
+        should treat attach as read-or-create, never read-and-modify).
+
+        Otherwise create a new session with the explicit external id, validating
+        the prefix against ``_VALID_FRONTEND_PREFIXES`` (Invariant I2).
+
+        This is the single entry point used by the ``POST /api/sessions/attach``
+        HTTP endpoint (Invariant I9: server-as-single-writer in Server Mode)
+        and the Subprocess-Mode fallback path in
+        ``openteam.mcp_server.context.build_session_context`` (Invariant I15).
+
+        Idempotency is established by ``get_session(external_id)`` — same id
+        called twice returns the same session dict without re-creating the dir.
+        """
+        # validate_external_id raises ValueError on prefix-whitelist failures;
+        # callers (the HTTP route) translate that into HTTP 400.
+        parsed_prefix, _ = validate_external_id(external_id)
+        # Default frontend_id to the parsed prefix so list views always have an
+        # attributable frontend without forcing the client to repeat the prefix.
+        effective_frontend_id = frontend_id or parsed_prefix
+
+        existing = self.get_session(external_id)
+        if existing is not None:
+            return existing
+
+        return self.create_session(
+            title=title,
+            _explicit_id=external_id,
+            _frontend_id=effective_frontend_id,
+            _frontend_metadata=frontend_metadata,
+        )
 
     def append_message(
         self, session_id: str, message: dict[str, Any]
