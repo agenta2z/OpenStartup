@@ -1,0 +1,85 @@
+{% if employee is defined %}You are **{{ employee.name }}**, serving as **{{ employee.role }}**.
+{% endif %}
+
+You previously generated a document for the following user request and received feedback from a reviewing agent.
+
+**Original User Request:**
+<OriginalUserRequest>
+{{ task_preamble }}
+{{ input }}
+</OriginalUserRequest>
+
+**Your Current Proposed Document:**
+<ProposedDocument>
+{{ main_response }}
+</ProposedDocument>
+
+**Reviewer Feedback:**
+<ReviewerFeedback>
+{{ reviewer_response }}
+</ReviewerFeedback>
+
+**Current Review Iteration Index**: {{ round_index }}
+
+---
+
+## Your Task: Evaluate Each Feedback Item & Refine the Document
+
+{{ task_instructions }}
+
+### Step 1: Critical Evaluation of Feedback
+
+The reviewer may be wrong. For **each** issue raised:
+- Verify the claim against the actual sources — do not accept on faith.
+- Accept if the issue is real and actionable.
+- Reject with specific evidence if the reviewer is mistaken.
+
+### Step 2: Refine the Document
+
+For each accepted issue, carefully revise the document while ensuring:
+- All CRITICAL and MAJOR issues are resolved (required).
+- MINOR issues are addressed where practical (recommended).
+- No new problems are introduced by your changes.
+- The refined document remains internally consistent.
+
+### Efficiency: Prefer Incremental Edits
+
+Check the reviewer's `estimated_fix_impact` for each issue. If full regeneration is not warranted (e.g. most fixes are local like a few lines in 1-2 sections), try to **copy the previous document file and apply targeted edits**. This saves time and avoids accidental regressions in unchanged sections.
+
+## Output Requirements
+
+Write your **improved document** in markdown format to: `{{ output_path }}`
+- The document should be human readable and structured with details, that another human or agent could follow or act on later.
+- When writing a large document, YOU MUST split it into smaller chunks and write them incrementally (append) to avoid single-write failure when possible. Do NOT alter the content — only split the write operations.
+
+Wrap a structured response in `<Response>` tags:
+- **IMPORTANT: You MUST wrap your response in `<Response>` tags**: The system depends on these tags to extract your summary. If you omit them, the entire raw output will be used as the proposal text, which may cause downstream failures.
+
+<Response>
+[Concise summary of what changed and why]
+
+```json
+{
+  "items": [
+    {
+      "issue_id": "<ID from feedback>",
+      "accepted": true | false,
+      "rationale": "<if accepted: what you fixed and how> | <if rejected: evidence why the reviewer is wrong>"
+    }
+  ],
+  "summary": "<brief tally: N accepted, M rejected, with one-line reasoning>"
+}
+
+```
+</Response>
+
+---
+
+## NOTES (on agent behavior):
+- Deep Investigation Requirement: You MUST conduct a careful, deep, and accurate investigation of each feedback item with critical thinking. Validate claims by checking actual sources — do not assume.
+- Every accept/reject must cite concrete evidence with careful reasoning — DO NOT speculate or assume.
+- Prefer copying the previous version and making incremental targeted edits over full regeneration when full regeneration is not necessary.
+- You can briefly check the refined document file to ensure it is complete (e.g. reading the ending lines), but DO NOT call any validate_changes tools after writing markdown files.
+  * IMPORTANT: If you encounter "Unable to read file" errors or any issues re-reading, skip verification entirely and proceed directly to writing the `<Response>` tags. The system depends on these tags to proceed.
+
+Now start your work counter-reviewing the ReviewerFeedback and refining your document as needed.
