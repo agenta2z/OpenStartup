@@ -1,16 +1,18 @@
 /**
- * Shared components barrel export.
+ * Shared components — re-exported from @agent-foundation/shared-ui.
  *
- * These components originate from AgentFoundation and are copied here
- * for CRA compatibility. The canonical source is:
- * AgentFoundation/src/agent_foundation/ui/webui/react/src/components/common/
+ * The canonical source is now AgentFoundation/src/agent_foundation/ui/react-shared/.
+ * This barrel re-exports for backward compatibility with existing OpenStartup imports.
  */
 
-export { StatusBadge } from './StatusBadge';
-export { ProgressBar } from './ProgressBar';
-export { PersonChip } from './PersonChip';
-export { QuickLinkButton } from './QuickLinkButton';
-export { SectionCard } from './SectionCard';
-export { EmptyState } from './EmptyState';
-export { LoadingIndicator } from './LoadingIndicator';
+export {
+  StatusBadge,
+  ProgressBar,
+  PersonChip,
+  QuickLinkButton,
+  SectionCard,
+  EmptyState,
+  LoadingIndicator,
+} from '@agent-foundation/shared-ui';
+
 export { default as PendingReasonPopover } from './PendingReasonPopover';
