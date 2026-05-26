@@ -1,6 +1,0 @@
-set|env|-n|temporal|statefulset/cassandra|CASSANDRA_SEEDS=cassandra-0.cassandra-headless.temporal.svc.cluster.local,cassandra--1.cassandra-headless.temporal.svc.cluster.local|MAX_HEAP_SIZE=4G|HEAP_NEWSIZE=800M|JVM_EXTRA_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled|JMX_PORT=7199|LOCAL_JMX=no|
-delete|pod|-n|temporal|cassandra-0|--wait=false|
-get|pod|-n|temporal|cassandra-0|-o|jsonpath={.status.containerStatuses[0].ready}|
-delete|pod|-n|temporal|cassandra--1|--wait=false|
-get|pod|-n|temporal|cassandra--1|-o|jsonpath={.status.containerStatuses[0].ready}|
-get|pod|-n|temporal|-l|app.kubernetes.io/name=cassandra|-o|wide|

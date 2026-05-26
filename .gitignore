@@ -16,18 +16,11 @@ roles/
 *.jsonl
 *.jsonl.parts/
 
-# System files
-.DS_Store
-Thumbs.db
-*.pid
-.venv_v2.path
-
-# IDE
-.idea/
-.vscode/
-
 # Temp files
 tmp_rovodev_*
 
-# Pipeline logs with potential secrets
-_dev/rai_hack/_logs/
+# Development directories (tracked on dev branch, ignored on main)
+_dev/
+_archive/
+_docs/
+_plan/

@@ -1,1 +1,0 @@
-stdout=/tmp/twg/1777672623/run.Skc61a/stdout.json
