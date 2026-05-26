@@ -132,15 +132,11 @@ async def execute(
     )
 
     project_document_path = arguments.get("project_document_path", "")
-    role_setup_path = arguments.get(
-        "--role-setup-path", arguments.get("role_setup_path", "")
-    )
-    artifacts_path = arguments.get(
-        "--artifacts-path", arguments.get("artifacts_path", "")
-    )
-    max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
+    role_setup_path = arguments.get("role_setup_path", "")
+    artifacts_path = arguments.get("artifacts_path", "")
+    max_facets = int(arguments.get("max_facets", 8))
     max_inner_facets = int(
-        arguments.get("--max-inner-facets", arguments.get("max_inner_facets", 5))
+        arguments.get("max_inner_facets", 5)
     )
 
     # Allocate workspace via shared allocator (closes security bug: slash-path

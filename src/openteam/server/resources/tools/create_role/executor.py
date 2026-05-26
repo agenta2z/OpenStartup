@@ -14,8 +14,8 @@ or kwargs overrides:
   ``task_preamble`` explicitly loaded from ``_variables/task_preamble/create_role.jinja2``
   (role-specific source guidance).
 - **Aggregation**: ``plan/main/initial.jinja2`` — generic structured document.
-  ``task_instructions`` overridden via kwargs with role-specific synthesis
-  sections (``ROLE_SYNTHESIS_INSTRUCTIONS``).
+  ``task_instructions`` resolved from ``aggregation/create_role.jinja2``
+  via ``template_master_version="aggregation"`` + ``template_version="create_role"``.
 
 A single ``TemplateManager`` is rooted at ``prompt_templates/`` with
 ``active_template_root_space`` switching between phases.
@@ -87,79 +87,9 @@ def _load_variable_file(space: str, var_name: str, variant: str = "create_role")
     return path.read_text(encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# Role synthesis instructions (kwargs override for plan/initial.jinja2)
-# ---------------------------------------------------------------------------
-
-ROLE_SYNTHESIS_INSTRUCTIONS = """\
-Synthesize ALL research findings into a comprehensive, internally consistent \
-Role Responsibility Document in Markdown. The document must:
-
-1. **Synthesize** — merge insights from multiple facets, resolving \
-contradictions and eliminating redundancy.
-2. **Ground in evidence** — every claim should trace to at least one \
-research finding.
-3. **Distinguish AI-specific aspects** — note where the role's AI nature \
-changes expectations vs. a human equivalent.
-
-### Required Sections
-
-## 1. Role Overview
-Brief description of the role, its purpose, and where it fits in the \
-organization. Include the role's primary value proposition and how it \
-contributes to team goals.
-
-## 2. Core Responsibilities
-Day-to-day activities and primary duties, organized by priority. For each \
-responsibility, indicate expected time allocation and autonomy level.
-
-## 3. Required Skills & Competencies
-Technical skills, soft skills, and domain expertise needed. Distinguish \
-**required** vs **nice-to-have**. Include proficiency levels where applicable.
-
-## 4. Collaboration & Communication
-Key stakeholders, cross-functional interactions, reporting structure, and \
-communication patterns. Specify which roles this position collaborates \
-with and how.
-
-## 5. Success Metrics & KPIs
-Measurable outcomes that define success in this role, with suggested \
-targets and measurement cadence.
-
-## 6. Tools & Technologies
-Platforms, frameworks, and tools the role works with daily. Distinguish \
-core tools from secondary ones.
-
-## 7. Standard Operating Procedures
-2-3 key SOPs with trigger conditions and step-by-step procedures. Focus \
-on high-impact, repeatable workflows.
-
-## 8. Guardrails & Autonomy
-Autonomy levels, escalation thresholds, approval requirements, and safety \
-boundaries. Specify what the role can do independently vs. what requires \
-human approval.
-
-## 9. Challenges & Mitigation Strategies
-Common obstacles and recommended approaches to handle them. Include both \
-technical and organizational challenges.
-
-## 10. Growth Path & Career Development
-Progression opportunities, skill development areas, and mentorship \
-expectations.
-
-## 11. Onboarding Plan
-First 30/60/90 day milestones for ramping up in this role.
-
-### Quality Requirements
-
-- **Internal consistency** — sections must not contradict each other.
-- **No concatenation** — synthesize and deduplicate; do NOT simply paste \
-research results.
-- **Professional tone** — the document should be usable for hiring, \
-onboarding, or team planning.
-- **Actionable specificity** — avoid vague statements; every item should \
-be concrete enough to act on.
-"""
+# ROLE_SYNTHESIS_INSTRUCTIONS constant REMOVED — canonical content now lives
+# at plan/main/_variables/task_instructions/aggregation/create_role.jinja2
+# (resolved via template_master_version="aggregation" + template_version="create_role")
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +193,7 @@ def _build_template_manager(
         active_template_type="main",
         predefined_variables=True,
         cross_root_variable_lookup=True,  # Refactor 17
+        enable_templated_feed=True,  # Required for wrapper variable resolution
     )
 
 
@@ -345,8 +276,8 @@ def build_create_role_inferencer(
        facet each (parallel). ``task_preamble`` explicitly loaded from
        ``_variables/task_preamble/create_role.jinja2`` (role-specific source guidance).
     3. **Aggregator** — ``plan/main/initial.jinja2`` synthesizes all research
-       into a role responsibility document. ``task_instructions`` overridden
-       via kwargs with ``ROLE_SYNTHESIS_INSTRUCTIONS``.
+       into a role responsibility document. ``task_instructions`` resolved
+       from ``aggregation/create_role.jinja2`` via master_version mechanism.
 
     A single ``TemplateManager`` is rooted at ``prompt_templates/`` with
     ``active_template_root_space`` switching between phases.
@@ -431,7 +362,9 @@ def build_create_role_inferencer(
         worker_inf.output_path = f"facet_{index}.md"
         return worker_inf
 
-    # 3. Aggregator inferencer (no wrapper — prompt injected via builder)
+    # 3. Aggregator inferencer — uses modern BTA template path
+    #    (inject_upstream_artifacts_to_aggregator=True is the BTA default).
+    #    Template infrastructure wired here; BTA handles worker result injection.
     if aggregator_type == "rovodev":
         rovodev_kwargs = dict(
             target_path=aggregator_working_dir or ".",
@@ -444,60 +377,37 @@ def build_create_role_inferencer(
     else:
         aggregator_inf = _make_rovochat(**rovo_kwargs)
         aggregator_inf.debug_mode = True
-    # 4. Aggregator prompt builder — uses generic plan template
-    #    with task_instructions overridden by ROLE_SYNTHESIS_INSTRUCTIONS
-    #    BTA calls: prompt_builder(worker_results, original_query=original_query)
-    #    - worker_results is a tuple (collected from *worker_results in the
-    #      aggregator node closure)
-    #    - original_query is a keyword arg (from _original_query=inference_input)
-    def agg_prompt_builder(
-        worker_results: tuple,
-        *,
-        original_query: str = "",
-        worker_output_paths: list = None,
-    ) -> str:
-        agg_has_local = getattr(aggregator_inf, "has_local_access", False)
-        parts = []
-        for idx, res in enumerate(worker_results):
-            cleaned = extract_delimited(str(res))
-            facet_path = (
-                worker_output_paths[idx]
-                if worker_output_paths and idx < len(worker_output_paths)
-                else None
-            )
-            if facet_path and agg_has_local:
-                # Local-access aggregator: pass file paths only.
-                # The aggregator can read the full research from disk.
-                # worker_output_paths is the single source of truth —
-                # same paths workers write to (captured by BTA's closure).
-                parts.append(
-                    f"### Research Facet {idx + 1}\n"
-                    f"Read the full research report from: `{facet_path}`"
-                )
-            else:
-                # Non-local aggregator or no workspace: include full text inline.
-                parts.append(f"### Research Facet {idx + 1}\n{cleaned}")
-        joined = "\n\n".join(parts)
-        agg_input = (
-            f"**Original Role Request:** {original_query}\n\n"
-            f"**Research Findings ({len(worker_results)} facets):**\n{joined}"
-        )
-        return tm(
-            "initial",
-            active_template_root_space="plan",
-            input=agg_input,
-            task_instructions=ROLE_SYNTHESIS_INSTRUCTIONS,
-        )
 
-    # 5. Wire the BTA pipeline
+    # Wire template infrastructure for aggregator.
+    # master_version="aggregation" → search inside aggregation/ subdir
+    # task_instructions="create_role" → select aggregation/create_role.jinja2
+    # task_preamble and task_response_format use None → fall back to
+    # aggregation/default.jinja2 via template_version (set by SLOT_DEFAULTS)
+    #
+    # NOTE: we do NOT set template_version here — SLOT_DEFAULTS already sets
+    # it to "aggregation" and re-applies during BTA execution. Setting it
+    # to "create_role" would be overridden. Instead, we use an explicit
+    # per-variable override for task_instructions.
+    aggregator_inf.template_manager = tm
+    aggregator_inf.template_key = "initial"
+    aggregator_inf.template_root_space = "plan"
+    aggregator_inf.template_master_version = "aggregation"
+    aggregator_inf.template_variables = {
+        "task_preamble": None,
+        "task_instructions": "create_role",
+        "task_response_format": None,
+    }
+
+    # 4. Wire the BTA pipeline
     #    CRITICAL: max_concurrency MUST be None when using an aggregator.
     #    See BTA source lines 99-138 for the deadlock warning.
+    #    No aggregator_prompt_builder — modern BTA path handles worker injection
+    #    via inject_upstream_artifacts_to_aggregator=True (default).
     return BreakdownThenAggregateInferencer(
         breakdown_inferencer=breakdown_inf,
         breakdown_parser=parse_breakdown_response,
         worker_factory=worker_factory,
         aggregator_inferencer=aggregator_inf,
-        aggregator_prompt_builder=agg_prompt_builder,
         max_breakdown=max_facets,
         max_concurrency=None,
         workspace=workspace,
@@ -539,10 +449,9 @@ async def execute(
     )
 
     role_description = arguments.get("role_description", "")
-    max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
+    max_facets = int(arguments.get("max_facets", 8))
 
     yaml_path = Path(__file__).parent / "create_role_bta.yaml"
-    templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
     # Pre-allocate workspace via shared allocator (closes literal-task_id collision bug).
     from openteam.server.resources.tools._shared.workspace_allocator import (
@@ -559,7 +468,6 @@ async def execute(
 
     overrides: dict = {
         "max_breakdown": max_facets,
-        "_template_manager.templates": str(templates_path),
     }
 
     # Delegate to /task's core. Respects session_context["working_dir"] (already

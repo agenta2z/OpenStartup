@@ -375,6 +375,19 @@ async def _run_topology(
     #     to os.getcwd() (a narrow per-task subdir).
     overrides.setdefault("_target_path", str(working_dir))
     overrides["_params.workspace_root"] = str(working_dir)
+
+    # Ensure _template_manager.templates always includes both roots:
+    # OpenStartup (consumer, high priority) + AgentFoundation (framework, fallback).
+    # All task-based tools (task, create_role, role_setup, project_onboarding)
+    # need both roots for the variable cascade to find framework-level templates
+    # (e.g., aggregation preamble, shared wrapper variables).
+    if "_template_manager.templates" not in overrides:
+        import agent_foundation.resources as _af_res
+        _os_templates = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
+        _af_templates = Path(_af_res.__file__).parent / "prompt_templates"
+        overrides["_template_manager.templates"] = [
+            str(_os_templates), str(_af_templates),
+        ]
     if resume_workspace:
         overrides["resume_workspace"] = str(working_dir)
     if init_plan_path and is_pti:
@@ -541,17 +554,17 @@ async def execute(arguments: dict, session_context: dict):
     # Stage 1 — Parse arguments
     request = (arguments.get("request") or "").strip()
     mode = arguments.get("mode") or _derive_mode_from_flags(arguments) or "full"
-    spec = arguments.get("agent-config") or arguments.get("agent_config") or "breakdown-multiflow-plan-then-implement"
+    spec = arguments.get("agent_config") or "breakdown-multiflow-plan-then-implement"
     overrides = _parse_overrides(arguments.get("override", []))
     model = arguments.get("model")
-    no_dual = bool(arguments.get("no-dual"))
+    no_dual = bool(arguments.get("no_dual"))
     analysis = bool(arguments.get("analysis"))
-    multi_iter = bool(arguments.get("multi-iter"))
-    max_iter = int(arguments.get("max-iterations", 3))
+    multi_iter = bool(arguments.get("multi_iter"))
+    max_iter = int(arguments.get("max_iterations", 3))
     resume = arguments.get("resume")
-    copy_ws = bool(arguments.get("copy-workspace"))
-    in_place = bool(arguments.get("in-place", True))
-    init_plan = arguments.get("initial-plan")
+    copy_ws = bool(arguments.get("copy_workspace"))
+    in_place = bool(arguments.get("in_place", True))
+    init_plan = arguments.get("initial_plan")
 
     if sum(bool(arguments.get(f)) for f in ("plan", "execute", "full", "confirm")) > 1:
         return _error("Multiple mode flags provided; use only one of --plan/--execute/--full/--confirm.")

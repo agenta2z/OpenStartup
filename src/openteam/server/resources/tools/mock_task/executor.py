@@ -32,9 +32,9 @@ def _apply_speed(cfg: dict, speed: float) -> dict:
 
 async def execute(arguments: dict, session_context: dict) -> Any:
     """Entry point called by ToolDispatcher for /mock_task."""
-    profile = arguments.get("profile", arguments.get("--profile", "default"))
-    speed = float(arguments.get("speed", arguments.get("--speed", 1.0)))
-    seed = int(arguments.get("seed", arguments.get("--seed", 0)))
+    profile = arguments.get("profile", "default")
+    speed = float(arguments.get("speed", 1.0))
+    seed = int(arguments.get("seed", 0))
 
     cfg_path = _PROFILES_DIR / f"{profile}.yaml"
     if not cfg_path.exists():

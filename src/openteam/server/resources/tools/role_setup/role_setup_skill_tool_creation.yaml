@@ -42,8 +42,6 @@ workspace:
 # template_root_space: task_breakdown defaulted by BTA.SLOT_DEFAULTS.
 breakdown_inferencer:
   _target_: RovoDevCLI
-  yolo: true
-  debug_mode: true
   # opus-4-6 is the default model for RovoDevCLI (set in RovoDevCliInferencer).
   # opus correctly writes <Response> JSON to --output-file; sonnet writes to stdout only.
   output_path: "breakdown_output.md"   # → children/breakdown/outputs/breakdown_output.md
@@ -67,8 +65,6 @@ worker_factory:
 
   skill_tool_creation_investigation:
     _target_: RovoDevCLI
-    yolo: true
-    debug_mode: true
     template_root_space: deep_research
     output_path: "facet.md"
     response_post_processor: extract_delimited
@@ -80,16 +76,15 @@ worker_factory:
 # --- Aggregator ---
 # RovoDevCLI aggregator: has local file access, writes structured deliverables
 # (skills/<name>/SKILL.md, tools/<name>/tool.json, tools/<name>/executor.py)
-# directly to outputs/ which _finalize_response recursively copies to
-# outputs/final_deliverables/. Uses implementation template for synthesis instructions.
+# directly to outputs/. output_is_deliverable moves them to outputs/final_deliverables/.
 aggregator_inferencer:
   # task_preamble + task_response_format = aggregation defaulted by
   # BTA.SLOT_DEFAULTS; task_instructions: skill_tool_creation overrides
   # the default per-key (the skill-tool-specific instructions are what
   # tell the aggregator to write SKILL.md / tool.json / executor.py).
   _target_: RovoDevCLI
-  yolo: true
-  debug_mode: true
+  output_is_deliverable: true
+  output_path: "aggregation_report.md"
   template_root_space: implementation
   template_variables:
     task_instructions: skill_tool_creation
@@ -104,9 +99,6 @@ worker_query_fields:
 max_breakdown: 5
 task_type_arg_name: task_preamble
 expand_todos_to_workers: true
-debug_mode: true
-# output_path auto-defaults to "aggregation_report.md" (pipeline report, not deliverables)
-# Deliverables (SKILL.md, tool.json, etc.) go to workspace.outputs/final_deliverables/
 group_max_concurrency:
   skill_tool_creation_research: 3
   skill_tool_creation_investigation: 2

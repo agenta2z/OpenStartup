@@ -228,7 +228,7 @@ YAML's `_params` block.
 **Step 1.4**: Update all callers of the moved YAML
 
 Known callers (from prior workspace_root investigation):
-- `test_task_agent_config_brta_with_multiflow_pti.py:39` — `YAML_PATH = ...`
+- `test_task_real_cli.py:39` — `YAML_PATH = ...`
 - `test_yaml_deliverable_flags_set.py:25` — config-only check
 - `test_workspace_final_deliverables.py:33`
 - `test_topology_mock_render.py:20`

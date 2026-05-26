@@ -1,0 +1,61 @@
+{
+  "in_flight": [
+    "CreatePR:AI-272",
+    "MonitorEpic:AI-262",
+    "MonitorPR:AI-263#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/700",
+    "MonitorPR:AI-264#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/701",
+    "MonitorPR:AI-265#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/704",
+    "MonitorPR:AI-266#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/702",
+    "MonitorPR:AI-268#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/692",
+    "MonitorPR:AI-269#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/698",
+    "MonitorPR:AI-270#https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/694"
+  ],
+  "issue_to_pr": {
+    "AI-268": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 692,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/692"
+    },
+    "AI-270": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 694,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/694"
+    },
+    "AI-269": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 698,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/698"
+    },
+    "AI-263": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 700,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/700"
+    },
+    "AI-264": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 701,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/701"
+    },
+    "AI-266": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 702,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/702"
+    },
+    "AI-265": {
+      "workspace": "atlassian",
+      "repo": "responsible-ai-api",
+      "pr_id": 704,
+      "pr_url": "https://bitbucket.org/atlassian/responsible-ai-api/pull-requests/704"
+    }
+  },
+  "completed": [
+    "AI-267"
+  ],
+  "stuck": []
+}

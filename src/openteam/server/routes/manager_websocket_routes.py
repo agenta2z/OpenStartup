@@ -54,8 +54,11 @@ _SLASH_CMD_RE = _re.compile(r"^/([a-zA-Z][a-zA-Z0-9_-]*)\b(.*)", _re.DOTALL)
 import shlex as _shlex
 _REPEATABLE_KEYS = {"override"}
 _TASK_BOOL_FLAGS = {"plan", "execute", "full", "confirm",
-                    "no-dual", "analysis", "multi-iter",
-                    "in-place", "copy-workspace"}
+                    "no_dual", "analysis", "multi_iter",
+                    "in_place", "copy_workspace"}
+# CANONICAL CONVENTION (Option D, 2026-05-18): `arguments` dict keys are
+# ALWAYS underscored. _parse_slash_args normalizes incoming `--foo-bar`
+# tokens via `.replace("-","_")` so this set MUST use underscore form too.
 
 # Patch 3.1 — task-* alias mapping (cmd_name is post-`replace("-", "_")` so keys use _).
 _TASK_MODE_ALIASES = {"task_plan": "plan", "task_execute": "execute",
@@ -81,7 +84,12 @@ def _parse_slash_args(args_str: str, bool_flags: set[str] = frozenset()) -> dict
     i = 0
     while i < len(parts):
         if parts[i].startswith("--"):
-            key = parts[i].lstrip("-")
+            # CANONICAL CONVENTION (Option D, 2026-05-18): normalize incoming
+            # dash form to underscores so `arguments` dict keys are uniformly
+            # underscored. Bool-flag set `_TASK_BOOL_FLAGS` is also stored in
+            # underscore form (see line 55-57) so the `key in bool_flags` check
+            # below works AFTER normalization.
+            key = parts[i].lstrip("-").replace("-", "_")
             if key in bool_flags or i + 1 >= len(parts) or parts[i + 1].startswith("--"):
                 result[key] = True
                 consumed.add(i); i += 1

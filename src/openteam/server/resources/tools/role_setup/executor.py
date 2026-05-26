@@ -18,7 +18,7 @@ and **implementation/main** for both aggregators (prompt shell). Aggregation
 agents read the full text from the path.
 
   - ``task_preamble/role_setup.jinja2`` — outer breakdown context
-  - ``implementation/.../task_instructions/role_setup_report.jinja2`` — outer aggregation (by path)
+  - ``implementation/.../task_instructions/aggregation/role_setup.jinja2`` — outer aggregation (via master_version)
   - ``task_preamble/skill_tool_creation.jinja2`` — inner breakdown context
   - ``deep_research/.../task_preamble/skill_tool_creation_*.jinja2`` — inner workers
   - ``implementation/.../task_instructions/skill_tool_creation.jinja2`` — inner aggregation (by path)
@@ -563,7 +563,7 @@ def _build_inner_bta(
         "__default__": {"factory": research_worker_factory, "expand_todos": True},
     }
 
-    # Inner aggregator
+    # Inner aggregator — uses modern BTA template path
     if aggregator_type == "rovodev":
         agg_kwargs = dict(
             target_path=aggregator_working_dir or ".",
@@ -577,44 +577,18 @@ def _build_inner_bta(
     else:
         inner_aggregator = _make_rovochat(**inner_rovo_kwargs)
 
-    # Inner aggregator prompt builder
-    def inner_agg_prompt_builder(
-        worker_results: tuple,
-        *,
-        original_query: str = "",
-        worker_output_paths: list = None,
-    ) -> str:
-        parts = []
-        for idx, res in enumerate(worker_results):
-            cleaned = extract_delimited(str(res))
-            facet_path = (
-                worker_output_paths[idx]
-                if worker_output_paths and idx < len(worker_output_paths)
-                else None
-            )
-            if facet_path:
-                parts.append(
-                    f"### Research Facet {idx + 1}\n"
-                    f"Read the full research report from this path (do not rely on "
-                    f"any excerpt that might appear elsewhere in the prompt):\n"
-                    f"`{facet_path}`"
-                )
-            else:
-                parts.append(f"### Research Facet {idx + 1}\n{cleaned}")
-        joined = "\n\n".join(parts)
-        agg_input = (
-            f"**Skill/Tool Creation Request:** {original_query}\n\n"
-            f"**Research Findings ({len(worker_results)} facets):**\n{joined}"
-        )
-        return tm(
-            "initial",
-            active_template_root_space="implementation",
-            task_preamble="",
-            input=agg_input,
-            task_instructions=inner_synthesis_instructions,
-            output_path=f"artifacts/skill_tool_spec_worker_{index}.md",
-            round_index=1,
-        )
+    # Wire template infrastructure for inner aggregator
+    # NOTE: do NOT set template_version — SLOT_DEFAULTS sets it to "aggregation"
+    # and re-applies during BTA execution. Use per-variable override instead.
+    inner_aggregator.template_manager = tm
+    inner_aggregator.template_key = "initial"
+    inner_aggregator.template_root_space = "implementation"
+    inner_aggregator.template_master_version = "aggregation"
+    inner_aggregator.template_variables = {
+        "task_preamble": None,
+        "task_instructions": "role_setup",
+        "task_response_format": None,
+    }
 
     bta_kwargs: dict[str, Any] = dict(
         name=f"inner_bta_{index}",
@@ -627,7 +601,6 @@ def _build_inner_bta(
             "skill_tool_creation_investigation": 2,
         },
         aggregator_inferencer=inner_aggregator,
-        aggregator_prompt_builder=inner_agg_prompt_builder,
         max_breakdown=max_inner_facets,
         max_concurrency=None,
         breakdown_only=breakdown_only,
@@ -705,7 +678,7 @@ def build_role_setup_inferencer(
         templates_root_resolved,
         "implementation",
         "task_instructions",
-        "role_setup_report",
+        "role_setup",
     )
     inner_breakdown_preamble = _load_variable_file(
         "task_breakdown", "task_preamble", "skill_tool_creation"
@@ -791,49 +764,20 @@ def build_role_setup_inferencer(
     else:
         outer_aggregator = _make_rovochat(**rovo_kwargs)
 
-    def outer_agg_prompt_builder(
-        worker_results: tuple,
-        *,
-        original_query: str = "",
-        worker_output_paths: list = None,
-    ) -> str:
-        parts = []
-        for idx, res in enumerate(worker_results):
-            cleaned = extract_delimited(str(res))
-            facet_path = (
-                worker_output_paths[idx]
-                if worker_output_paths and idx < len(worker_output_paths)
-                else None
-            )
-            if facet_path:
-                parts.append(
-                    f"### Tool/Skill Specification {idx + 1}\n"
-                    f"Read the full specification from this path (do not rely on "
-                    f"any excerpt that might appear elsewhere in the prompt):\n"
-                    f"`{facet_path}`"
-                )
-            else:
-                parts.append(
-                    f"### Tool/Skill Specification {idx + 1}\n{cleaned}"
-                )
-        joined = "\n\n".join(parts)
-        agg_input = (
-            f"**Role Document:**\n{role_doc_text[:2000]}...\n\n"
-            f"**Available Tools in System:**\n{available_tools_text}\n\n"
-            f"**New Tool/Skill Specifications ({len(worker_results)} created):**\n{joined}"
-        )
-        return tm(
-            "initial",
-            active_template_root_space="implementation",
-            task_preamble="",
-            input=agg_input,
-            task_instructions=outer_synthesis_instructions,
-            output_path="role_setup_report.md",
-            round_index=1,
-        )
+    # Wire template infrastructure for outer aggregator
+    # NOTE: do NOT set template_version — SLOT_DEFAULTS sets it to "aggregation"
+    # and re-applies during BTA execution. Use per-variable override instead.
+    outer_aggregator.template_manager = tm
+    outer_aggregator.template_key = "initial"
+    outer_aggregator.template_root_space = "plan"
+    outer_aggregator.template_master_version = "aggregation"
+    outer_aggregator.template_variables = {
+        "task_preamble": None,
+        "task_instructions": "role_setup",
+        "task_response_format": None,
+    }
 
     # Inference input = role doc text (becomes {{ input }} in the template).
-    # Available tools are already in the pre-rendered task_preamble.
     inference_input = role_doc_text
 
     # === Wire the outer BTA ===
@@ -843,7 +787,6 @@ def build_role_setup_inferencer(
         breakdown_parser=parse_breakdown_response,
         worker_factory=outer_worker_factory,
         aggregator_inferencer=outer_aggregator,
-        aggregator_prompt_builder=outer_agg_prompt_builder,
         max_breakdown=max_facets,
         max_concurrency=None,
         workspace_root=workspace_root,
@@ -972,6 +915,7 @@ def build_subtask_breakdown_only(
         active_template_type="main",
         predefined_variables=True,
         cross_root_variable_lookup=True,  # Refactor 17
+        enable_templated_feed=True,
     )
 
     # 4. Build inner BTA with breakdown_only=True
@@ -1078,6 +1022,7 @@ def build_inner_research_only(
         active_template_type="main",
         predefined_variables=True,
         cross_root_variable_lookup=True,  # Refactor 17
+        enable_templated_feed=True,
     )
 
     # 4. Build worker factories (same as _build_inner_bta)
@@ -1213,9 +1158,9 @@ async def execute(
     )
 
     role_document_path = arguments.get("role_document_path", "")
-    max_facets = int(arguments.get("--max-facets", arguments.get("max_facets", 8)))
+    max_facets = int(arguments.get("max_facets", 8))
     max_inner_facets = int(
-        arguments.get("--max-inner-facets", arguments.get("max_inner_facets", 5))
+        arguments.get("max_inner_facets", 5)
     )
 
     # Domain pre-processing — exactly as before, just hoisted.
@@ -1245,12 +1190,12 @@ async def execute(
     overrides: dict = {
         "max_breakdown": max_facets,
         "worker_factory.skill_tool_creation.max_breakdown": max_inner_facets,
-        "_template_manager.templates": str(templates_path),
-        # The inner BTA (imported via _import_) has its OWN _template_manager — patch
-        # it too, otherwise its breakdown/workers/aggregator silently fall back to
-        # rendering the literal token "prompt_templates" as the prompt
-        # (see role_setup runtime debugging session).
-        "worker_factory.skill_tool_creation._template_manager.templates": str(templates_path),
+        # NOTE: _template_manager.templates is NOT set here — the centralized
+        # default in _run_topology() provides both roots [OS, AF]. Setting a
+        # single-string override here would clobber the two-root list.
+        # The inner BTA's _template_manager also needs both roots — patch it
+        # to match the centralized default.
+        "worker_factory.skill_tool_creation._template_manager.templates": [str(templates_path), str(_AF_TEMPLATES_ROOT)],
         # role_setup.yaml has a top-level `workspace:` (InferencerWorkspace) block;
         # set its `root` field. BTA:348-349 docs confirm `workspace` (object)
         # takes precedence over `workspace_root` (convenience shorthand).
@@ -1268,7 +1213,7 @@ async def execute(
     # runs, normalizes result.
     result = await _run_topology(
         source=("file", yaml_path),
-        request=role_doc_text,
+        request=f"Set up the role defined at: {role_doc_abs}",
         overrides=overrides,
         session_context=session_context,
     )

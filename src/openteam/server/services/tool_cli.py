@@ -106,10 +106,15 @@ def run_cli(
     for k, v in vars(ns).items():
         if v is None or v is False:
             continue
-        # argparse converts --foo-bar to foo_bar; the slash dispatcher uses
-        # dashes (foo-bar). Normalize to dashes so executor.execute() sees
-        # the same key shape from both CLI and slash paths.
-        arguments[k.replace("_", "-")] = v
+        # CANONICAL CONVENTION (Option D, 2026-05-18):
+        # `arguments` dict keys are ALWAYS underscored, matching Python/argparse
+        # convention. CLI users still type --foo-bar (Unix dash form); argparse
+        # already normalizes to foo_bar in `vars(ns)`. The slash dispatcher
+        # (_parse_slash_args) also normalizes to underscores. Executors read
+        # arguments["foo_bar"] (underscore) — single source of truth.
+        # Defensive `.replace("-","_")` covers any edge case (e.g., dest with
+        # explicit dash override) so the invariant holds unconditionally.
+        arguments[k.replace("-", "_")] = v
 
     # v6 unified frontend session protocol: when the parent (TUI / MCP wrapper)
     # set OPENTEAM_SESSION_ID + OPENTEAM_SERVER_DIR, populate session_context

@@ -16,11 +16,6 @@
       "description": "High-level description of the role to create (e.g., 'Senior Backend Engineer focused on microservices')."
     },
     {
-      "name": "--output-path",
-      "type": "path",
-      "description": "Path to write the generated role responsibility document."
-    },
-    {
       "name": "--max-facets",
       "type": "int",
       "default": 8,
@@ -31,6 +26,6 @@
   "examples": [
     "create_role \"AI DevOps Engineer specializing in CI/CD and infrastructure automation\"",
     "create_role \"Senior ML Engineer for recommendation systems\" --max-facets 10",
-    "create_role \"Product Manager for developer tools\" --output-path ./roles/pm_devtools.md"
+    "create_role \"Product Manager for developer tools\""
   ]
 }

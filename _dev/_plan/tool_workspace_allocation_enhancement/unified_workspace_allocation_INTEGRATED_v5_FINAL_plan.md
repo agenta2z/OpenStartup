@@ -880,7 +880,7 @@ def standalone_workspace(tmp_path, monkeypatch):
 - `test/openteam/resources/tools/create_role/test_create_role_through_yaml.py` lines 96-100
 - `test/openteam/resources/tools/create_role/test_create_role_through_yaml_claude.py` lines 44-46
 - `test/openteam/resources/tools/project_onboarding/test_project_onboarding_through_yaml.py` lines 103-106
-- `test/openteam/resources/tools/task/test_task_agent_config_brta_with_multiflow_pti.py` lines 756-758, 905-906, 1283-1291
+- `test/openteam/resources/tools/task/test_task_real_cli.py` lines 756-758, 905-906, 1283-1291
 - `test/openteam/resources/tools/role_setup/test_role_setup_via_task_shim.py` lines 70-75, 193-197
 - `test/openteam/resources/tools/create_role/test_create_role_via_task_shim.py` lines 7, 67, 135-139
 - `test/openteam/resources/tools/task/test_task_helpers.py` lines 293-322 — encodes the production resolve_workspace contract. **(v5.3 fix HIGH-E) Specific assertion changes required:**

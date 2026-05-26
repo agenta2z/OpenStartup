@@ -30,8 +30,6 @@ workspace:
 # --- Outer Breakdown ---
 breakdown_inferencer:
   _target_: RovoDevCLI
-  yolo: true
-  debug_mode: true
   output_path: "breakdown_output.md"   # → children/breakdown/outputs/breakdown_output.md
                                         # Triggers --output-file flag to acli;
                                         # task_breakdown/main/initial.jinja2 instructs
@@ -57,8 +55,6 @@ worker_factory:
     # workspace.use_final_deliverables_folder: true is set in role_setup_skill_tool_creation.yaml
   skill_tool_association:
     _target_: RovoDevCLI
-    yolo: true
-    debug_mode: true
     template_root_space: implementation
     template_variables:
       task_instructions: skill_tool_association
@@ -68,17 +64,8 @@ worker_factory:
 # --- Outer Aggregator ---
 aggregator_inferencer:
   _target_: RovoDevCLI
-  yolo: true
-  debug_mode: true
+  output_is_deliverable: true
+  output_path: "role_setup_report.md"
   template_root_space: implementation
   template_variables:
-    task_instructions: role_setup_report
-    task_preamble: ""
-
-aggregator_prompt_builder:
-  _target_: ConflictAwarePromptBuilder
-  conflict_resolution_mode: delegate_to_aggregator
-
-output_path: "role_setup_report.md"
-conflict_resolution_mode: delegate_to_aggregator
-debug_mode: true
+    task_instructions: role_setup

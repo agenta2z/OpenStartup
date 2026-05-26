@@ -1,0 +1,2 @@
+usage: create_role [-h] [--max-facets MAX_FACETS] role_description
+create_role: error: unrecognized arguments: --background

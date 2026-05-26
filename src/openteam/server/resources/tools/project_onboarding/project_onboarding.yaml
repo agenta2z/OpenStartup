@@ -59,7 +59,6 @@ aggregator_inferencer:
   template_root_space: implementation
   template_variables:
     task_instructions: project_onboarding_report
-    task_preamble: ""
 
 aggregator_prompt_builder:
   _target_: ConflictAwarePromptBuilder
