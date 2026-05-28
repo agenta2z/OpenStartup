@@ -361,17 +361,10 @@ class ConversationService:
         from agent_foundation.server.workflow_context import WorkflowContext
 
         wc_dict = session.get("workflow_context", {})
-        # Ensure workflow_description is non-empty before constructing
-        # WorkflowContext — its __post_init__ tries a stale rankevolve
-        # importlib path when workflow_description is falsy.
         if wc_dict:
-            if not wc_dict.get("workflow_description"):
-                wc_dict["workflow_description"] = self._load_workflow_description()
             wc = WorkflowContext.from_dict(wc_dict)
         else:
-            wc = WorkflowContext(
-                workflow_description=self._load_workflow_description()
-            )
+            wc = WorkflowContext()
 
         return {
             "session_root_path": self._working_dir,
@@ -417,7 +410,7 @@ class ConversationService:
 
         wc = WorkflowContext(
             strategy=prior_context.get("strategy", "default"),
-            workflow_description=prior_context.get("workflow_description") or self._load_workflow_description(),
+            workflow_description=prior_context.get("workflow_description", ""),
             current_phase=prior_context.get("current_phase", "idle"),
             phase_status=prior_context.get("phase_status", "idle"),
             completed_phases=completed,

@@ -614,11 +614,15 @@ class SessionStore:
         return self.create_session(title="Orchestrator Session")
 
     def _default_workflow_context(self) -> dict[str, Any]:
-        """Build a fresh WorkflowContext dict with the default workflow description."""
-        desc = self._load_workflow_description()
+        """Build a fresh WorkflowContext dict — no workflow_description by default.
+
+        The SOP executor populates workflow_description when entering a SOP.
+        Generic sessions have an empty workflow_description so the template
+        guard hides the workflow sections from the prompt.
+        """
         return {
             "strategy": "default",
-            "workflow_description": desc,
+            "workflow_description": "",
             "current_phase": "idle",
             "phase_status": "idle",
             "completed_phases": [],
