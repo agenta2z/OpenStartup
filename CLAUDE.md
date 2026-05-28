@@ -91,7 +91,7 @@ For non-slash conversational messages, the path goes through `ConversationServic
 | `rovodev` | `acli` on PATH | RovoDevCliInferencer |
 | `claude_cli` | `claude` on PATH | ClaudeCodeCliInferencer, default model `opus[1m]` |
 
-All non-mock backends are wrapped identically in `_wrap_in_conversational()`: a JinjaPromptRenderer (conversation/main/initial.jinja2) → tool loading + filtering → integration executor (Slack + TWG) → ToolDispatcher → ConversationalInferencer. This wrapping chain means the route layer never knows which LLM is running.
+All non-mock backends are wrapped identically in `_wrap_in_conversational()`: a TemplateManagerPromptRenderer (conversation/main/initial.jinja2) → tool loading + filtering → integration executor (Slack + TWG) → ToolDispatcher → ConversationalInferencer. This wrapping chain means the route layer never knows which LLM is running.
 
 Per-session backend override is supported: `POST /api/sessions/{id}/backend` updates SessionStore and evicts the cached inferencer.
 

@@ -4,7 +4,7 @@
 >
 > **Scope**: This catalog covers observations that apply to ANY tool whose execution flows through a BreakdownThenAggregate orchestrator (breakdown → workers → aggregator). Tool-specific observations live in each tool's own `VERIFICATION.md`.
 >
-> **Last updated**: 2026-05-21
+> **Last updated**: 2026-05-27
 
 ---
 
@@ -13,7 +13,7 @@
 After every tool run:
 
 1. Set `WS=<latest_workspace_path>` (each tool's `VERIFICATION.md` provides a one-liner)
-2. Walk **§1 Common Audit Pack** below — universal yes/no checks (A1–A15)
+2. Walk **§1 Common Audit Pack** below — universal yes/no checks (A1–A20)
 3. Then walk the tool-specific audit pack in `<tool>/VERIFICATION.md`
 4. If any check FAILS, find the matching observation entry (common §2 or tool-specific) to understand what the bad pattern looks like
 5. If the failure is genuinely new, add a new observation per the **§3 Authoring Guide** in the appropriate doc (common-if-cross-tool, tool-specific-if-narrow)
@@ -24,7 +24,7 @@ After every tool run:
 
 ---
 
-## §1 Common Audit Pack (A1–A15)
+## §1 Common Audit Pack (A1–A20)
 
 | #   | Observation                                            | Pass criterion (✅ = healthy)                                                                                       | Ref  |
 |-----|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|------|
@@ -41,9 +41,13 @@ After every tool run:
 | A11 | No deliverable double-nesting                          | `$WS/outputs/final_deliverables/final_deliverables/` does NOT exist                                                | O-11 |
 | A12 | No silent argument loss                                | No "Removing YAML key" warnings for user-relevant params; arguments declared in CLI all appear in logs              | O-12 |
 | A13 | Workers' inputs match breakdown sub-tasks              | For each index `i`, `worker_i` `InferenceInput/*.txt` contains the matching sub-task description from `breakdown/outputs/breakdown_output.md` | O-14 |
-| A14 | Aggregator references AND actively uses worker outputs | aggregator input has `(See file:` ref per worker (Mode A) AND response shows self-report OR unique fragments from each `worker_i/outputs/<artifact>` appear in `outputs/final_deliverables/*` (Mode B) | O-15 |
+| A14 | Aggregator references AND actively uses worker outputs | aggregator input has `(See file:` ref per worker AND `(See deliverables:` ref per worker (two-reference format, Mode A) AND response shows self-report OR unique fragments from each `worker_i/outputs/<artifact>` appear in `outputs/final_deliverables/*` (Mode B) | O-15 |
 | A15 | Inferencer outputs honor `<Response>...</Response>` protocol when instructed | for each inferencer whose input instructs `<Response>` format, the STREAM file (`_runtime/inferencer_cache/.../stream_*.txt`) contains both `<Response>` and `</Response>` | O-16 |
 | A16 | Aggregator received aggregation-specific preamble (not default) | aggregator `InferenceInput/*.txt` contains the canonical preamble opening `"You are aggregating the following upstream artifacts"` AND does NOT contain the default planning preamble (`## Planning Context`). Catches wrong template variant, missing template roots, prompt builder bypass, or stale wrapper composition. | O-17 |
+| A17 | Every aggregator's response is substantive and integrative | For EACH aggregator in the workspace tree: (1) `outputs/final_deliverables/output.md` exists and is >1 KB, (2) the response contains integration language (aggregat/integrat/consolid/synthesiz/combin), (3) the response is not a verbatim copy of a single upstream source. Catches hollow aggregation, empty promotion chains, and aggregators that echo one worker while ignoring others. | O-20 |
+| A18 | Review inputs reference the correct prior artifact | For EACH `review/` node: round_01 review input contains `<ImplementationUnderReview>` or `<ArtifactUnderReview>` referencing the propose output; round_02+ review input references the previous round's fix output path (not the original propose). Catches mislinked review chains where the reviewer evaluates a stale artifact. | O-21 |
+| A19 | Review JSON correctly parsed and consensus decisions structurally consistent | Every review response contains a ` ```json ` block with valid JSON having `approve`/`approved` (boolean), `severity`/`overall_severity` (valid Severity string), `issues` (array). Round structure matches verdicts: `approved=false` or above-threshold issues → fix node + next round exist; final review approved with ≤ threshold → no further rounds. Catches malformed review JSON, field name mismatches, and framework parsing failures that silently default to wrong consensus decisions. | O-22 |
+| A20 | Logged `output` matches stream cache (not noisy transcript) | For CLI-based inferencers (RovoDevCli): `output_*.txt` in `InferenceResponse/` should match `stream_*.txt` in `_runtime/inferencer_cache/` (clean LLM response, typically 5–30 KB). If `output_*.txt` ≈ `raw_output_*.txt` in size (both ~50–100 KB of terminal noise), the clean output pipeline is broken — downstream consumers receive the noisy TUI transcript instead of the parsed LLM response, breaking `<Response>` tag extraction and review JSON parsing. | O-23 |
 
 ### Generic one-liner sanity script
 
@@ -98,15 +102,18 @@ for w in $(find "$WS" -type d -name "worker_*" -not -path "*/_runtime/*" -not -p
 done
 
 echo "=== A14 aggregator references AND uses worker outputs ==="
-# Mode A: file ref count
+# Mode A: file ref count (includes two-reference format check)
 for agg in $(find "$WS" -path "*/aggregator/logs/session/*.jsonl.parts/InferenceInput" -type d); do
   inp=$(ls "$agg"/*.txt 2>/dev/null | head -1)
   agg_parent=$(dirname "$(dirname "$(dirname "$(dirname "$agg")")")")
   parent=$(dirname "$agg_parent")
-  siblings=$(find "$parent" -maxdepth 1 -type d -name "worker_*" | wc -l | tr -d ' ')
+  siblings=$(find "$parent" -maxdepth 1 -type d -name "worker_*" -o -name "flow_*" | wc -l | tr -d ' ')
   [ -f "$inp" ] && {
-    refs=$(grep -c "(See file:" "$inp")
-    echo "  $(basename $(dirname $agg_parent))/aggregator: refs=$refs siblings=$siblings"
+    file_refs=$(grep -c "(See file:" "$inp")
+    dir_refs=$(grep -c "(See deliverables:" "$inp")
+    agg_label=$(echo "$agg" | sed "s|$WS/children/||;s|/logs/.*||")
+    echo "  $agg_label: file_refs=$file_refs dir_refs=$dir_refs siblings=$siblings"
+    [ "$dir_refs" -ge 1 ] && echo "    two-reference format: YES" || echo "    two-reference format: NO (pre-v2 or broken)"
   }
 done
 
@@ -132,13 +139,132 @@ for agg in $(find "$WS" -path "*/aggregator/logs/session/*.jsonl.parts/Inference
     [ "$agg_preamble" -ge 1 ] && [ "$default_pre" -eq 0 ] && echo "  PASS" || echo "  FAIL"
   }
 done
+
+echo "=== A17 aggregator response substantiveness + integration ==="
+for agg_dir in $(find "$WS" -type d -name "aggregator" -not -path "*/logs/*"); do
+  output="$agg_dir/outputs/final_deliverables/output.md"
+  agg_label=$(echo "$agg_dir" | sed "s|$WS/children/||")
+  if [ ! -f "$output" ]; then
+    echo "  FAIL $agg_label: no output.md in final_deliverables/"
+    continue
+  fi
+  size=$(wc -c < "$output" | tr -d ' ')
+  lines=$(wc -l < "$output" | tr -d ' ')
+  integration=$(grep -ci "aggregat\|integrat\|consolid\|synthesiz\|combin\|upstream\|sibling" "$output")
+  if [ "$size" -lt 1024 ]; then
+    echo "  FAIL $agg_label: output too small (${size}B < 1KB)"
+  elif [ "$integration" -eq 0 ]; then
+    echo "  WARN $agg_label: ${size}B, ${lines}L but 0 integration keywords"
+  else
+    echo "  PASS $agg_label: ${size}B, ${lines}L, integration=$integration"
+  fi
+done
+
+echo "=== A18 review inputs reference correct prior artifact ==="
+for review_dir in $(find "$WS/children" -type d -name "review" -not -path "*/logs/*" | sort); do
+  label=$(echo "$review_dir" | sed "s|$WS/children/||")
+  round_dir=$(dirname "$(dirname "$review_dir")")
+  round_name=$(basename "$round_dir")
+  round_num=$(echo "$round_name" | sed 's/round_0*//')
+  inp=$(find "$review_dir/logs/session/" -path "*/InferenceInput/*.txt" -type f 2>/dev/null | head -1)
+  [ ! -f "$inp" ] && { echo "  FAIL $label: no input file"; continue; }
+  has_artifact=$(grep -c "UnderReview>\|ArtifactUnderReview>\|ImplementationUnderReview>" "$inp")
+  if [ "$round_num" -gt 1 ]; then
+    prev=$((round_num - 1))
+    prev_fix_ref=$(grep -c "round_0*${prev}/children/fix/outputs\|round_0*${prev}.*fix.*output" "$inp")
+    [ "$has_artifact" -ge 1 ] && [ "$prev_fix_ref" -ge 1 ] \
+      && echo "  PASS $label: references round_${prev} fix output" \
+      || echo "  WARN $label: round_${round_num} but no fix-output ref (artifact=$has_artifact fix_ref=$prev_fix_ref)"
+  else
+    [ "$has_artifact" -ge 1 ] \
+      && echo "  PASS $label: references propose artifact" \
+      || echo "  WARN $label: no artifact-under-review section found"
+  fi
+done
+
+echo "=== A19 review JSON parsing + consensus structural consistency ==="
+for review_dir in $(find "$WS/children" -type d -name "review" -not -path "*/logs/*" | sort); do
+  label=$(echo "$review_dir" | sed "s|$WS/children/||")
+  round_dir=$(dirname "$(dirname "$review_dir")")
+  round_name=$(basename "$round_dir")
+  round_num=$(echo "$round_name" | sed 's/round_0*//')
+  resp=$(find "$review_dir/logs/session/" -path "*/InferenceResponse/*output_*.txt" -type f 2>/dev/null | head -1)
+  [ ! -f "$resp" ] && { echo "  FAIL $label: no response file"; continue; }
+  # Extract and validate JSON
+  result=$(sed -n '/```json/,/```/p' "$resp" | sed '1d;$d' | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    approved = data.get('approved', data.get('approve', '__MISSING__'))
+    severity = data.get('severity', data.get('overall_severity', '__MISSING__'))
+    issues = data.get('issues', '__MISSING__')
+    errs = []
+    if approved == '__MISSING__': errs.append('no approved/approve field')
+    elif not isinstance(approved, bool): errs.append(f'approved is {type(approved).__name__} not bool')
+    if severity == '__MISSING__': errs.append('no severity/overall_severity field')
+    if issues == '__MISSING__': errs.append('no issues field')
+    elif not isinstance(issues, list): errs.append(f'issues is {type(issues).__name__} not list')
+    if errs:
+        print(f'JSON_WARN|{\"|\".join(errs)}|approved={approved}|severity={severity}')
+    else:
+        print(f'JSON_OK|approved={approved}|severity={severity}|issues={len(issues)}')
+except json.JSONDecodeError as e:
+    print(f'JSON_FAIL|{e}')
+except Exception as e:
+    print(f'JSON_FAIL|{e}')
+" 2>&1)
+  json_status=$(echo "$result" | cut -d'|' -f1)
+  approved_val=$(echo "$result" | grep -o 'approved=[A-Za-z]*' | cut -d= -f2)
+  # Structural consistency: check if fix + next round exist when expected
+  fix_exists="NO"
+  [ -d "$(dirname "$review_dir")/fix" ] && fix_exists="YES"
+  next_round_num=$(printf "%02d" $((round_num + 1)))
+  next_round="$(dirname "$round_dir")/round_${next_round_num}"
+  next_round_exists="NO"
+  [ -d "$next_round" ] && next_round_exists="YES"
+  if [ "$json_status" = "JSON_FAIL" ]; then
+    echo "  FAIL $label: $result"
+  elif [ "$json_status" = "JSON_WARN" ]; then
+    echo "  WARN $label: $result"
+  else
+    # Consistency check
+    if [ "$approved_val" = "False" ]; then
+      [ "$fix_exists" = "YES" ] \
+        && echo "  PASS $label: $result → rejected, fix created" \
+        || echo "  INCONSISTENT $label: $result → rejected but NO fix"
+    elif [ "$approved_val" = "True" ]; then
+      [ "$next_round_exists" = "NO" ] \
+        && echo "  PASS $label: $result → approved, no more rounds" \
+        || echo "  CHECK $label: $result → approved but next round exists (threshold override?)"
+    fi
+  fi
+done
+
+echo "=== A20 output vs stream cache consistency (CLI inferencers) ==="
+for parts_dir in $(find "$WS" -type d -name "*.jsonl.parts" 2>/dev/null); do
+  output=$(find "$parts_dir/InferenceResponse" -name "*output_*.txt" -not -name "*raw_output*" -type f 2>/dev/null | head -1)
+  raw=$(find "$parts_dir/InferenceResponse" -name "*raw_output_*.txt" -type f 2>/dev/null | head -1)
+  [ ! -f "$output" ] || [ ! -f "$raw" ] && continue
+  out_size=$(wc -c < "$output" | tr -d ' ')
+  raw_size=$(wc -c < "$raw" | tr -d ' ')
+  label=$(echo "$parts_dir" | sed "s|$WS/children/||;s|/logs/.*||")
+  # If output ≈ raw_output (within 5%), the clean pipeline is broken
+  if [ "$raw_size" -gt 0 ]; then
+    ratio=$((out_size * 100 / raw_size))
+    if [ "$ratio" -gt 95 ]; then
+      echo "  WARN $label: output=${out_size}B ≈ raw=${raw_size}B (${ratio}%) — output may be noisy transcript"
+    elif [ "$out_size" -gt 0 ]; then
+      echo "  PASS $label: output=${out_size}B vs raw=${raw_size}B (${ratio}%) — output is clean"
+    fi
+  fi
+done
 ```
 
 > **Tip — auto-discover $WS**: each tool's `VERIFICATION.md` provides a `WS=$(ls -td …/$TOOL/* | head -1)` snippet.
 
 ---
 
-## §2 Common Observation Catalog (O-1 – O-16)
+## §2 Common Observation Catalog (O-1 – O-23)
 
 ### O-1 — Run aborts unexpectedly
 - **Look for**: log/stderr contains `Traceback`, `NameError`, `WorkflowAborted`, OR the launcher process exits non-zero before reaching the completion line
@@ -251,6 +377,114 @@ done
 - **Distinguishes from healthy**: a healthy run has files MOVED from `outputs/` to `outputs/final_deliverables/` by `_finalize_output()`, which then cascade up via `_symlink_child_output()` to the parent BTA's `final_deliverables/`.
 - **Root cause**: `output_is_deliverable` not set to `true` on the aggregator inferencer in the YAML. Without this flag, `_finalize_output()` skips the move from `outputs/` to `outputs/final_deliverables/`, breaking the entire promotion chain.
 - **Source**: Run `role_setup_20260525_213032_57d3f86c` — inner aggregator had 28 files in `outputs/`, 0 in `final_deliverables/`. Fix: add `output_is_deliverable: true` to aggregator YAML config.
+
+### O-20 — Aggregator response hollow or non-integrative
+- **Look for**: an aggregator's `outputs/final_deliverables/output.md` is missing, empty, or suspiciously small (<1 KB). OR the output exists but contains zero integration language — no mention of "aggregat", "integrat", "consolidat", "synthesiz", "combin", "upstream", or "sibling". The output reads like a single worker's plan copy-pasted, not a synthesis of multiple upstream sources.
+- **Distinguishes from healthy**: a healthy aggregator output is substantive (typically >5 KB for multi-worker BTAs) and explicitly signals integration — e.g., "This document integrates three upstream plans", "Consolidated from Flow 0 and Flow 1", "Aggregator artifact". At minimum it references more than one upstream source.
+- **Severity tiers**:
+  - **FAIL**: output.md missing or <1 KB — the aggregator produced nothing usable
+  - **WARN**: output.md exists but has 0 integration keywords — possible verbatim echo of a single worker
+  - **PASS**: output.md >1 KB with ≥1 integration keyword
+- **Applies to all aggregator levels**: inner MFDual aggregators (aggregating flows), BTA aggregators (aggregating workers), and outer aggregators in nested topologies. In a nested BTA, check EVERY aggregator in the workspace tree, not just the top-level one.
+- **Verify**:
+  ```bash
+  for agg_dir in $(find "$WS" -type d -name "aggregator" -not -path "*/logs/*"); do
+    output="$agg_dir/outputs/final_deliverables/output.md"
+    label=$(echo "$agg_dir" | sed "s|$WS/children/||")
+    if [ ! -f "$output" ]; then
+      echo "FAIL $label: no output.md in final_deliverables/"
+      continue
+    fi
+    size=$(wc -c < "$output" | tr -d ' ')
+    integration=$(grep -ci "aggregat\|integrat\|consolid\|synthesiz\|combin\|upstream\|sibling" "$output")
+    [ "$size" -lt 1024 ] && echo "FAIL $label: ${size}B < 1KB" && continue
+    [ "$integration" -eq 0 ] && echo "WARN $label: ${size}B but 0 integration keywords" && continue
+    echo "PASS $label: ${size}B, integration=$integration"
+  done
+  ```
+- **Source**: task full mode v3 run `task_20260526_214348_8c81288d` — all 4 aggregators verified: worker_0 (35KB, 27 keywords), worker_1 (34KB, 15), worker_2 (46KB, 46), outer BTA (56KB, 51). Codified as a durable check after manual verification caught promotion-chain and template-cascade issues in earlier runs.
+
+### O-21 — Reviewer evaluates stale or wrong artifact
+- **Look for**: a review node's `InferenceInput/*.txt` does NOT contain `<ImplementationUnderReview>` or `<ArtifactUnderReview>` sections; OR for round_02+ reviews, the referenced artifact path points to the original propose output instead of the previous round's fix output; OR the `<ImplementationUnderReview>` content is empty / placeholder text.
+- **Distinguishes from healthy**: a healthy round_01 review references the propose output (e.g., `.../propose/outputs/output.md` or `.../propose/outputs/final_deliverables/output.md`). A healthy round_02+ review references the prior fix output (e.g., `.../round_01/children/fix/outputs/output.md`). The artifact-under-review section contains a substantive summary of the prior output, not the raw user request.
+- **Why it matters**: if the reviewer evaluates a stale artifact, the fix cycle is wasted — the fixer addresses issues that may already be resolved, or the reviewer approves something that was already superseded. The Dual loop converges but on the wrong version.
+- **Verify**:
+  ```bash
+  for review_dir in $(find "$WS/children" -type d -name "review" -not -path "*/logs/*" | sort); do
+    label=$(echo "$review_dir" | sed "s|$WS/children/||")
+    round_num=$(basename "$(dirname "$(dirname "$review_dir")")" | sed 's/round_0*//')
+    inp=$(find "$review_dir/logs/session/" -path "*/InferenceInput/*.txt" -type f 2>/dev/null | head -1)
+    [ ! -f "$inp" ] && { echo "FAIL $label: no input"; continue; }
+    has_artifact=$(grep -c "UnderReview>" "$inp")
+    if [ "$round_num" -gt 1 ]; then
+      prev=$((round_num - 1))
+      fix_ref=$(grep -c "round_0*${prev}/children/fix\|round_0*${prev}.*fix.*output" "$inp")
+      [ "$has_artifact" -ge 1 ] && [ "$fix_ref" -ge 1 ] \
+        && echo "PASS $label: round_${round_num} references round_${prev} fix" \
+        || echo "WARN $label: round_${round_num} missing fix ref (artifact=$has_artifact fix_ref=$fix_ref)"
+    else
+      [ "$has_artifact" -ge 1 ] && echo "PASS $label" || echo "WARN $label: no artifact section"
+    fi
+  done
+  ```
+- **Source**: task full mode v3 run `task_20260526_214348_8c81288d` — all 18 reviews verified: every round_01 review referenced propose output, every round_02+ review referenced the previous fix output. Codified to prevent regression in review chain linking.
+
+### O-22 — Review JSON malformed or framework consensus decision inconsistent with verdict
+- **Look for** (either failure mode):
+  - **Mode A — Malformed JSON**: reviewer response has no ` ```json ` block, OR the block contains invalid JSON, OR the JSON is missing `approve`/`approved` (must be boolean) or `severity`/`overall_severity` (must be a valid Severity string: NONE, COSMETIC, MINOR, MAJOR, CRITICAL) or `issues` (must be array). The framework's `_default_parse_review` falls back to `{approved: false, severity: "MAJOR", issues: [{parsing_error}]}` — silently treating parse failure as rejection.
+  - **Mode B — Structural inconsistency**: review verdict says `approved=false` (or has above-threshold per-issue severity) but NO fix node or next round exists (premature termination); OR verdict says `approved=true` with all issues ≤ threshold but a fix + next round WAS created anyway (unnecessary iteration).
+  - **Mode C — Threshold override**: review says `approved=true` but individual issues have severity above the consensus threshold (default: COSMETIC). The framework correctly OVERRIDES the approval via Gate 1 (per-issue severity check) and creates a fix round. This is HEALTHY behavior — the `CHECK` label in the script distinguishes it from Mode B.
+- **Distinguishes from healthy**: a healthy review has: (1) valid ```json block with boolean `approve`/`approved`, string severity, array `issues`; (2) round structure exactly matching the parsed verdict — rejected → fix + next round, approved (with all issues ≤ threshold) → no more rounds.
+- **Verify**:
+  ```bash
+  for review_dir in $(find "$WS/children" -type d -name "review" -not -path "*/logs/*" | sort); do
+    label=$(echo "$review_dir" | sed "s|$WS/children/||")
+    round_dir=$(dirname "$(dirname "$review_dir")")
+    round_num=$(basename "$round_dir" | sed 's/round_0*//')
+    resp=$(find "$review_dir/logs/session/" -path "*/InferenceResponse/*output_*.txt" -type f 2>/dev/null | head -1)
+    [ ! -f "$resp" ] && { echo "FAIL $label: no response"; continue; }
+    result=$(sed -n '/```json/,/```/p' "$resp" | sed '1d;$d' | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    a = d.get('approved', d.get('approve', '__MISSING__'))
+    s = d.get('severity', d.get('overall_severity', '__MISSING__'))
+    i = d.get('issues', '__MISSING__')
+    e = []
+    if a == '__MISSING__': e.append('no approved field')
+    elif not isinstance(a, bool): e.append(f'approved={type(a).__name__}')
+    if s == '__MISSING__': e.append('no severity field')
+    if not isinstance(i, list): e.append('issues not list')
+    print(f'WARN|{\"|\".join(e)}' if e else f'OK|approved={a}|severity={s}|issues={len(i)}')
+except: print('FAIL|json parse error')
+" 2>&1)
+    approved=$(echo "$result" | grep -o 'approved=[A-Za-z]*' | cut -d= -f2)
+    fix_exists=$( [ -d "$(dirname "$review_dir")/fix" ] && echo Y || echo N )
+    next=$( [ -d "$(dirname "$round_dir")/round_$(printf '%02d' $((round_num+1)))" ] && echo Y || echo N )
+    echo "  $label: $result | fix=$fix_exists next_round=$next"
+  done
+  ```
+- **Field name aliasing**: the review template instructs `approve` and `overall_severity`; the parser accepts both via fallback `.get()` chains (`parsed.get("approved", parsed.get("approve", False))`). Both naming conventions are valid.
+- **Source**: task full mode v3 run `task_20260526_214348_8c81288d` — all 18 reviews parsed successfully (zero fallbacks to `parsing_error` path). 3 threshold-override cases correctly identified (reviewer said `approve: true` with MINOR issues, framework overrode via Gate 1). Codified after discovering the multi-layer extraction pipeline (RovoDevCli `extract_json_from_output` → DualInferencer `_default_parse_review`) and the field name aliasing behavior.
+
+### O-23 — Logged `output` is noisy transcript instead of clean LLM response
+- **Look for**: for CLI-based inferencers (RovoDevCli), `output_*.txt` in `InferenceResponse/` is nearly the same size as `raw_output_*.txt` (both ~50–100 KB). The `output_*.txt` starts with `Working in /path...` and contains MCP server errors, tool call blocks, and terminal chrome — instead of the clean LLM response (typically 5–30 KB starting with the actual content). Meanwhile `stream_*.txt` in `_runtime/inferencer_cache/` IS correct (contains the clean `<Response>`-tagged output).
+- **Distinguishes from healthy**: a healthy `output_*.txt` contains ONLY the clean LLM response (matching `stream_*.txt` in content and size). `raw_output_*.txt` contains the full noisy transcript — that's expected. The ratio `output_size / raw_size` should be well below 50% for non-trivial runs; if it's above 95%, the output IS the raw transcript.
+- **Impact**: downstream consumers (e.g., `DualInferencer._default_parse_review`) receive the noisy transcript instead of the clean response. `<Response>` tag extraction fails (tags are stripped by terminal rendering), forcing fallback to ` ```json ``` ` block search inside 50–100 KB of noise. Review JSON parsing still works (the JSON is embedded in the noise) but is fragile and wasteful.
+- **Verify**:
+  ```bash
+  for parts_dir in $(find "$WS" -type d -name "*.jsonl.parts" 2>/dev/null); do
+    output=$(find "$parts_dir/InferenceResponse" -name "*output_*.txt" -not -name "*raw_output*" -type f 2>/dev/null | head -1)
+    raw=$(find "$parts_dir/InferenceResponse" -name "*raw_output_*.txt" -type f 2>/dev/null | head -1)
+    [ ! -f "$output" ] || [ ! -f "$raw" ] && continue
+    out_size=$(wc -c < "$output" | tr -d ' ')
+    raw_size=$(wc -c < "$raw" | tr -d ' ')
+    label=$(echo "$parts_dir" | sed "s|$WS/children/||;s|/logs/.*||")
+    ratio=$((out_size * 100 / raw_size))
+    [ "$ratio" -gt 95 ] && echo "WARN $label: output≈raw (${ratio}%)" || echo "PASS $label: output=${out_size}B vs raw=${raw_size}B"
+  done
+  ```
+- **Source**: task full mode v3 run `task_20260526_214348_8c81288d` — outer Dual round_01 review had `output_*.txt` = 68,992B ≈ `raw_output_*.txt` = 68,994B (99.9% ratio), while `stream_*.txt` was 8,265B (the correct clean response). Fixed by pushing `TerminalInferencerResponse` wrapping from `ainfer()` down to `_ainfer()` so the base-class logging captures the correct clean output.
 
 ---
 

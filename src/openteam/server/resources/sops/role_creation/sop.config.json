@@ -1,0 +1,26 @@
+{
+  "name": "role_creation",
+  "display_name": "AI Role Creation",
+  "version": "1.0.0",
+  "description": "Provision a new AI employee end-to-end — from raw role description to deployed team member. Clarifies the role's responsibilities with the user, researches the domain to produce a comprehensive responsibility document, decomposes the role into skills and tools, then deploys to a target team. Use when the user wants to hire, onboard, design, or stand up a new AI employee for any function.",
+  "keywords": ["hire employee", "create role", "onboard AI employee", "build AI agent", "design AI role", "deploy AI worker", "stand up new role"],
+  "example_requests": [
+    "hire a machine learning engineer",
+    "create a TPM AI role",
+    "I want to build an AI customer support lead",
+    "onboard an AI data scientist for our analytics team",
+    "design a new AI role that handles release coordination"
+  ],
+  "available_modes": ["default", "yolo"],
+  "requires_tools": ["create_role", "role_setup", "multiple_choice", "confirmation", "clarification"],
+  "labels": ["onboarding", "role-management", "ai-employees"],
+  "linear_only": true,
+  "max_goto_iterations": 5,
+  "max_total_nodes": 100,
+  "yolo_overrides": {
+    "multiple_choice": { "mode": "first_choice" },
+    "single_choice": { "mode": "first_choice" },
+    "confirmation": { "mode": "fixed", "value": "yes" },
+    "clarification": { "mode": "fixed", "value": "Follow your best judgment based on the role context." }
+  }
+}

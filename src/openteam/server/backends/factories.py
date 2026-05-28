@@ -5,10 +5,10 @@ on the module-level :func:`get_registry` singleton.
 
 Each non-mock factory builds a backend-specific ``base`` inferencer (step
 1) then delegates to :func:`_wrap_in_conversational` for steps 2-11
-(prompt renderer, tool registry + filter, dispatcher, ConversationalInferencer
-wrap, ``_tool_dispatcher`` attach). This is the only place that knows how
-to assemble OpenStartup's conversation-tool stack — adding a new backend
-just means writing a base-builder.
+(TemplateManagerPromptRenderer, tool registry + filter, dispatcher,
+ConversationalInferencer wrap, ``_tool_dispatcher`` attach). This is the
+only place that knows how to assemble OpenStartup's conversation-tool
+stack — adding a new backend just means writing a base-builder.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     """Wrap a base inferencer in OpenStartup's ConversationalInferencer stack.
 
     Steps (verified against the prior monolithic ``_build_rovodev_inferencer``):
-      (a) JinjaPromptRenderer pointing at templates/conversation/main/initial.jinja2
+      (a) TemplateManagerPromptRenderer backed by TemplateManager (conversation/main/initial.jinja2)
       (b) load_all_tools(extra_dirs=[ctx.templates_dir.parent / "tools"])
       (c) _filter_tools_by_config (whitelist from .initial.config.yaml)
       (d) build_integration_executor()
@@ -86,17 +86,24 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversational_inferencer import (
         ConversationalInferencer,
     )
-    from agent_foundation.common.inferencers.agentic_inferencers.conversational.prompt_rendering import (
-        JinjaPromptRenderer,
+    from agent_foundation.common.inferencers.agentic_inferencers.conversational.template_manager_renderer import (
+        TemplateManagerPromptRenderer,
+    )
+    from rich_python_utils.string_utils.formatting.template_manager.template_manager import (
+        TemplateManager,
     )
     from agent_foundation.resources.tools.registry import load_all_tools
     from openteam.server.integrations.dispatch import build_integration_executor
     from openteam.server.services.tool_dispatcher import ToolDispatcher
 
     # (a) Prompt renderer
-    prompt_renderer = JinjaPromptRenderer(
-        template_dir=str(ctx.templates_dir),
-        template_path="conversation/main/initial.jinja2",
+    prompt_renderer = TemplateManagerPromptRenderer(
+        template_manager=TemplateManager(
+            templates=str(ctx.templates_dir),
+            active_template_root_space="conversation",
+            active_template_type="main",
+        ),
+        template_key="initial",
     )
 
     # (b) + (c) Tool registry, with whitelist
@@ -119,6 +126,7 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
             _session_root = str(ctx.session_store.get_session_dir(_sid))
         except Exception:
             pass
+    openteam_sops_dir = ctx.templates_dir.parent / "sops"
     session_context = {
         "session_id": _sid,
         "session_root": _session_root,
@@ -129,6 +137,8 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
             and hasattr(ctx.session_store, "server_dir")
             else ""
         ),
+        "extra_sop_dirs": [openteam_sops_dir],
+        "extra_tool_dirs": [openteam_tools_dir],
         "cloud_id": "",
         "uct_token": None,
         "email": None,

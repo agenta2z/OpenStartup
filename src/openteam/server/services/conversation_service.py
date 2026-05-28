@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 class _SimplePromptRenderer:
     """Minimal PromptRenderer conforming to ConversationalInferencer's protocol.
 
-    Uses Jinja2 directly, avoiding JinjaPromptRenderer's YAML config loading
-    which depends on a newer merge_mappings signature.
+    Uses Jinja2 directly — a lightweight fallback when TemplateManagerPromptRenderer
+    is not available.
     """
 
     def __init__(self, templates_dir: Path) -> None:
@@ -59,7 +59,7 @@ class _SimplePromptRenderer:
     def template_config(self) -> dict:
         """Load .initial.config.yaml sidecar config for the template.
 
-        Resolution order (matching JinjaPromptRenderer):
+        Resolution order (matching TemplateManagerPromptRenderer):
           1. .<basename>.config.yaml  (e.g. .initial.config.yaml)
           2. .config.yaml             (folder-level default)
         """

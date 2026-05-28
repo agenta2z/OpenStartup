@@ -332,10 +332,23 @@ fi
 #   <workspace>/outputs/final_deliverables/role_setup_output.md
 # where <workspace> = <REPO_ROOT>/_runtime/tasks/role_setup/role_setup_<TS>_<UUID>/
 if [ -z "${LOG_DIR}" ]; then
-    LOG_DIR="${REPO_ROOT}"
+    LOG_DIR="${REPO_ROOT}/_runtime/tasks/role_setup"
 fi
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/role_setup_${TIMESTAMP}.log"
+
+# Move terminal log into the workspace logs/ folder after the run completes.
+# Extracts [role_setup_working_dir] from process output to find the workspace.
+_move_log_to_workspace() {
+    local log_file="$1"
+    [ -f "${log_file}" ] || return 0
+    local ws
+    ws=$(grep '\[role_setup_working_dir\]' "${log_file}" 2>/dev/null | tail -1 | awk '{print $2}')
+    if [ -n "${ws}" ] && [ -d "${ws}/logs" ]; then
+        mv "${log_file}" "${ws}/logs/" 2>/dev/null && \
+            ln -sf "${ws}/logs/$(basename "${log_file}")" "${log_file}" 2>/dev/null
+    fi
+}
 
 log_ok "Log file:    ${LOG_FILE}"
 log_ok "Workspace:   ${REPO_ROOT}/_runtime/tasks/role_setup/role_setup_<TS>_<UUID>/"
@@ -386,7 +399,18 @@ CMD=(
 )
 
 if [ ${BACKGROUND} -eq 1 ]; then
-    nohup "${CMD[@]}" > "${LOG_FILE}" 2>&1 &
+    # Wrap in subshell: run the command, then move log into workspace logs/.
+    # A symlink is left at the original path so tail -f keeps working for
+    # any monitoring that started before the move.
+    nohup bash -c "
+        $(printf '%q ' "${CMD[@]}") > \"${LOG_FILE}\" 2>&1
+        # Move log into workspace after process exits
+        WS=\$(grep '\\[role_setup_working_dir\\]' \"${LOG_FILE}\" 2>/dev/null | tail -1 | awk '{print \$2}')
+        if [ -n \"\${WS}\" ] && [ -d \"\${WS}/logs\" ]; then
+            mv \"${LOG_FILE}\" \"\${WS}/logs/\" 2>/dev/null
+            ln -sf \"\${WS}/logs/$(basename "${LOG_FILE}")\" \"${LOG_FILE}\" 2>/dev/null
+        fi
+    " &
     PID=$!
     sleep 2
     if kill -0 "${PID}" 2>/dev/null; then
@@ -400,6 +424,7 @@ if [ ${BACKGROUND} -eq 1 ]; then
         echo
         echo "When complete, find workspace under:"
         echo "  ${REPO_ROOT}/_runtime/tasks/role_setup/role_setup_${TIMESTAMP}_*"
+        echo "  (log will be moved into <workspace>/logs/ after run completes)"
         exit 0
     else
         log_error "Background process exited immediately. Check log:"
@@ -412,6 +437,7 @@ else
     # tee to capture output to log while still showing to user
     if "${CMD[@]}" 2>&1 | tee "${LOG_FILE}"; then
         echo
+        _move_log_to_workspace "${LOG_FILE}"
         log_ok "Run completed successfully"
         log_ok "Log: ${LOG_FILE}"
         log_ok "Deliverable: see <workspace>/outputs/final_deliverables/role_setup_output.md"
@@ -419,6 +445,7 @@ else
         exit 0
     else
         echo
+        _move_log_to_workspace "${LOG_FILE}"
         log_error "Run failed (see ${LOG_FILE})"
         exit 2
     fi

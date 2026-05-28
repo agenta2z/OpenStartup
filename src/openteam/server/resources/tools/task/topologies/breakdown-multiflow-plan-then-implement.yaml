@@ -129,6 +129,7 @@ _consensus_config:
 # OUTER DUAL — review and fix the FULL deliverable
 # ---------------------------------------------------------------------------
 _target_: Dual
+_template_root_space: implementation
 # Workspace block (explicit form replaces the prior `workspace_root` shorthand).
 # Reason: the shorthand path constructs InferencerWorkspace(root=...) with
 # defaults, leaving `use_final_deliverables_folder=False`. To opt into the
@@ -158,7 +159,6 @@ base_inferencer:
   # ---- EXECUTE STAGE: bare BTA with Dual workers ----
   executor_inferencer:
     _target_: BTA
-    _template_root_space: implementation   # subtree-default cascade (Refactor 14)
     name: exec_bta
     breakdown_format: json_subtasks
     max_breakdown: ${_params.exec_max_breakdown}
@@ -184,15 +184,10 @@ base_inferencer:
 # ---------------------------------------------------------------------------
 review_inferencer:
   _target_: ${_params.default_inferencer}
-  template_root_space: implementation   # outside both subtrees — explicit (leaf layer)
 
 # ---------------------------------------------------------------------------
-# FIXER PTI — mirror of base_inferencer; fires if outer review rejects
+# FIXER — lightweight leaf; takes reviewer feedback and makes targeted fixes.
+# NOT a full PTI re-run (that would be ~10-20× the cost for a fix iteration).
 # ---------------------------------------------------------------------------
 fixer_inferencer:
-  _inherits_: base_inferencer
-  planner_inferencer:
-    base_inferencer:
-      name: fixer_plan_bta
-  executor_inferencer:
-    name: fixer_exec_bta
+  _target_: ${_params.default_inferencer}

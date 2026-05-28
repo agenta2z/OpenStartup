@@ -46,7 +46,7 @@
 # (OmegaConf resolves ${_params.*} from the config root).
 _params:
   workspace_root: ???                # REQUIRED: injected by _run_topology via overrides
-  default_inferencer: RovoDevCLI
+  default_inferencer: ClaudeCodeCLI
   plan_max_breakdown: 3
   flow_max_dynamic_steps: 3
   consensus_max_iterations: 3

@@ -1,10 +1,10 @@
 # task — Run Verification Catalog
 
-> **Purpose**: Tool-specific post-run verification for `/task` (the production task tool). Use **together with** the common catalog at `../VERIFICATION.md` (covers A1–A16 / O-1 – O-17 that apply to any BTA-based tool).
+> **Purpose**: Tool-specific post-run verification for `/task` (the production task tool). Use **together with** the common catalog at `../VERIFICATION.md` (covers A1–A19 / O-1 – O-22 that apply to any BTA/Dual-based tool).
 >
 > Only **historical, documented** observations appear in §2. Speculative "what could go wrong" items are intentionally excluded — VERIFICATION docs catalog observed reality, not imagined risk.
 >
-> **Last updated**: 2026-05-24
+> **Last updated**: 2026-05-27
 
 ---
 
@@ -72,7 +72,7 @@ task_<YYYYMMDD_HHMMSS>_<uuid>/
    export WS=$(ls -td /Users/tchen7/MyProjects/CoreProjects/OpenStartup/_runtime/tasks/task/task_* | head -1)
    echo "Auditing: $WS"
    ```
-3. Run the **common audit body** (paste from `../VERIFICATION.md` §1 one-liner sanity script) — verifies A1–A16
+3. Run the **common audit body** (paste from `../VERIFICATION.md` §1 one-liner sanity script) — verifies A1–A19
 4. Run the **tool-specific audit pack** below (TK-A-1 – TK-A-N) — adds task-only structural checks
 5. If any check FAILS, consult `../VERIFICATION.md` §2 (common observations) FIRST, then §2 below (task-specific) — root cause may be tool-agnostic.
 
