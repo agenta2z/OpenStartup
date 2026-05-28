@@ -1,0 +1,49 @@
+# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+#
+# python_binary wrapper for ``test_create_role_metamate_devmate.py`` so the
+# test driver runs with ``//msl/metamate/cli:metamate_graphql`` on its
+# import path. That dep is what the ``Metamate`` alias
+# (``MetamateSDKInferencer``) lazily imports inside ``_ainfer_streaming``
+# via ``resolve_metamate_client_cls()``; without Buck, the venv path
+# fails at the first inference call with ``RuntimeError: No module
+# named 'msl'``.
+#
+# Why a Buck binary here (not in src/)?
+#   - The driver is a TEST driver — its place is test/, not the
+#     production library.
+#   - The companion bash wrapper (``test_create_role_metamate_devmate.sh``)
+#     can pick the right execution path at runtime: ``buck2 run`` for
+#     the metamate_and_devmate mode, plain ``python -m`` for the other
+#     modes that don't need msl.
+
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+oncall("ml_oncall")
+
+python_library(
+    name = "test_create_role_metamate_devmate_lib",
+    srcs = ["test_create_role_metamate_devmate.py"],
+    # Anchor the import path so the driver module lands under a
+    # dotted name that the python_binary's main_function can target.
+    base_module = "openteam.server.resources.tools.create_role._test_driver",
+    typing = False,
+    deps = [
+        "fbcode//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+        "fbcode//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "fbcode//_tony_dev/CoreProjects/RichPythonUtils/src:rich_python_utils",
+    ],
+)
+
+python_binary(
+    name = "test_create_role_metamate_devmate",
+    main_function = "openteam.server.resources.tools.create_role._test_driver.test_create_role_metamate_devmate.main",
+    deps = [
+        ":test_create_role_metamate_devmate_lib",
+        # Buck-only Thrift bindings + libfb required for the ``Metamate``
+        # alias at runtime. Adding this to the binary's transitive dep
+        # graph satisfies the lazy ``import_module("msl.metamate.cli.
+        # metamate_graphql")`` in ``MetamateSDKInferencer``.
+        "fbcode//msl/metamate/cli:metamate_graphql",
+    ],
+)

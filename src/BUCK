@@ -1,0 +1,50 @@
+# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+#
+# Buck-buildable mirror of the pip-installable ``openteam`` package. The
+# canonical run path is still ``./src/openteam/run.sh`` (pip/venv); this
+# library exists so consumers that need Meta-internal Buck-only deps
+# (e.g. ``//msl/metamate/cli:metamate_graphql`` for the ``Metamate``
+# inferencer alias registered in
+# ``//_tony_dev/CoreProjects/AgentFoundation/src/agent_foundation/common/configs/registered_targets.py``)
+# can build a self-contained ``python_binary`` that imports openteam
+# without the sibling sys.path injection in ``openteam.bootstrap``.
+
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+oncall("ml_oncall")
+
+python_library(
+    name = "openteam",
+    srcs = glob(["openteam/**/*.py"]),
+    resources = glob([
+        # Bundle non-Python assets accessed via ``Path(pkg.__file__).parent``
+        # at runtime: YAML topology configs, Jinja2 prompt templates, tool.json
+        # manifests, and the hidden .initial.config.yaml whitelist files.
+        "openteam/**/*.yaml",
+        "openteam/**/*.jinja2",
+        "openteam/**/*.json",
+        "openteam/**/.initial.config.yaml",
+        "openteam/**/.variables.yaml",
+    ]),
+    base_module = "",
+    typing = False,
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbsource//third-party/pypi/attrs:attrs",
+        "fbsource//third-party/pypi/fastmcp:fastmcp",
+        "fbsource//third-party/pypi/httpx:httpx",
+        "fbsource//third-party/pypi/hydra-core:hydra-core",
+        "fbsource//third-party/pypi/jinja2:jinja2",
+        "fbsource//third-party/pypi/mcp:mcp",
+        "fbsource//third-party/pypi/omegaconf:omegaconf",
+        "fbsource//third-party/pypi/pydantic:pydantic",
+        "fbsource//third-party/pypi/pyre-extensions:pyre-extensions",
+        "fbsource//third-party/pypi/python-dotenv:python-dotenv",
+        "fbsource//third-party/pypi/pyyaml:pyyaml",
+        "fbsource//third-party/pypi/requests:requests",
+        "fbsource//third-party/pypi/typer:typer",
+        "fbsource//third-party/pypi/websockets:websockets",
+        "fbcode//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "fbcode//_tony_dev/CoreProjects/RichPythonUtils/src:rich_python_utils",
+    ],
+)
