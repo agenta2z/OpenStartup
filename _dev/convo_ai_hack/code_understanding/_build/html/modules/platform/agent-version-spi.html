@@ -1,0 +1,1329 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>platform/agent-version/agent-version-spi &mdash; convoai code understanding 2026-05-03 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=2a0fc8ba"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=8c005784"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../architecture/index.html" class="icon icon-home">
+            convoai code understanding
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Foundations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/00-glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/00-glossary.html#round-3-glossary-additions">Round-3 Glossary Additions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/01-architecture-overview.html">Architecture Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#mental-model-in-one-paragraph">Mental model in one paragraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#the-5-tiers">The 5 tiers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#architectural-rules-enforced-by-gradle">Architectural rules (enforced by Gradle)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#bootstrap-entry-point-verified">Bootstrap entry point <sup>(verified)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#what-request-lifecycle-looks-like">What “request lifecycle” looks like</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/01-architecture-overview.html#what-this-overview-is-not">What this overview is NOT</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/02-request-lifecycle.html">Request Lifecycle</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-path">The path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#critical-implementation-details">Critical implementation details</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-customeraccountallowed-annotation">The <code class="docutils literal notranslate"><span class="pre">&#64;CustomerAccountAllowed</span></code> annotation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-requestattribute-tenant-context-injection">The <code class="docutils literal notranslate"><span class="pre">&#64;RequestAttribute(TENANT_CONTEXT)</span></code> injection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-withmdccontext-wrapper">The <code class="docutils literal notranslate"><span class="pre">withMdcContext</span> <span class="pre">{</span> <span class="pre">}</span></code> wrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-experience-allowlist-at-line-175-179">The Experience allowlist at line 175-179</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-pass-through-headers-pattern">The pass-through-headers pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#the-rovoagentforassistanceservice-body-injection">The <code class="docutils literal notranslate"><span class="pre">RovoAgentForAssistanceService</span></code> body injection</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#concurrency-threading-model">Concurrency / threading model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#other-controllers">Other controllers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/02-request-lifecycle.html#what-this-lifecycle-doc-is-not">What this lifecycle doc is NOT</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/03-module-catalog.html">Module Catalog (84 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#contrib-4-modules">contrib/ (4 modules)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#foundation-11-modules">foundation/ (11 modules)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#platform-36-modules">platform/ (36 modules)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#product-29-modules">product/ (29 modules)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#service-5-modules">service/ (5 modules)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#total">Total</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/03-module-catalog.html#note-on-accuracy">Note on accuracy</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tier deep-dives</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html">Service Tier (5 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#modules">Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#convo-ai-docker-image-verified"><code class="docutils literal notranslate"><span class="pre">convo-ai-docker-image</span></code> <sup>(verified)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#convo-ai-service-agent-reported-partial-verify"><code class="docutils literal notranslate"><span class="pre">convo-ai-service</span></code> <sup>(agent-reported, partial-verify)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#convo-ai-service-api-agent-reported"><code class="docutils literal notranslate"><span class="pre">convo-ai-service-api</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#convo-ai-service-descriptor-agent-reported"><code class="docutils literal notranslate"><span class="pre">convo-ai-service-descriptor</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#service-testing-arch-inferred"><code class="docutils literal notranslate"><span class="pre">service/testing/arch</span></code> <sup>(inferred)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#patterns-specific-to-the-service-tier">Patterns specific to the service tier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/01-service-tier.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html">Product Tier (30 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-modules-at-a-glance">Product modules at a glance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#major-product-deep-dives">Major product deep-dives</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-rovo-agent-reported"><code class="docutils literal notranslate"><span class="pre">product/rovo</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-agentstudio-agent-reported"><code class="docutils literal notranslate"><span class="pre">product/agentstudio</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-aifeature-agent-reported"><code class="docutils literal notranslate"><span class="pre">product/aifeature</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-csm-agent-reported"><code class="docutils literal notranslate"><span class="pre">product/csm</span></code> <sup>(agent-reported)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#other-products-agent-reported">Other products <sup>(agent-reported)</sup></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#product-tier-patterns">Product-tier patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/02-product-tier.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html">Platform Tier (36 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#functional-areas-verified-by-directory-listing">15 functional areas <sup>(verified by directory listing)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#the-api-impl-spi-pattern-verified">The api/impl/spi pattern <sup>(verified)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#functional-areas">Functional areas</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#action-inferred-high-confidence">action/ <sup>(inferred — high confidence)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#agent-version-inferred-high-confidence">agent-version/ <sup>(inferred — high confidence)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#base-inferred">base/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#client-inferred-high-confidence">client/ <sup>(inferred — high confidence)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#conversation-inferred-high-confidence">conversation/ <sup>(inferred — high confidence)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#convo-ai-test-utils-verified-partial">convo-ai-test-utils <sup>(verified — partial)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#evaluation-inferred">evaluation/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#knowledge-inferred">knowledge/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#knowledge-gap-inferred">knowledge-gap/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#sandbox-inferred-high-confidence">sandbox/ <sup>(inferred — high confidence)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#service-verified-high-confidence-most-important">service/ <sup>(verified — high confidence — most important)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#stratus-contracts-inferred">stratus-contracts/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#tool-registry-inferred">tool-registry/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#widget-inferred">widget/ <sup>(inferred)</sup></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#workflow-inferred">workflow/ <sup>(inferred)</sup></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#cross-cutting-capabilities-housed-in-platform">Cross-cutting capabilities housed in platform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#patterns-specific-to-platform-tier">Patterns specific to platform tier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/03-platform-tier.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html">Foundation Tier (11 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#modules-verified-by-directory-listing">11 modules <sup>(verified by directory listing)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#utilities-api-breakdown-verified-by-directory-listing">utilities-api breakdown <sup>(verified by directory listing)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#why-this-matters">Why this matters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#notable-foundation-classes">Notable foundation classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#patterns-specific-to-foundation">Patterns specific to foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/04-foundation-tier.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/tiers/05-contrib-tier.html">Contrib Tier (4 modules)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/05-contrib-tier.html#inferred-purpose-inferred">Inferred purpose <sup>(inferred)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/05-contrib-tier.html#why-so-small">Why so small?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/05-contrib-tier.html#recommendation">Recommendation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/tiers/05-contrib-tier.html#what-would-change-here">What would change here</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Cross-cutting concerns</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html">AI Gateway Integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#the-3-087-line-service">The 3,087-line service</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#provider-matrix-15-public-methods">Provider matrix (15+ public methods)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#attribution-headers-verified">Attribution headers <sup>(verified)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#use-case-management">Use-case management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#streaming-flow">Streaming flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#provider-specific-quirks">Provider-specific quirks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#error-handling-inferred">Error handling <sup>(inferred)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#token-counting-metrics">Token counting / metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#patterns-specific-to-ai-gateway-integration">Patterns specific to AI Gateway integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/01-ai-gateway.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html">Multi-Tenancy &amp; Tenant Isolation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#the-tenantcontext-object">The <code class="docutils literal notranslate"><span class="pre">TenantContext</span></code> object</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#resolution-flow-verified-at-lines">Resolution flow <sup>(verified at lines)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#enforcement-points-observed">Enforcement points <sup>(observed)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/02-tenant-isolation.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html">Feature Flags &amp; Rollout</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html#the-rolloutservice-interface-inferred-from-codebase-patterns">The <code class="docutils literal notranslate"><span class="pre">RolloutService</span></code> interface <sup>(inferred from codebase patterns)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html#where-gates-are-evaluated">Where gates are evaluated</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/03-feature-flags.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html">Streaming &amp; Coroutines</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#why-streaming">Why streaming?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#the-wire-format-ndjson-over-http">The wire format: ndjson over HTTP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#the-kotlin-types-involved">The Kotlin types involved</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#the-mdc-coroutine-pitfall-critical">The MDC + coroutine pitfall <sup>(critical)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#the-graphql-suspend-pitfall-critical">The GraphQL + suspend pitfall <sup>(critical)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#forbidden-raw-dispatchers-io-verified-per-agents-md">Forbidden: raw <code class="docutils literal notranslate"><span class="pre">Dispatchers.IO</span></code> <sup>(verified per AGENTS.md)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#backpressure">Backpressure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/04-streaming-and-coroutines.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html">Observability &amp; Telemetry</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#three-pillars">Three pillars</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#logs">Logs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#metrics">Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#traces">Traces</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/05-telemetry.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html">Identity &amp; Authentication</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#the-user-object">The User object</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#authentication-flow">Authentication flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#asap-token-caching">ASAP token caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#the-customeraccountallowed-annotation">The &#64;CustomerAccountAllowed annotation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/06-identity-and-auth.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html">Persistence &amp; Async Messaging</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#kamino">Kamino</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#redis-2-clusters-per-integration-tests-sandbox">Redis (2 clusters per integration-tests sandbox)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#sqs-lifecycle-events">SQS — lifecycle events</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#aqui-async-tasks">Aqui — async tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/07-persistence-and-messaging.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html">Agent Runtime (ADK)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#the-agent-development-kit-adk">The Agent Development Kit (ADK)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#agent-definitions">Agent definitions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#tool-invocation">Tool invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#multi-step-workflows-marathon">Multi-step workflows: Marathon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#sain-slack-ai-notification-orchestrator">SAIN: Slack AI Notification orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#patterns">Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/08-agent-runtime.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html">Build System &amp; Testing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#build-rule-enforcement">Build-rule enforcement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#coverage-tiers-kover-per-agents-md">Coverage tiers (Kover) <sup>(per AGENTS.md)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#lint-stack">Lint stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#test-types">Test types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#the-local-vs-ci-mismatch-observed-empirically">The local-vs-CI mismatch <sup>(observed empirically)</sup></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#sandbox-atlas-nebulae-start-s-integration-tests">Sandbox: <code class="docutils literal notranslate"><span class="pre">atlas</span> <span class="pre">nebulae</span> <span class="pre">start</span> <span class="pre">-s</span> <span class="pre">integration-tests</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/09-build-and-test.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html">GraphQL API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#schema-architecture">Schema architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#verified-controller-distribution-49-total">Verified controller distribution (49 total)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#authentication-per-field-annotations">Authentication (per-field annotations)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#federation-patterns">Federation patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#mutation-patterns-transactional-semantics">Mutation patterns (transactional semantics)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#code-generation">Code generation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#versioning-strategy">Versioning strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#per-product-api-surface">Per-product API surface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#agentstudio-22-controllers-agent-management-ui">AgentStudio (22 controllers — agent management UI)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#csm-14-controllers-customer-service-management-agents">CSM (14 controllers — Customer Service Management agents)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#other-products">Other products</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#querying-examples">Querying examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#adding-a-new-graphql-operation">Adding a new GraphQL operation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/10-graphql-api-reference.html#open-questions">Open questions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html">External Integrations Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#integration-topology">Integration topology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#per-integration-contracts">Per-integration contracts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#ai-gateway-most-critical-integration">AI Gateway (most-critical integration)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#atlassian-product-integrations-jira-confluence-bitbucket">Atlassian product integrations (Jira, Confluence, Bitbucket)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#observability-integrations">Observability integrations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#identity-integrations">Identity integrations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#internal-integrations">Internal integrations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#resilience-patterns">Resilience patterns</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#circuit-breakers">Circuit breakers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#retries">Retries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#timeouts">Timeouts</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#observability-per-integration">Observability per integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#adding-a-new-integration-step-by-step">Adding a new integration (step-by-step)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/11-external-integrations.html#honest-limitations">Honest limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html">Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#configuration-file-inventory">Configuration file inventory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#configuration-hierarchy">Configuration hierarchy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#configurationproperties-classes-typed-config">&#64;ConfigurationProperties classes (typed config)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#environment-variables">Environment variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#feature-flag-naming-convention">Feature flag naming convention</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#secret-management">Secret management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#common-misconfigurations-top-5-deployment-pitfalls">Common misconfigurations (top 5 deployment pitfalls)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#configuration-testing">Configuration testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#adding-new-configuration-step-by-step">Adding new configuration (step-by-step)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#open-questions">Open questions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#marathon-ff-composition-added-2026-05-03">Marathon FF Composition (added 2026-05-03)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#marathon-ff-definitions">Marathon FF Definitions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#composition-rules">Composition Rules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#possible-request-states">Possible Request States</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#marathon-ff-use-sites">Marathon FF Use Sites</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#hybridorchestratorfeatureflags-enum-added-2026-05-03">HybridOrchestratorFeatureFlags Enum (added 2026-05-03)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#categories-23-values-total">Categories (23 values total)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/12-configuration-reference.html#when-to-consult-each-ff-system">When to Consult Each FF System</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Diagrams</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/index.html">Diagrams</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/index.html#the-7-diagrams">The 7 diagrams</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html">Diagram 1 — Tier Dependency Graph &amp; Rules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#the-dependency-graph">The dependency graph</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#why-this-shape">Why this shape?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#enforcement-matrix-verified-corrected-from-earlier-docs">Enforcement matrix <sup>(verified — corrected from earlier docs)</sup></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#module-counts-per-tier">Module counts per tier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#what-this-not">What this NOT</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html">Diagram 2 — Streaming Chat Request Sequence</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#top-level-sequence">Top-level sequence</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#hot-spots-highlighted">Hot spots highlighted</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#what-s-not-shown">What’s NOT shown</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#the-error-paths-overlay">The error-paths overlay</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html">Diagram 3 — AI Gateway Provider Topology</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-provider-variant-matrix">The provider × variant matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-3-axes">The 3 axes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-happy-path-inside-one-method">The “happy-path” inside one method</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#why-such-a-giant-file">Why such a giant file?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html">Diagram 4 — MDC + Coroutine Context Lifecycle</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-good-lifecycle-with-withmdccontext">The “good” lifecycle (with <code class="docutils literal notranslate"><span class="pre">withMdcContext</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-bad-lifecycle-without-withmdccontext">The “bad” lifecycle (without <code class="docutils literal notranslate"><span class="pre">withMdcContext</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#why-this-happens">Why this happens</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-fix-mdcloggingcontext-withmdccontext">The fix: <code class="docutils literal notranslate"><span class="pre">MdcLoggingContext.withMdcContext</span> <span class="pre">{</span> <span class="pre">}</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#verified-usage">Verified usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-graphql-equivalent">The GraphQL equivalent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#how-a-reviewer-spots-violations">How a reviewer spots violations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html">Diagram 5 — Messaging &amp; Async Topology</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#top-level-topology">Top-level topology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#three-async-mechanisms">Three async mechanisms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#what-gets-bootstrapped-at-startup">What gets bootstrapped at startup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#the-taskqueue-enum">The TaskQueue enum</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#open-questions-not-yet-investigated">Open questions / not-yet-investigated</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html">Diagram 6 — Tenant Context &amp; Identity Flow</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#end-to-end-identity-propagation">End-to-end identity propagation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#the-dual-principal-model">The dual-principal model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#the-4-attribution-headers-explained">The 4 attribution headers explained</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#failure-modes">Failure modes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html">Diagram 7 — Agent Runtime: Tools, Skills, Workflows</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#agent-definition-llm-call">Agent definition → LLM call</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#three-layers-of-mutability">Three layers of mutability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#tool-invocation-cycle">Tool invocation cycle</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#two-registries-one-purpose">Two registries, one purpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#long-horizon-workflows-the-marathon-escape-hatch">Long-horizon workflows: the Marathon escape hatch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/index.html#suggested-reading-order">Suggested reading order</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/index.html#what-all-diagrams-share">What ALL diagrams share</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/index.html#what-no-diagram-tries-to-do">What NO diagram tries to do</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html">Diagram 1 — Tier Dependency Graph &amp; Rules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#the-dependency-graph">The dependency graph</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#why-this-shape">Why this shape?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#enforcement-matrix-verified-corrected-from-earlier-docs">Enforcement matrix <sup>(verified — corrected from earlier docs)</sup></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#what-this-means-in-practice">What this means in practice</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#module-counts-per-tier">Module counts per tier</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#insights">Insights</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/01-tier-dependency-graph.html#what-this-not">What this NOT</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html">Diagram 2 — Streaming Chat Request Sequence</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#top-level-sequence">Top-level sequence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#hot-spots-highlighted">Hot spots highlighted</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#what-s-not-shown">What’s NOT shown</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#the-error-paths-overlay">The error-paths overlay</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/02-streaming-request-sequence.html#how-to-read-this-state-diagram">How to read this state diagram</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html">Diagram 3 — AI Gateway Provider Topology</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-provider-variant-matrix">The provider × variant matrix</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-3-axes">The 3 axes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#the-happy-path-inside-one-method">The “happy-path” inside one method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#why-such-a-giant-file">Why such a giant file?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/03-ai-gateway-providers.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html">Diagram 4 — MDC + Coroutine Context Lifecycle</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-good-lifecycle-with-withmdccontext">The “good” lifecycle (with <code class="docutils literal notranslate"><span class="pre">withMdcContext</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-bad-lifecycle-without-withmdccontext">The “bad” lifecycle (without <code class="docutils literal notranslate"><span class="pre">withMdcContext</span></code>)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#why-this-happens">Why this happens</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-fix-mdcloggingcontext-withmdccontext">The fix: <code class="docutils literal notranslate"><span class="pre">MdcLoggingContext.withMdcContext</span> <span class="pre">{</span> <span class="pre">}</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#verified-usage">Verified usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#the-graphql-equivalent">The GraphQL equivalent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/04-mdc-coroutine-state.html#how-a-reviewer-spots-violations">How a reviewer spots violations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html">Diagram 5 — Messaging &amp; Async Topology</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#top-level-topology">Top-level topology</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#three-async-mechanisms">Three async mechanisms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#what-gets-bootstrapped-at-startup">What gets bootstrapped at startup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#the-taskqueue-enum">The TaskQueue enum</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/05-messaging-topology.html#open-questions-not-yet-investigated">Open questions / not-yet-investigated</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html">Diagram 6 — Tenant Context &amp; Identity Flow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#end-to-end-identity-propagation">End-to-end identity propagation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#the-dual-principal-model">The dual-principal model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#the-4-attribution-headers-explained">The 4 attribution headers explained</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/06-tenant-and-identity.html#failure-modes">Failure modes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html">Diagram 7 — Agent Runtime: Tools, Skills, Workflows</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#agent-definition-llm-call">Agent definition → LLM call</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#how-to-read-it">How to read it</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#three-layers-of-mutability">Three layers of mutability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#tool-invocation-cycle">Tool invocation cycle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#two-registries-one-purpose">Two registries, one purpose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#long-horizon-workflows-the-marathon-escape-hatch">Long-horizon workflows: the Marathon escape hatch</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#how-long-horizon-escapes-the-request-scope">How long-horizon escapes the request scope</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/diagrams/07-agent-runtime.html#patterns-visible-in-this-diagram">Patterns visible in this diagram</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User-facing features (deep dives)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/features/index.html">User-facing features (cross-cutting deep dives)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/features/index.html#read-order">Read order</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/features/index.html#pages">Pages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html">Feature Inventory — All user-facing features in the codebase</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#how-features-are-organized-in-this-codebase">How features are organized in this codebase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#glossary-of-recurring-confusion">Glossary of recurring confusion</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#the-master-feature-inventory">The master feature inventory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#triage-matrix-what-to-deep-dive-next">Triage matrix — what to deep-dive next</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#honest-assessment-of-agent-reports">Honest assessment of agent reports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#open-questions-for-someone-with-more-institutional-knowledge">Open questions for someone with more institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory.html#open-questions-resolved-2026-05-02-follow-up">Open Questions — Resolved (2026-05-02 follow-up)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html">Feature Inventory — Wave 2 (additional features discovered)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#why-this-exists">Why this exists</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#module-level-scale-baseline">Module-level scale baseline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#the-newly-discovered-features">The newly-discovered features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#lumina-lightweight-classifier-sub-agent-system">Lumina — lightweight classifier sub-agent system</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#tecton-ml-feature-store-integration">Tecton — ML feature store integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#memory-personalization-subsystem">Memory / Personalization subsystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#csm-voice-voice-mode-customer-support">CSM Voice — voice-mode customer support</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#csm-and-jsm-agent-platforms">CSM and JSM agent platforms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#aifeature-the-ai-in-product-cross-cutting-infrastructure">AIFEATURE — the “AI in product” cross-cutting infrastructure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#agent-versioning">Agent Versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#knowledge-knowledge-gap">Knowledge / Knowledge Gap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#evaluation-framework">Evaluation Framework</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#widget-system">Widget System</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#adk-agent-development-kit">ADK — Agent Development Kit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#loom-integration">Loom integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#atlassianstudio">AtlassianStudio</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#conversation-memory-history-additional">Conversation memory + history (additional)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#triage-summary-recommended-next-deep-dives">Triage summary — recommended next deep-dives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#things-ruled-out">Things ruled OUT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/00-feature-inventory-wave-2.html#cross-references-with-existing-inventory">Cross-references with existing inventory</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html">Chat Streaming — the message-level workflow plumbing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#what-chat-streaming-is-in-one-paragraph">What chat-streaming IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#the-23-rest-endpoints">The 23 REST endpoints</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#the-30-stream-message-types">The 30+ stream message types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#the-4-executor-variants">The 4 executor variants</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#the-two-response-framings">The two response framings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#sub-agent-feedback-corrections-supplements">Sub-agent feedback (corrections + supplements)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/chat-streaming.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html">Agent Framework — Stratus minion infrastructure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#what-agent-framework-is-in-one-paragraph">What agent-framework IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#the-17-stratus-minions">The 17 Stratus minions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#the-minion-contract-three-loading-paths">The Minion contract — three loading paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#the-permission-model">The permission model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#the-user-centric-agent-store">The user-centric agent store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#cross-module-dependencies-who-consumes-agent-framework">Cross-module dependencies — who consumes agent-framework</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#end-to-end-flow-stratus-minion-invocation">End-to-end flow — Stratus minion invocation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agent-framework.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html">Marathon Orchestrator — LLM-driven Python execution agent</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#what-it-is-in-one-paragraph">What it IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#the-10-marathon-clients">The 10 Marathon clients</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#end-to-end-execution-flow">End-to-end execution flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#sequence-diagram-one-marathon-turn">Sequence diagram — one Marathon turn</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#the-dual-python-runtime-sandbox-vs-sidecar">The dual Python runtime — Sandbox vs Sidecar</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#python-stub-generation-bridging-kotlin-to-python">Python stub generation — bridging Kotlin to Python</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#the-metacognitive-layer-plan-todo-question-advisor-confirmation">The metacognitive layer — plan, todo, question, advisor, confirmation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#external-system-dependencies">External system dependencies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#resumption-pause-store-resume">Resumption — pause, store, resume</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#design-patterns-identified">Design patterns identified</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#open-questions-resolved-2026-05-02-follow-up">Open Questions — Resolved (2026-05-02 follow-up)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#m5-m6-resolved-2026-05-02-follow-up-2">M5 + M6 — Resolved (2026-05-02 follow-up #2)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#atlassianstudio-two-path-execution-model-added-2026-05-03">12. AtlassianStudio Two-Path Execution Model (added 2026-05-03)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#path-1-direct-execution-performance-optimized-not-ff-gated">12.1 Path 1: Direct execution (performance-optimized, NOT FF-gated)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#path-2-delegated-to-rovochat-ff-gated">12.2 Path 2: Delegated to RovoChat (FF-gated)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#why-this-matters">12.3 Why this matters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/marathon-orchestrator.html#action-items-for-marathon-team">12.4 Action items (for Marathon team)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html">SAIN — Search-AI standalone hybrid orchestrator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#what-sain-is-in-one-paragraph">What SAIN IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#the-3-sain-orchestrators">The 3 SAIN orchestrators</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#the-simple-vs-complex-classifier">The SIMPLE vs COMPLEX classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#sain-lh-longhorizon-the-production-ready-learning-frontier">SAIN-LH (LongHorizon) — the production-ready learning frontier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#the-40-sain-feature-flags">The 40+ SAIN feature flags</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#the-citation-system">The citation system</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#sequence-diagram-one-standalonehybrid-sain-turn">Sequence diagram — one StandaloneHybrid SAIN turn</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/sain.html#open-questions-resolved-2026-05-02-follow-up-2">Open Questions — Resolved (2026-05-02 follow-up #2)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html">Lumina — Lightweight LLM classifier + answer sub-agent for SAIN</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#what-lumina-is-in-one-paragraph">What Lumina IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#anatomy-where-lumina-lives">Anatomy — where Lumina lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-2-step-lumina-pipeline">The 2-step Lumina pipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-sain-lumina-relationship-verified">The SAIN-Lumina relationship — VERIFIED</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-two-classifications-are-different">The two classifications are DIFFERENT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-mcp-integration-shoulduseluminatoanswertool">The MCP integration (<code class="docutils literal notranslate"><span class="pre">ShouldUseLuminaToAnswerTool</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-tag-based-output-protocol">The tag-based output protocol</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#the-citation-system">The citation system</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/lumina.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html">Deep Research — multi-agent research workflow</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#what-it-is-in-one-paragraph">What it IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#end-to-end-flow-v2-path">End-to-end flow (V2 path)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#the-self-evolution-twist">The “Self-Evolution” twist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#ablation-framework">Ablation framework</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#sequence-diagram-one-deep-research-turn">Sequence diagram — one Deep Research turn</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/deep-research.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html">MCP System — Model Context Protocol integration (server + client)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#what-it-is-in-one-paragraph">What it IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#the-11-mcp-tool-sub-systems">The 11 MCP tool sub-systems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#top-level-mcp-tools-in-mcp-tool-directly-not-in-a-sub-dir">Top-level MCP tools (in <code class="docutils literal notranslate"><span class="pre">mcp/tool/</span></code> directly, not in a sub-dir)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#architecture-server-side-and-client-side">Architecture — server-side and client-side</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#the-jira-concentration-why-so-big">The Jira concentration — why so big?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#tool-registration-and-invocation">Tool registration and invocation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#auth-model-different-per-service-category">Auth model — different per service category</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#sequence-diagram-mcp-tool-invocation">Sequence diagram — MCP tool invocation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/mcp-system.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html">Rovo Plugin System — first-party Atlassian capability framework</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#what-it-is-in-one-paragraph">What it IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#the-plugin-contract">The plugin contract</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#two-registration-paths-native-vs-forge">Two registration paths — Native vs Forge</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#plugin-invocation-flow">Plugin invocation flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#three-confluence-client-systems-what-s-the-difference">Three “Confluence client” systems — what’s the difference?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#sequence-diagram-plugin-invocation">Sequence diagram — plugin invocation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-plugin-system.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html">AIFC — AI-First Creation (Create with Rovo)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#what-aifc-is-in-one-paragraph">What AIFC IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#the-planned-hybridorchestrator-flattening">The “planned HybridOrchestrator flattening”</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#the-aifc-pipeline-the-architectural-pattern">The AIFC pipeline (the architectural pattern)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#schema-agents-the-llm-callable-building-blocks">Schema Agents — the LLM-callable building blocks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#editor-minions-the-streaming-output-surface">Editor Minions — the streaming output surface</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#other-aifc-sub-systems">Other AIFC sub-systems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#the-release-gate">The release-gate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#sequence-diagram-aifc-create-page-flow">Sequence diagram — AIFC “Create Page” flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/aifc.html#open-questions-resolved-2026-05-02-follow-up">Open Questions — Resolved (2026-05-02 follow-up)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html">AIFEATURE — “AI in product” cross-cutting feature platform</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#what-aifeature-is-in-one-paragraph">What AIFEATURE IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#anatomy-gradle-module-structure">Anatomy — Gradle module structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#the-39-feature-folders-under-aifeature-impl-features">The <strong>39 feature folders</strong> under <code class="docutils literal notranslate"><span class="pre">aifeature-impl/.../features/</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#the-5-rest-controllers-1-graphql-controller">The 5 REST controllers + 1 GraphQL controller</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#top-services-by-loc">Top services by LoC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#shared-infrastructure-common">Shared infrastructure (<code class="docutils literal notranslate"><span class="pre">common/</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#feature-category-map">Feature category map</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#end-to-end-flow-typical-aifeature-invocation">End-to-end flow — typical AIFEATURE invocation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/aifeature.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html">AgentStudio — build-an-agent platform</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#what-it-is-in-one-paragraph">What it IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#the-21-graphql-controllers">The 21 GraphQL controllers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#the-3-rest-controllers">The 3 REST controllers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#the-agent-data-model">The agent data model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#end-to-end-flow-agent-creation-to-chat">End-to-end flow — agent creation to chat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#permission-model">Permission model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html">Rovo Insights — async LLM-generated personalized work insights</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#what-it-is-in-one-sentence">What it IS (in one sentence)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#where-it-lives">Where it lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#architectural-shape-three-subsystems">Architectural shape — three subsystems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#the-6-insight-types">The 6 insight types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#the-polymorphism-design">The polymorphism design</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#adding-a-new-insight-type-6-file-edits">Adding a new insight type — 6 file edits</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#the-4-cache-hierarchy">The 4-cache hierarchy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#rest-api">REST API</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#adf-rendering-5-specialized-builders">ADF rendering — 5 specialized builders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#design-patterns-identified">Design patterns identified</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#test-coverage">Test coverage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-insights.html#open-questions-resolved-2026-05-02">Open questions — RESOLVED 2026-05-02</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html">Knowledge &amp; Knowledge Gap — agent knowledge sources + drafted articles</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#what-knowledge-is-and-what-it-isn-t">What Knowledge IS — and what it ISN’T</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#anatomy-module-structure">Anatomy — module structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#top-files-by-loc">Top files by LoC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#the-knowledge-contract">The Knowledge contract</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#the-knowledge-gap-workflow">The Knowledge Gap workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#the-3-status-states">The 3 status states</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html">Knowledge Gap Workflow — suggestion-article generation pipeline</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#what-this-page-covers">What this page covers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#module-structure-verified">Module structure (verified)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#top-15-files-by-loc-verified">Top-15 files by LoC (verified)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-full-data-model-verified-enums">The full data model — verified enums</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-knowledgegapmanager-contract-verified-full">The KnowledgeGapManager contract (verified, full)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-ml-studio-integration-verified">The ML Studio integration — VERIFIED</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-publish-path-verified-via-knowledgegapconfluenceservice">The publish path — VERIFIED via KnowledgeGapConfluenceService</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-complete-workflow-verified-end-to-end">The complete workflow — verified end-to-end</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-3-in-flight-intermediate-stages-clustering-generating-postprocessing">The 3 in-flight intermediate stages (CLUSTERING, GENERATING, POSTPROCESSING)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-partial-complete-state-interesting-design-choice">The PARTIAL_COMPLETE state (interesting design choice)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#the-cleanup-task-stalejobcleanuptask-200-loc">The cleanup task — StaleJobCleanupTask (200 LoC)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/knowledge-gap-workflow.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html">Memory subsystem — cross-conversation personalization</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#what-memory-is-in-one-paragraph">What Memory IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#anatomy-where-memory-code-lives">Anatomy — where memory code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#top-files-by-loc-verified">Top files by LoC (verified)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#the-3-memory-types">The 3 memory types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#the-stratus-platform-memory-contracts">The Stratus platform memory contracts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#per-product-memory-variants">Per-product memory variants</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#the-9-pebble-templates">The 9+ Pebble templates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#end-to-end-flow-collection-memory-extraction-per-chat-turn">End-to-end flow — Collection Memory extraction (per chat turn)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#end-to-end-flow-memory-retrieval-per-chat-request">End-to-end flow — Memory retrieval (per chat request)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#sequence-diagram-extraction">Sequence diagram — extraction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/memory.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html">CSM Platform — Customer Support Management agent platform</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#what-csm-platform-is-in-one-paragraph">What CSM Platform IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#anatomy-module-structure">Anatomy — module structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#the-8-main-feature-areas">The 8 main feature areas</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#additional-components">Additional components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#end-to-end-flow-text-chat-conversation">End-to-end flow — text chat conversation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-platform.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html">CSM Voice — Voice-mode customer support via Twilio + OpenAI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#what-csm-voice-is-in-one-paragraph">What CSM Voice IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#anatomy-where-the-code-lives">Anatomy — where the code lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#the-4-main-service-files-csm-impl-service-voice">The 4 main service files (csm-impl/…/service/voice/)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#the-twilio-conversation-relay-protocol">The Twilio Conversation Relay protocol</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#the-openai-tts-integration">The OpenAI TTS integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#end-to-end-flow-voice-call-lifecycle">End-to-end flow — voice call lifecycle</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-voice.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html">JSM Platform — Jira Service Management agent platform</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#what-jsm-platform-is-in-one-paragraph">What JSM Platform IS (in one paragraph)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#anatomy-module-structure">Anatomy — module structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#the-12-main-feature-areas">The 12 main feature areas</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#the-plan-driven-orchestrator-vs-marathon-sain">The plan-driven orchestrator (vs Marathon / SAIN)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#end-to-end-flow-typical-jsm-it-request">End-to-end flow — typical JSM IT request</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#sequence-diagram">Sequence diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#external-system-fan-out">External system fan-out</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#smells-and-concerns">Smells and concerns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#refactoring-opportunities">Refactoring opportunities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#what-you-would-change-here">What you would change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#what-you-would-not-change-here">What you would NOT change here</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-platform.html#open-questions-for-institutional-knowledge">Open questions for institutional knowledge</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html">JQL/Jira SchemaAgent Audit — version-migration debt analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#why-this-audit-exists">Why this audit exists</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#critical-finding">Critical finding</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#full-audit-table">Full audit table</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#why-jqlexecutionschemaagent-and-v1-are-not-obvious-duplicates">Why JqlExecutionSchemaAgent and V1 are NOT obvious duplicates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#nl2jql-variants-distinct-not-duplicates">NL2Jql variants — distinct, not duplicates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#action-plan-recommended-sequencing">Action plan (recommended sequencing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#what-you-would-not-do">What you would NOT do</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#verification-audit-log">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#sub-agent-feedback-corrections">Sub-agent feedback (corrections)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-1-caller-enumeration-2026-05-02">Phase 1 — Caller enumeration (2026-05-02)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#jqlexecutionschemaagentv1-6-production-callers">JqlExecutionSchemaAgentV1 — 6 production callers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#nl2jqlschemaagent-1-production-caller">NL2JqlSchemaAgent — 1 production caller</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#enhancedjqlexecutionschemaagent-0-production-callers-dead-code">EnhancedJqlExecutionSchemaAgent — 0 production callers (DEAD CODE)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#recommendation-matrix-update">Recommendation matrix update</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#net-cleanup-if-all-three-executed">Net cleanup if all three executed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#critical-correction">Critical correction</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-2-code-execution-outcome-2026-05-02">Phase 2 — Code execution outcome (2026-05-02)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#what-was-done">What was done</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#critical-findings-during-investigation">Critical findings during investigation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#honest-scope-revision">Honest scope revision</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-3-plan-for-nl2-migration-proposed">Phase 3 plan for NL2 migration (proposed)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#updated-cleanup-status">Updated cleanup status</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#critical-thinking-that-prevented-a-buggy-phase-2">Critical thinking that PREVENTED a buggy Phase 2</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-4-sub-agent-family-audit-executed-2026-05-02">Phase 4 — Sub-agent family audit (executed 2026-05-02)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#audit-methodology">Audit methodology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-4-candidates-investigated">Phase 4 candidates investigated</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#critical-correction-caught-during-audit">🚨 Critical correction caught during audit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#phase-4-execution-outcome">Phase 4 execution outcome</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#id1">Verification audit log</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jql-schemaagent-audit.html#updated-jql-audit-summary">Updated JQL audit summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html">JSM PlanGenerator V1 vs V2 — coexistence audit</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#tl-dr">TL;DR</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#hard-evidence-verified-by-grep-find">Hard evidence (verified by <code class="docutils literal notranslate"><span class="pre">grep</span></code> + <code class="docutils literal notranslate"><span class="pre">find</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#the-factory-wiring-smoking-gun">The factory wiring (smoking gun)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#the-runtime-selection-plannerminion-kt-239-240">The runtime selection (PlannerMinion.kt:239-240)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#why-this-is-not-the-same-as-jql-phase-2">Why this is NOT the same as JQL Phase 2</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#what-investigation-is-still-needed">What investigation is still needed</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#recommended-next-steps-in-order">Recommended next steps (in order)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#resolution-2026-05-02-follow-up-audit">RESOLUTION (2026-05-02 follow-up audit)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#the-semantics">The semantics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#observable-rollout-usage-tracking-ids">Observable rollout — usage tracking IDs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#provider-naming-convention">Provider naming convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#updated-recommendation">Updated recommendation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-plangenerator-audit.html#updated-audit-verdict">Updated audit verdict</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html">CSM REST V1 vs V2 — namespace audit (NOT a migration generation)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#tl-dr">TL;DR</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#hard-evidence-full-inventory">Hard evidence — full inventory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#the-no-pairs-verification">The “no pairs” verification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#what-is-happening-correct-interpretation">What IS happening (correct interpretation)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#why-the-original-claim-was-wrong">Why the original claim was wrong</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#what-this-means-for-the-codebase">What this means for the codebase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/csm-rest-v1-v2-audit.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html">Pattern 1 refutation audits — AIFC SchemaAgents + A2A versioning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html#tl-dr">TL;DR</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html#audit-1-aifc-schemaagent-variants">Audit 1 — AIFC SchemaAgent variants</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html#audit-2-a2a-agent-to-agent-versioning">Audit 2 — A2A (Agent-to-Agent) versioning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html#both-refutations-what-they-teach-us">Both refutations — what they teach us</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/refuted-pattern-claims-audit.html#updated-pattern-1-instance-count">Updated Pattern 1 instance count</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html">JSM Composer &amp; Handoff</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#where-it-lives">Where it lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#composer-subsystem">Composer subsystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#handoff-subsystem">Handoff subsystem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#integration-topology">Integration topology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#configuration-feature-flags">Configuration &amp; feature flags</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#observability">Observability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#known-limitations-open-questions">Known limitations &amp; open questions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/jsm-composer-handoff.html#cross-references">Cross-references</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html">Confluence ADF Editor AI</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#where-it-lives">Where it lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#adf-format-basics">ADF format basics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#end-to-end-flow">End-to-end flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#adf-edit-operations-6-ops">ADF edit operations (6 ops)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#available-ai-operations-user-facing">Available AI operations (user-facing)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#prompt-strategy-pebble-templates">Prompt strategy (Pebble templates)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#streaming-considerations">Streaming considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#configuration-ff-gates">Configuration / FF gates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#known-limitations">Known limitations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/confluence-adf-editor.html#cross-references">Cross-references</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html">AgentStudio Reports &amp; Insights</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#where-it-lives">Where it lives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#what-it-does">What it does</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#data-flow">Data flow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#configuration-ff-gates">Configuration / FF gates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#permissions">Permissions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#honest-gaps">Honest gaps</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#open-questions">Open questions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/agentstudio-reports.html#cross-references">Cross-references</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html">Other User-Facing Features (Hiring Manager, Loom, AtlassianStudio Access)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html#hiring-manager-tool">Hiring Manager Tool</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html#loom-integration">Loom Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html#atlassianstudio-access-control">AtlassianStudio Access Control</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html#combined-feature-inventory-update">Combined feature inventory update</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/other-missed-features.html#cross-references">Cross-references</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html">Rovo Module Decomposition (in-flight refactoring)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#what-this-initiative-is">1. What this initiative IS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#the-6-target-modules">2. The 6 target modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#methodology-api-seams-before-splitting">3. Methodology: API seams BEFORE splitting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#verification-gates-every-pr">4. Verification gates (every PR)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#stream-execution-status-30-complete">5. Stream execution status (~30% complete)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#already-extracted-helper-modules">6. Already-extracted helper modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#largest-packages-still-in-rovo-impl">7. Largest packages still in rovo-impl</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#risks-open-questions">8. Risks &amp; open questions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#why-this-matters-for-everyone">9. Why this matters for everyone</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/rovo-module-decomposition.html#cross-references">10. Cross-references</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html">Orchestrator Selection (How Rovo Chooses Marathon vs LH vs HO)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#the-selection-algorithm-full-decision-tree">1. The Selection Algorithm (full decision tree)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#the-two-experiments">2. The Two Experiments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#primary-rovo-chat-lh-orchestrator-exp">2.1 Primary: ROVO_CHAT_LH_ORCHESTRATOR_EXP</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#nested-lh-ttfb-optimization-exp">2.2 Nested: LH_TTFB_OPTIMIZATION_EXP</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#the-pre-experiment-override-shouldredirecttoho">3. The Pre-experiment Override: shouldRedirectToHO()</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#critical-insight-two-ff-systems-different-roles">4. Critical Insight: Two FF Systems, Different Roles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#why-it-took-3-investigation-rounds-to-find-this">5. Why It Took 3 Investigation Rounds to Find This</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#implications-for-operations">6. Implications for Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#reading-orchestrator-selection-metrics">6.1 Reading orchestrator-selection metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#rolling-out-a-new-orchestrator">6.2 Rolling out a new orchestrator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#debugging-wrong-orchestrator-selected">6.3 Debugging “wrong orchestrator selected”</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#open-questions">7. Open Questions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#recommended-documentation-updates">8. Recommended Documentation Updates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/cross-cutting/features/orchestrator-selection.html#cross-references">9. Cross-references</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Codebase-wide refactoring guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html">Cross-cutting recurring patterns — actionable refactoring guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#why-this-page-exists">Why this page exists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#pattern-1-legacy-new-coexistence-multi-version-classes-living-together">Pattern 1 — Legacy/new coexistence (multi-version classes living together)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#pattern-2-multi-classifier-multi-router-decisions-for-the-same-task">Pattern 2 — Multi-classifier / multi-router decisions for the same task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#pattern-3-knowledge-search-infrastructure-duplicated-across-products">Pattern 3 — Knowledge / search infrastructure duplicated across products</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#pattern-4-memory-infrastructure-duplicated-across-runtimes">Pattern 4 — Memory infrastructure duplicated across runtimes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#pattern-5-plugin-tool-registry-duplicated-4-ways">Pattern 5 — Plugin/tool registry duplicated 4 ways</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#cross-pattern-observations">Cross-pattern observations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#quick-reference-table-codebase-wide-consolidation-candidates">Quick-reference table — codebase-wide consolidation candidates</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#subsequent-audit-findings-2026-05-02-follow-up">Subsequent audit findings (2026-05-02 follow-up)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#updates-to-pattern-1-legacy-new-coexistence">Updates to Pattern 1 — Legacy/new coexistence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#updates-to-pattern-2-multi-classifier">Updates to Pattern 2 — Multi-classifier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#the-patterns-themselves-are-unchanged">The patterns themselves are unchanged</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/patterns.html#recommended-order-for-further-audits">Recommended order for further audits</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html">Unified RoutingService — design proposal for Pattern 2 quick-win</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#why-this-design-exists">Why this design exists</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#goals">Goals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#non-goals">Non-goals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#the-proposed-architecture">The proposed architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#the-strategy-pattern">The strategy pattern</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#the-default-strategy-chain">The default strategy chain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#the-3-existing-classifiers-as-strategies">The 3 existing classifiers as strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#migration-path-phased-rollout">Migration path — phased rollout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#observable-benefits">Observable benefits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#risks-mitigations">Risks + mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#alternative-considered-just-delete-redundant-classifiers">Alternative considered: just delete redundant classifiers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#open-design-questions">Open design questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/cross-cutting/routing-service-design.html#recommended-next-steps">Recommended next steps</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Business &amp; Technical Goals</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture/business/index.html">Business &amp; Technical Goals</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html">ConvoAI FY26 Business &amp; Technical Goals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#business-product-goals-fy26">1. Business / Product Goals (FY26)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#strategic-priorities-verified-canonical-sources">1.1 Strategic priorities (verified canonical sources)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#canonical-planning-hubs-confluence">1.2 Canonical planning hubs (Confluence)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#openai-scale-tier-dependency-critical-constraint">1.3 OpenAI Scale Tier dependency (CRITICAL CONSTRAINT)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#technical-slo-architecture-codebase-canonical">2. Technical SLO Architecture (codebase-canonical)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#reliability-slo-tiers-4-tiers">2.1 Reliability SLO Tiers (4 tiers)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#per-product-slo-modules-8-product-areas">2.2 Per-product SLO modules (8 product areas)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#concrete-slo-examples-verified-from-terraform">2.3 Concrete SLO examples (verified from Terraform)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#sfx-composer-endpoint-slos-rest-api-layer">2.4 SFX-Composer Endpoint SLOs (REST API layer)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#throughput-capacity-goals">3. Throughput / Capacity Goals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#honest-assessment">3.1 Honest assessment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#implicit-throughput-indicators-from-infrastructure">3.2 Implicit throughput indicators (from infrastructure)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#if-you-need-to-define-a-throughput-goal">3.3 If you need to define a throughput goal</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#cost-efficiency-goals">4. Cost / Efficiency Goals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#teamserve-bluebird-active-initiative">4.1 TEAMServe Bluebird (active initiative)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#implicit-efficiency-goals-from-architecture">4.2 Implicit efficiency goals (from architecture)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#quality-trust-goals">5. Quality / Trust Goals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#eng-conversational-ai-trust-scorecard">5.1 Eng Conversational AI Trust Scorecard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#aifc-quality-targets-q3-q4-2025-fy26">5.2 AIFC Quality Targets (Q3-Q4 2025 → FY26)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#active-engineering-initiatives-2026">6. Active Engineering Initiatives (2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#top-jira-items">7. Top JIRA Items</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#useful-confluence-search-queries">8. Useful Confluence Search Queries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#useful-atlas-searches">9. Useful Atlas Searches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#honest-limitations-of-this-document">10. Honest Limitations of This Document</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#cross-references">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#per-feature-roadmap-mined-from-deep-dives">11. Per-Feature Roadmap (mined from deep-dives)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#critical-production-blocking-or-vendor-bounded">11.1 CRITICAL — production-blocking or vendor-bounded</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#high-measurable-engineering-gaps-with-active-work">11.2 HIGH — measurable engineering gaps with active work</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#medium-architectural-cleanup-with-clear-paths">11.3 MEDIUM — architectural cleanup with clear paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#low-institutional-knowledge-gaps">11.4 LOW — institutional knowledge gaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#cross-cutting-architectural-roadmap">11.5 Cross-cutting architectural roadmap</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#aifc-fy26-quality-goals-critical-risk-to-beta-ga">12. AIFC FY26 Quality Goals (CRITICAL — risk to Beta GA)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#verified-quality-metrics-current-state">12.1 Verified quality metrics (current state)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#maturity-assessment-5-level-scale">12.2 Maturity assessment (5-level scale)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#top-critical-gaps-priority-ranked">12.3 Top critical gaps (priority-ranked)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#beta-blockers-per-aifc-twclr2">12.4 Beta blockers (per AIFC TWCLR2)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#concrete-fy26-commitments-where-verified">12.5 Concrete FY26 commitments (where verified)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#the-openai-99-9-sla-ceiling-full-rationale">13. The OpenAI 99.9% SLA Ceiling — Full Rationale</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#the-math-compound-reliability">13.1 The math (compound reliability)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#openai-s-published-slas-verified-jan-2026">13.2 OpenAI’s published SLAs (verified Jan 2026)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#historical-context-4-milestones">13.3 Historical context (4 milestones)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#atlassian-s-recommended-tiered-slo-strategy">13.4 Atlassian’s recommended tiered SLO strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#three-options-to-break-the-ceiling">13.5 Three options to break the ceiling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#what-the-doc-explicitly-tells-engineers">13.6 What the doc explicitly tells engineers</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#slack-investigation-honest-status">14. Slack Investigation — Honest Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#updated-reading-list">15. Updated Reading List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#companion-documents-added-2026-05-03">16. Companion Documents (added 2026-05-03)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#aifc-qbr-extracted-content-alternate-fetch">17. AIFC QBR — Extracted Content (alternate fetch)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#methods-tried-and-outcomes">17.1 Methods tried and outcomes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#concrete-metrics-extracted">17.2 Concrete metrics extracted</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#beta-ga-criteria-incomplete">17.3 Beta GA criteria (incomplete)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#quarterly-milestones-fy26">17.4 Quarterly milestones (FY26)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#owner-sponsor-cadence">17.5 Owner / Sponsor / Cadence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#adjacent-strategy">17.6 Adjacent strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#honest-gaps">17.7 Honest gaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/01-fy26-goals-and-slos.html#recommendation-to-aifc-team">17.8 Recommendation to AIFC team</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html">Eng Conversational AI Trust Scorecard (May 2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#what-this-scorecard-measures">1. What this scorecard measures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#module-by-module-status-may-2026">2. Module-by-module status (May 2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#scoring-methodology">3. Scoring methodology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#action-items-may-2026">4. Action items (May 2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#what-this-scorecard-does-not-cover">5. What this scorecard does NOT cover</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#honest-gaps-per-investigation">6. Honest gaps (per investigation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/02-trust-scorecard.html#cross-references">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html">TEAMServe Bluebird — Cost &amp; Latency Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#what-bluebird-is">1. What Bluebird IS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#verified-production-wins-april-2026">2. Verified production wins (April 2026)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#architectural-approach">3. Architectural approach</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#multi-cloud-gcp-rollout-timeline">4. Multi-cloud GCP rollout timeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#implications-for-convoai">5. Implications for convoai</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#honest-gaps-in-the-documentation">6. Honest gaps in the documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/03-teamserve-bluebird.html#cross-references">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html">Rovo + AI - FY26 — Strategic Direction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#strategic-pillars-5-pillars">1. Strategic pillars (5 pillars)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#north-star-metrics-fy26">2. North Star metrics (FY26)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#concrete-commitments-by-pillar">3. Concrete commitments by pillar</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#revenue-monetization">3.1 Revenue &amp; Monetization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#product-engineering">3.2 Product &amp; Engineering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#user-growth">3.3 User Growth</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#brand-marketing">3.4 Brand &amp; Marketing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#top-8-strategic-source-documents">4. Top 8 strategic source documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#top-risks-dependencies">5. Top risks &amp; dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#how-this-maps-to-convoai-engineering">6. How this maps to convoai engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#open-questions-for-engineering">7. Open questions for engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#honest-gaps-per-investigation">8. Honest gaps (per investigation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/04-rovo-ai-fy26-strategy.html#cross-references">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html">Open Questions — Resolution Status &amp; Action Items</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#critical-items">1. CRITICAL items</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#sain-deprecation-timeline-for-legacy-hybrid">1.1 SAIN — Deprecation timeline for legacy Hybrid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#chat-streaming-two-a2a-executors-coexist">1.2 Chat Streaming — Two A2A executors coexist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#jsm-hr-vs-it-orchestrator-split-logic">1.3 JSM — HR vs IT orchestrator split logic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#aifc-hybridorchestrator-flattening-timeline">1.4 AIFC — HybridOrchestrator flattening timeline</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#high-items">2. HIGH items</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#knowledge-gap-workflow-real-time-vs-batch">2.1 Knowledge Gap Workflow — Real-time vs batch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#agent-framework-storage-backend">2.2 Agent Framework — Storage backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#other-high-items">2.3 Other HIGH items</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#medium-items">3. MEDIUM items</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#marathon-trigger-logic">3.1 Marathon — Trigger logic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#memory-retention-policy">3.2 Memory — Retention policy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#memory-tp-abbreviation">3.3 Memory — TP abbreviation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#other-medium-items">3.4 Other MEDIUM items</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#low-items-institutional-knowledge-gaps">4. LOW items (institutional knowledge gaps)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#rovo-strategy-engineering-open-questions">5. Rovo Strategy → engineering open questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#rovo-credits-enforcement">5.1 Rovo Credits enforcement</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#indexed-objects-monetization">5.2 Indexed Objects monetization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#k-mau-target">5.3 150k MAU target</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#iso-42001-gap-assessment-q3-fy26">5.4 ISO 42001 gap assessment (Q3 FY26)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#resolution-scoreboard">6. Resolution scoreboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#recommended-next-steps-for-engineering-owners">7. Recommended next steps for engineering owners</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#cross-references">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#second-round-resolutions-added-2026-05-03-evening">8. Second-Round Resolutions (added 2026-05-03 evening)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#marathon-trigger-logic-resolved">8.1 Marathon Trigger Logic ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#memory-retention-policy-resolved">8.2 Memory Retention Policy ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#chat-streaming-two-a2a-executors-resolved">8.3 Chat Streaming — Two A2A Executors ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#agent-framework-storage-backend-partial">8.4 Agent Framework Storage Backend 🔄 PARTIAL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#aifeature-per-product-modularization-resolved">8.5 AIFEATURE Per-Product Modularization ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#memory-tp-abbreviation-still-needs-owner">8.6 Memory “TP” Abbreviation 📋 STILL NEEDS OWNER</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#updated-resolution-scoreboard">9. Updated Resolution Scoreboard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#bonus-architectural-surprises-found">10. Bonus: Architectural Surprises Found</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#atlassianstudio-bypasses-rovo-s-ff-layer-for-marathon">10.1 AtlassianStudio bypasses Rovo’s FF layer for Marathon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#three-marathon-ff-gates-exist-not-one">10.2 Three Marathon FF gates exist, not one</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#hybridorchestratorfeatureflags-enum-exists-separately">10.3 <code class="docutils literal notranslate"><span class="pre">HybridOrchestratorFeatureFlags</span></code> enum exists separately</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#id1">Cross-references</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#third-round-resolutions-2026-05-03-final-pass">11. Third-Round Resolutions (2026-05-03 final pass)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#tp-abbreviation-turbopuffer-resolved">11.1 “TP” Abbreviation = TurboPuffer ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#agent-framework-storage-ers-dynamodb-resolved">11.2 Agent Framework Storage = ERS/DynamoDB ✅ RESOLVED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#aifeature-per-product-split-not-planned-but-rovo-is-being-decomposed-resolved-discovery">11.3 AIFEATURE per-product split = NOT planned, but Rovo IS being decomposed ✅ RESOLVED + 🆕 DISCOVERY</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#architectural-surprise-investigations-round-2">12. Architectural Surprise Investigations (round 2)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#atlassianstudio-marathon-two-intentional-execution-paths-explained">12.1 AtlassianStudio Marathon: TWO intentional execution paths ✅ EXPLAINED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#three-marathon-ffs-independent-gates-with-composable-semantics-explained">12.2 Three Marathon FFs: Independent gates with composable semantics ✅ EXPLAINED</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#hybridorchestratorfeatureflags-orchestrator-behavior-not-selection-explained">12.3 HybridOrchestratorFeatureFlags = orchestrator BEHAVIOR, not SELECTION ✅ EXPLAINED</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#final-resolution-scoreboard-after-3-rounds">13. Final Resolution Scoreboard (after 3 rounds)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#new-findings-new-open-questions-round-3">14. NEW Findings &amp; New Open Questions (round 3)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#rovo-module-decomposition-is-an-active-workstream">14.1 Rovo Module Decomposition is an ACTIVE workstream</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#atlassianstudio-s-two-path-marathon-execution-model">14.2 AtlassianStudio’s two-path Marathon execution model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#hello-experiment-for-orchestrator-selection-lives-elsewhere">14.3 Hello experiment for orchestrator selection lives ELSEWHERE</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../architecture/business/05-open-questions-resolved.html#id2">Cross-references</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../architecture/index.html">convoai code understanding</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../architecture/index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">platform/agent-version/agent-version-spi</span></code></li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/modules/platform/agent-version-spi.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="platform-agent-version-agent-version-spi">
+<span id="mod-agent-version-spi"></span><h1><code class="docutils literal notranslate"><span class="pre">platform/agent-version/agent-version-spi</span></code><a class="headerlink" href="#platform-agent-version-agent-version-spi" title="Link to this heading"></a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Tier<span class="colon">:</span></dt>
+<dd class="field-odd"><p>platform</p>
+</dd>
+<dt class="field-even">Path<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">modules/platform/agent-version/agent-version-spi</span></code></p>
+</dd>
+<dt class="field-odd">Size<span class="colon">:</span></dt>
+<dd class="field-odd"><p>~61 source lines <sup>(verified)</sup></p>
+</dd>
+</dl>
+<p>ERS (Atlassian Entity Resource Store) client for agent versions. Sharded for multi-tenant scale.</p>
+<section id="top-files-verified">
+<h2>Top files <sup>(verified)</sup><a class="headerlink" href="#top-files-verified" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ErsAgentVersion.kt</span></code> — 48 lines (ERS document model)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AgentVersionErsClient.kt</span></code> — 13 lines</p></li>
+</ul>
+</section>
+<section id="key-contract-verified">
+<h2>Key contract <sup>(verified)</sup><a class="headerlink" href="#key-contract-verified" title="Link to this heading"></a></h2>
+<div class="highlight-kotlin notranslate"><div class="highlight"><pre><span></span><span class="kd">interface</span><span class="w"> </span><span class="nc">AgentVersionErsClient</span><span class="w"> </span><span class="p">:</span>
+<span class="w">    </span><span class="n">ShardedErsClient</span><span class="o">&lt;</span><span class="n">ErsAgentVersion</span><span class="p">,</span><span class="w"> </span><span class="n">AgentVersioningContext</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="notable-findings">
+<h2>Notable findings<a class="headerlink" href="#notable-findings" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>ShardedErsClient</strong> parameterization — agent versions are stored per-tenant shard. Cross-tenant lookup is therefore not a single query.</p></li>
+<li><p>Tiny module (61 LoC) by design — just the persistence contract; the impl is in <code class="docutils literal notranslate"><span class="pre">agent-version-impl</span></code>.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

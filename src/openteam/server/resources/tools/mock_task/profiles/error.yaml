@@ -11,7 +11,7 @@ breakdown_inferencer:
     - {description: "Normal task B"}
 
 worker_factory:
-  __default__:
+  _default:
     _target_: MockWorker
     duration_s: 1.5
 

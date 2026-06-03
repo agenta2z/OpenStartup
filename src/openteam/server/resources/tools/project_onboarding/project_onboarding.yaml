@@ -49,7 +49,7 @@ group_max_concurrency:
 worker_factory:
   skill_tool_creation:
     _import_: "../role_setup/role_setup_skill_tool_creation.yaml"
-  __default__: skill_tool_creation
+  _default: skill_tool_creation
 
 # --- Outer Aggregator ---
 aggregator_inferencer:

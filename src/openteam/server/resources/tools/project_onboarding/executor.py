@@ -141,7 +141,7 @@ async def execute(
 
     # Allocate workspace via shared allocator (closes security bug: slash-path
     # previously set working_dir to src/openteam/server/ → outputs in source tree).
-    from openteam.server.resources.tools._shared.workspace_allocator import (
+    from agent_foundation.common.workspace.allocator import (
         allocate_tool_workspace,
     )
     _sr = (session_context or {}).get("session_root", "")

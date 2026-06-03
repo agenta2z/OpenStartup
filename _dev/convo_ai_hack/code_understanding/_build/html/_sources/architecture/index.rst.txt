@@ -1,0 +1,114 @@
+.. _convo-ai-platform-architecture:
+
+==========================================================
+Conversational AI Platform — Architecture Documentation
+==========================================================
+
+:Version: snapshot at commit ``9151ac1341583a0a1ba81d5742f904ff2c43d62b`` (main, 2026-05-01)
+:Source codebase: ``/Users/tchen7/MyProjects/atlassian_packages/conversational-ai-platform``
+:Total LoC documented: ~615,895 Kotlin LoC across 85 Gradle modules
+:Citation standard: file:line where verified; ``:sup:`(verified)``` / ``:sup:`(inferred)``` markers per claim
+
+How to read this documentation
+===============================
+
+This is a **structured reference** — not a tutorial. Read in this order if new to the codebase:
+
+1. :ref:`arch-overview` — the 5-tier hexagonal architecture, build rules, mental model
+2. :ref:`request-lifecycle` — trace one specific endpoint (chat streaming) end-to-end
+3. **One tier deep-dive** — pick whichever you'll work in (e.g. :ref:`product-tier` if adding a feature)
+4. **Cross-cutting concerns** — read the ones relevant to your task
+5. :ref:`module-catalog` — reference when looking up unfamiliar modules
+
+What this documentation IS
+===========================
+
+- **Grounded:** every Critical/High claim cites file:line; tier-overview claims cite directories or AGENTS.md
+- **Honest about scope:** ``:sup:`(verified)``` / ``:sup:`(inferred)``` / ``:sup:`(agent-reported)``` markers
+- **Discoverable:** module catalog so unfamiliar modules can be looked up
+
+What this documentation IS NOT
+================================
+
+- **Not a class diagram.** Diagrams of 12,990 source files would be noise.
+- **Not exhaustive.** Per-method docs aren't here — that's KDoc territory.
+- **Not a security audit.** Patterns are described as observed, not validated as sufficient.
+- **Not a tutorial.** No "build a hello-world agent" walkthrough.
+
+Top-level chapters
+====================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Foundations
+
+   00-glossary
+   01-architecture-overview
+   02-request-lifecycle
+   03-module-catalog
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tier deep-dives
+
+   tiers/01-service-tier
+   tiers/02-product-tier
+   tiers/03-platform-tier
+   tiers/04-foundation-tier
+   tiers/05-contrib-tier
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Cross-cutting concerns
+
+   cross-cutting/01-ai-gateway
+   cross-cutting/02-tenant-isolation
+   cross-cutting/03-feature-flags
+   cross-cutting/04-streaming-and-coroutines
+   cross-cutting/05-telemetry
+   cross-cutting/06-identity-and-auth
+   cross-cutting/07-persistence-and-messaging
+   cross-cutting/08-agent-runtime
+   cross-cutting/09-build-and-test
+   cross-cutting/10-graphql-api-reference
+   cross-cutting/11-external-integrations
+   cross-cutting/12-configuration-reference
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Diagrams
+
+   diagrams/index
+   diagrams/01-tier-dependency-graph
+   diagrams/02-streaming-request-sequence
+   diagrams/03-ai-gateway-providers
+   diagrams/04-mdc-coroutine-state
+   diagrams/05-messaging-topology
+   diagrams/06-tenant-and-identity
+   diagrams/07-agent-runtime
+
+Indices
+========
+
+* :ref:`genindex`
+* :ref:`search`
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: User-facing features (deep dives)
+
+   cross-cutting/features/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Codebase-wide refactoring guide
+
+   cross-cutting/patterns
+   cross-cutting/routing-service-design
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Business & Technical Goals
+
+   business/index

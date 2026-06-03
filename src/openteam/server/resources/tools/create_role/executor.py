@@ -444,7 +444,7 @@ async def execute(
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
-    from openteam.server.resources.tools.task.executor import (
+    from agent_foundation.resources.tools.task.executor import (
         _run_topology, _resolve_workspace,
     )
 
@@ -452,9 +452,9 @@ async def execute(
     max_facets = int(arguments.get("max_facets", 8))
 
     yaml_path = Path(__file__).parent / "create_role_bta.yaml"
+    templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
-    # Pre-allocate workspace via shared allocator (closes literal-task_id collision bug).
-    from openteam.server.resources.tools._shared.workspace_allocator import (
+    from agent_foundation.common.workspace.allocator import (
         allocate_tool_workspace,
     )
     _sr = (session_context or {}).get("session_root", "")
@@ -464,7 +464,11 @@ async def execute(
         workspace = allocate_tool_workspace("create_role", base_dir=_tasks_base)
     else:
         workspace = allocate_tool_workspace("create_role", base_dir=None)
-    session_context = {**session_context, "working_dir": str(workspace)}
+    session_context = {
+        **session_context,
+        "working_dir": str(workspace),
+        "extra_template_dirs": [str(templates_path)],
+    }
 
     overrides: dict = {
         "max_breakdown": max_facets,
@@ -495,8 +499,20 @@ async def execute(
         alt = Path(ws) / "role_document.md"
         if alt.is_file():
             ctx["role_document_path"] = str(alt)
+    # Fallback: search the workspace tree for role_document.md (the canonical
+    # filename). Covers the case where the document stays in the aggregator's
+    # subdirectory and isn't promoted to the root outputs/.
+    if "role_document_path" not in ctx and ws:
+        for doc in Path(ws).rglob("role_document.md"):
+            ctx["role_document_path"] = str(doc)
+            break
+
+    result_text = str(result.result)
+    doc_path = ctx.get("role_document_path")
+    if doc_path:
+        result_text += f"\n\nRole document saved to: {doc_path}"
 
     return ToolExecutionResult(
-        result=str(result.result),
+        result=result_text,
         context_updates=ctx,
     )
