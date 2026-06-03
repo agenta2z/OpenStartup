@@ -1200,6 +1200,7 @@ async def test_real_cli_subprocess_plan_mode(tmp_path, capfd):
     env = {
         **os.environ,
         "PYTHONPATH": pythonpath,
+        "OPENTEAM_RUNTIME_DIR": str(openstartup_root / "_runtime"),
     }
 
     # Use the plan-only YAML (cheaper, validated working on task-a755c721 +

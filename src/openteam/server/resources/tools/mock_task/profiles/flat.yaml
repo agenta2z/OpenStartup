@@ -20,7 +20,7 @@ breakdown_inferencer:
     - {description: "Analyze security controls"}
 
 worker_factory:
-  __default__:
+  _default:
     _target_: MockWorker
     duration_s: 2.0
 

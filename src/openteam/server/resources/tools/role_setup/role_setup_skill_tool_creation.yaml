@@ -71,7 +71,7 @@ worker_factory:
     template_variables:
       task_preamble: skill_tool_creation_investigation
 
-  __default__: skill_tool_creation_research
+  _default: skill_tool_creation_research
 
 # --- Aggregator ---
 # RovoDevCLI aggregator: has local file access, writes structured deliverables

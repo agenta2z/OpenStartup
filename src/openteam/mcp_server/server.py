@@ -51,7 +51,7 @@ async def openteam_task(
             "existing plan file."
         )
 
-    from openteam.server.resources.tools.task.executor import execute as _exec
+    from agent_foundation.resources.tools.task.executor import execute as _exec
 
     mode_flags = {"plan": False, "execute": False, "full": False, "confirm": False}
     mode_flags[mode] = True

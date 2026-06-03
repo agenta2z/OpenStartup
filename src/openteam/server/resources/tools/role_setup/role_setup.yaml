@@ -59,7 +59,7 @@ worker_factory:
     template_variables:
       task_instructions: skill_tool_association
       task_preamble: ""
-  __default__: skill_tool_creation
+  _default: skill_tool_creation
 
 # --- Outer Aggregator ---
 aggregator_inferencer:

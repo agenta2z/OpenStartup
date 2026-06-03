@@ -10,7 +10,7 @@ The Orchestrator follows a phased workflow for creating and deploying AI employe
 ## Phase 0 -- Role Specification:
 [__initial__]
 
-[__requires confirmation__] Invoke a `multiple_choice` conversation tool to ask what the role primarily does. Do NOT ask any pre-question (no "what's the scope?", no "what teams?", no clarification before the tool). The tool IS the question.
+[__requires user input__] Invoke a `multiple_choice` conversation tool to ask what the role primarily does. Do NOT ask any pre-question (no "what's the scope?", no "what teams?", no clarification before the tool). The tool IS the question.
 
 Generate 4–10 high-level responsibility categories **tailored to the role being designed** for the multi-choice tool. Use your judgment based on the role context to create categories that make sense. Each option should be a short verb-phrase (5–10 words) describing a core function of THIS specific role. The user selects one or more and can supplement with custom text via the tool's free-text field.
 
@@ -41,7 +41,7 @@ Use `create-role` tool to conduct deep research and synthesize a comprehensive r
 ### Phase 1b -- Role Document Review
 [__depends on__ Phase 1]
 
-[__requires confirmation__] After the role document is generated, invoke the confirmation tool so the user can review it and approve before advancing. Configure the tool with these parameters:
+[__requires user input__] After the role document is generated, invoke the confirmation tool so the user can review it and approve before advancing. Configure the tool with these parameters:
 - `view`: the absolute file path to the generated role document
 - `view_label`: "View Role Document"
 - `yes_label`: "✅ Approve & Proceed"
@@ -63,7 +63,7 @@ Use `/role-setup` to decompose the role and build its capabilities.
 **Tools**[__must__]:
 - /role-setup <role_document_path>
 
-### Phase 2b -- Role Details Review [__depends on__ Phase 2; __requires confirmation__]
+### Phase 2b -- Role Details Review [__depends on__ Phase 2; __requires user input__]
 
 After role setup generates skills and tools, invoke the confirmation tool so the user can browse the deliverables and approve before advancing. Configure the tool with these parameters:
 - `view`: the absolute path to the final_deliverables folder (e.g., the workspace outputs/final_deliverables/ directory)

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 # Re-export for callers that want resolution-only without env-var side effects.
-from openteam.server.resources.tools._shared.workspace_allocator import find_runtime_root  # noqa: F401
+from agent_foundation.common.workspace.allocator import find_runtime_root  # noqa: F401
 
 
 class RuntimeRoot(str, enum.Enum):

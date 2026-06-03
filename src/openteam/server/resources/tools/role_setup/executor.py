@@ -560,7 +560,7 @@ def _build_inner_bta(
             "factory": investigation_worker_factory,
             "expand_todos": False,  # RovoDevCli can handle full todo lists
         },
-        "__default__": {"factory": research_worker_factory, "expand_todos": True},
+        "_default": {"factory": research_worker_factory, "expand_todos": True},
     }
 
     # Inner aggregator — uses modern BTA template path
@@ -777,8 +777,11 @@ def build_role_setup_inferencer(
         "task_response_format": None,
     }
 
-    # Inference input = role doc text (becomes {{ input }} in the template).
-    inference_input = role_doc_text
+    # Inference input = short path reference (becomes {{ input }} in template).
+    # The full document is referenced via {{ role_doc_path }} in the preamble —
+    # agents have local file access and read it directly. Passing the full text
+    # here would bloat every downstream prompt (breakdown + aggregator).
+    inference_input = f"Set up the role defined at: {role_doc_path}"
 
     # === Wire the outer BTA ===
     outer_bta = BreakdownThenAggregateInferencer(
@@ -1080,7 +1083,7 @@ def build_inner_research_only(
     worker_factory = {
         "skill_tool_creation_research": {"factory": research_factory, "expand_todos": True},
         "skill_tool_creation_investigation": {"factory": investigation_factory, "expand_todos": False},
-        "__default__": {"factory": research_factory, "expand_todos": True},
+        "_default": {"factory": research_factory, "expand_todos": True},
     }
 
     # 5. Build a dummy aggregator (we just want workers)
@@ -1153,7 +1156,7 @@ async def execute(
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
-    from openteam.server.resources.tools.task.executor import (
+    from agent_foundation.resources.tools.task.executor import (
         _run_topology, _resolve_workspace,
     )
 
@@ -1163,7 +1166,18 @@ async def execute(
         arguments.get("max_inner_facets", 5)
     )
 
-    # Domain pre-processing — exactly as before, just hoisted.
+    # Resolve missing/wrong paths. The LLM may pass a relative path, a wrong
+    # filename, or a fabricated absolute path. Search the session workspace for
+    # the canonical filename (role_document.md) as a fallback.
+    if role_document_path and not Path(role_document_path).is_file():
+        session_root = (session_context or {}).get("session_root", "")
+        if session_root:
+            for candidate in Path(session_root).rglob("role_document.md"):
+                if candidate.is_file():
+                    role_document_path = str(candidate)
+                    _logger.info("Resolved role_document_path to: %s", role_document_path)
+                    break
+
     role_doc_text = Path(role_document_path).read_text(encoding="utf-8") if role_document_path else ""
     role_name = role_doc_text.split("\n")[0].strip("# ").strip() if role_doc_text else ""
     role_doc_abs = str(Path(role_document_path).resolve()) if role_document_path else ""
@@ -1175,7 +1189,7 @@ async def execute(
     templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
     # Pre-allocate workspace via shared allocator (closes literal-task_id collision bug).
-    from openteam.server.resources.tools._shared.workspace_allocator import (
+    from agent_foundation.common.workspace.allocator import (
         allocate_tool_workspace,
     )
     _sr = (session_context or {}).get("session_root", "")
@@ -1185,7 +1199,11 @@ async def execute(
         workspace = allocate_tool_workspace("role_setup", base_dir=_tasks_base)
     else:
         workspace = allocate_tool_workspace("role_setup", base_dir=None)
-    session_context = {**session_context, "working_dir": str(workspace)}
+    session_context = {
+        **session_context,
+        "working_dir": str(workspace),
+        "extra_template_dirs": [str(templates_path)],
+    }
 
     overrides: dict = {
         "max_breakdown": max_facets,

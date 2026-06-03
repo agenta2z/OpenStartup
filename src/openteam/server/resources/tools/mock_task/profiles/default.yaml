@@ -25,7 +25,7 @@ worker_factory:
         - {description: "Identify capability gaps"}
         - {description: "Define new specifications"}
     worker_factory:
-      __default__:
+      _default:
         _target_: MockWorker
         duration_s: 2.0
     aggregator_inferencer:
@@ -37,7 +37,7 @@ worker_factory:
   skill_tool_association:
     _target_: MockWorker
     duration_s: 3.0
-  __default__: skill_tool_creation
+  _default: skill_tool_creation
 
 aggregator_inferencer:
   _target_: MockAggregator

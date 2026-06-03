@@ -11,7 +11,7 @@ breakdown_inferencer:
     - {description: "Deep research task C"}
 
 worker_factory:
-  __default__:
+  _default:
     _target_: MockWorker
     duration_s: 12.0
 

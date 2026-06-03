@@ -203,7 +203,7 @@ class ToolDispatcher:
         # Allocate per-task workspace via shared helper.
         # Path B (server-affiliated): session_root → <session>/tasks/<tool>_<TS>_<uuid8>/
         # Path A (standalone): no session_root → _runtime/tasks/<tool>/<tool>_<TS>_<uuid8>/
-        from openteam.server.resources.tools._shared.workspace_allocator import (
+        from agent_foundation.common.workspace.allocator import (
             allocate_tool_workspace,
         )
         session_root_str = self._session_context.get("session_root", "")
