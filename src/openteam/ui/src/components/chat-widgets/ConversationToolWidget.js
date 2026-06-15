@@ -1,4 +1,6 @@
 /**
- * Re-exported from @agent-foundation/shared-ui.
+ * Re-exported from @agent-foundation/shared-ui/protocol.
+ * ConversationToolWidget lives in the protocol sub-package.
  */
-export { default } from '@agent-foundation/shared-ui';
+export { ConversationToolWidget } from '@agent-foundation/shared-ui';
+export { ConversationToolWidget as default } from '@agent-foundation/shared-ui';

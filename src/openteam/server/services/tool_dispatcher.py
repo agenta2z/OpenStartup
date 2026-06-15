@@ -198,7 +198,28 @@ class ToolDispatcher:
             task_id, "starting", request=request_label, tool_name=tool_name,
         )
 
+        # Per-task child interactive with its own registered receive queue, so
+        # the background task can block on aget_input() and receive
+        # pending_input_response routed by task_id (same mechanism as the
+        # dev-slash path). Fall back to the parent (-> non-interactive yolo)
+        # when the transport cannot register a queue. interactive_safe MUST
+        # track real registration: we never claim safety without a queue behind
+        # it, or the router would hang on a torn-down queue.
         interactive_ref = self._interactive  # capture for closure
+        cleanup_interactive: Callable[[], None] = lambda: None
+        interactive_safe = False
+        if hasattr(self._interactive, "for_background_task"):
+            try:
+                interactive_ref, cleanup_interactive = (
+                    self._interactive.for_background_task(task_id)
+                )
+                interactive_safe = True
+            except Exception as exc:  # RuntimeError (no registry) or unexpected
+                logger.warning(
+                    "[ToolDispatcher] for_background_task failed for %s: %s; "
+                    "falling back to non-interactive (yolo)", task_id, exc,
+                )
+                interactive_ref = self._interactive
 
         # Allocate per-task workspace via shared helper.
         # Path B (server-affiliated): session_root → <session>/tasks/<tool>_<TS>_<uuid8>/
@@ -227,6 +248,9 @@ class ToolDispatcher:
                     "session_root": session_root_str,
                     "working_dir": task_working_dir,
                     "interactive": interactive_ref,
+                    # Coupled to successful registration above — never True
+                    # without a real registered queue behind interactive_ref.
+                    "router_interactive_safe": interactive_safe,
                 }
                 result = await self._executor_map[tool_name](arguments, task_context)
 
@@ -270,6 +294,10 @@ class ToolDispatcher:
                     )
                 except Exception:
                     pass
+            finally:
+                # Deregister the per-task input queue (mirror of the dev-slash
+                # cleanup). finally also covers asyncio.CancelledError.
+                cleanup_interactive()
 
         asyncio.create_task(_run())
 

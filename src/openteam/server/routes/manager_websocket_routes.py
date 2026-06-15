@@ -201,7 +201,9 @@ async def _try_dev_slash_command(
 
         # Patch 3.4 — register per-task input queue so pending_input_response can route to it.
         input_queue: "asyncio.Queue[Any]" = asyncio.Queue()
-        interactive = WebSocketInteractive(send_safe, input_queue)
+        interactive = WebSocketInteractive(
+            send_safe, input_queue, task_input_queues=dev_tool_input_queues,
+        )
         dev_tool_input_queues[task_id] = input_queue
 
         async def _run_dev_tool() -> None:
@@ -231,6 +233,10 @@ async def _try_dev_slash_command(
                     "task_id": task_id,
                     "session_id": sid,
                     "session_root": _session_root,
+                    # The dev-slash queue is registered above (line ~205), so the
+                    # "registered receive queue" contract is fulfilled — the
+                    # conversational router may safely use interactive here.
+                    "router_interactive_safe": True,
                 }
                 result = await execute_fn(parsed_args, session_context)
 
@@ -394,7 +400,13 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 )
 
                 active_input_queue = asyncio.Queue()
-                interactive = WebSocketInteractive(send_safe, active_input_queue)
+                # Pass the per-connection routing table so this interactive (the
+                # one injected into the tool dispatcher) can mint registered
+                # per-task child interactives via for_background_task().
+                interactive = WebSocketInteractive(
+                    send_safe, active_input_queue,
+                    task_input_queues=dev_tool_input_queues,
+                )
 
                 result = await conv_svc.run_conversation_turn(
                     session,

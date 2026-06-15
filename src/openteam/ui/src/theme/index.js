@@ -5,14 +5,15 @@
  * OpenStartup-specific themes (openstartup) are registered at app bootstrap.
  */
 
+import { registerTheme as _registerTheme } from './themeRegistry';
+
 export { AppThemeProvider, useAppTheme } from './ThemeProvider';
-export { default as ThemeSwitcher } from './ThemeSwitcher';
-export { default as createAppTheme } from './createAppTheme';
-export { getTheme, listThemes, registerTheme } from './themeRegistry';
+export { ThemeSwitcher } from './ThemeSwitcher';
+export { createAppTheme } from './createAppTheme';
+export { getTheme, listThemes, registerTheme, mergeTheme } from './themeRegistry';
 export { applyCssVariables } from './cssVariableBridge';
 
 // Register OpenStartup-specific theme
-import { registerTheme } from './themeRegistry';
 const openstartupTheme = {
   id: 'openstartup',
   name: 'OpenStartup',
@@ -21,4 +22,4 @@ const openstartupTheme = {
     primary: { main: '#00bcd4', light: '#4dd0e1', dark: '#00838f' },
   },
 };
-try { registerTheme('openstartup', openstartupTheme); } catch (e) { /* already registered */ }
+try { _registerTheme('openstartup', openstartupTheme); } catch (e) { /* already registered */ }

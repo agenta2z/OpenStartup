@@ -68,6 +68,20 @@ def _filter_tools_by_config(tool_registry: dict, prompt_renderer: object) -> dic
         return tool_registry
 
 
+def _debug_mode_enabled() -> bool:
+    """True when the operator opted into verbose inferencer debug logging.
+
+    Gated by the ``OPENTEAM_DEBUG_MODE`` env var (truthy: 1/true/yes/on).
+    When set, the CI's ``enable_debug_mode()`` is called after construction,
+    which cascades ``debug_mode=True`` to the backend leaf via
+    ``InferencerBase._propagate_cascading_attributes``.
+    """
+    import os
+    return os.environ.get("OPENTEAM_DEBUG_MODE", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
 def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     """Wrap a base inferencer in OpenStartup's ConversationalInferencer stack.
 
@@ -79,13 +93,25 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
       (e) build dispatcher session_context from ctx.working_dir + ctx.session_store
       (f) construct ToolDispatcher
       (g) define tool_executor closure that injects tool_phase_map
-      (h) construct ConversationalInferencer
+      (h) build the ConversationalInferencer wrapper FROM the AgentFoundation
+          framework YAML (resources/configs/conversational/default.yaml) via
+          ``_ci_host.build_ci_from_config``, injecting the pre-built backend
+          ``base`` plus the runtime wiring (prompt_renderer, tool_registry,
+          tool_executor, extra_sop_dirs). The YAML owns the CI-wrapper policy
+          (max_iterations, soft_max_iterations, compression_threshold,
+          _debug_mode); the factory owns everything runtime/backend-specific.
       (i) attach _tool_dispatcher for per-turn interactive injection
       (j) return conv_inferencer
+
+    Why inject the base instead of letting the YAML build it: the backend
+    ``base`` carries runtime-only state the YAML leaf cannot express —
+    per-session ``cache_folder``, ``target_path`` (claude_cli also mkdir's it),
+    and backend-specific model handling (rovodev selects via config_override,
+    not model_name). Building it in the factory keeps that behavior verbatim;
+    the YAML only governs the wrapper config.
     """
-    from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversational_inferencer import (
-        ConversationalInferencer,
-    )
+    import agent_foundation
+    from agent_foundation.resources.tools import _ci_host
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.template_manager_renderer import (
         TemplateManagerPromptRenderer,
     )
@@ -163,17 +189,38 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
                 result.context_updates["phase_status"] = "completed"
         return result
 
-    # (h) ConversationalInferencer
-    conv_inferencer = ConversationalInferencer(
+    # (h) ConversationalInferencer — built from the AgentFoundation framework
+    # YAML so max_iterations / soft_max_iterations / compression_threshold /
+    # _debug_mode are config-governed (single source of truth) rather than
+    # hand-coded here. The pre-built backend `base` is injected (see docstring);
+    # extra_sop_dirs is passed so the /sop command + the Available-SOPs prompt
+    # list discover the same OpenTeam SOPs the dispatcher's session_context does.
+    ci_config_path = (
+        Path(agent_foundation.__file__).parent
+        / "resources" / "configs" / "conversational" / "default.yaml"
+    )
+    conv_inferencer = _ci_host.build_ci_from_config(
+        ci_config_path,
         base_inferencer=base,
         prompt_renderer=prompt_renderer,
         tool_registry=tool_registry,
         tool_executor=tool_executor,
-        max_iterations=5,
-        compression_threshold=8000,
+        extra_sop_dirs=[openteam_sops_dir],
     )
     # (i) Attach dispatcher for per-turn interactive injection
     conv_inferencer._tool_dispatcher = dispatcher
+
+    # (i.5) Operator opt-in: enable verbose debug logging on the CI and cascade
+    # it to the backend leaf. enable_debug_mode() is the reliable trigger for the
+    # CI — its __attrs_post_init__ does not chain super(), so a constructor
+    # debug_mode=True would NOT cascade; the override propagates to
+    # base_inferencer via InferencerBase._propagate_cascading_attributes.
+    if _debug_mode_enabled():
+        conv_inferencer.enable_debug_mode()
+        logger.info(
+            "Debug mode enabled on ConversationalInferencer; cascaded to %s",
+            type(base).__name__,
+        )
 
     logger.info(
         "ConversationalInferencer wrapping %s (tools: %d registered)",
