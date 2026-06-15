@@ -23,9 +23,18 @@ class WebSocketInteractive:
         self,
         send_callback: Callable[[dict[str, Any]], Coroutine],
         input_queue: asyncio.Queue,
+        *,
+        task_input_queues: "dict[str, asyncio.Queue] | None" = None,
     ) -> None:
         self._send = send_callback
         self._input_queue = input_queue
+        # Per-connection routing table for background-task input queues. Shared
+        # with the WebSocket handler's pending_input_response router so that a
+        # child interactive created via for_background_task() can receive widget
+        # responses keyed by task_id. None on CLI/standalone paths (no routing
+        # table) — for_background_task() then raises and callers fall back to
+        # non-interactive (yolo).
+        self._task_input_queues = task_input_queues
         self._clean_output: str | None = None  # set by on_clean_output_available()
         # Latest rendered prompt data, kept in sync by ConversationService._on_new_turn
         # so that intermediate widget interactions can carry inline prompt_data.
@@ -36,6 +45,43 @@ class WebSocketInteractive:
     def clean_output(self) -> str | None:
         """Clean final output from --output-file, if available."""
         return self._clean_output
+
+    def for_background_task(
+        self, task_id: str
+    ) -> "tuple[TaskWebSocketInteractive, Callable[[], None]]":
+        """Create a leaf interactive for a background tool task.
+
+        Returns ``(child, cleanup)``. The child shares this interactive's
+        ``_send`` (same WebSocket connection) but owns a fresh input queue,
+        registered under ``task_id`` in the per-connection routing table so
+        ``pending_input_response`` messages route to it. The child is a
+        ``TaskWebSocketInteractive`` so it stamps ``task_id`` onto streamed
+        tokens (routing them to the task panel, not the main conversation).
+
+        Raises ``RuntimeError`` when no routing table is wired (CLI/standalone):
+        the caller must then fall back to non-interactive (yolo) rather than
+        register an unreachable queue that would hang on ``aget_input()``. The
+        child is deliberately NOT given the routing table — it is a leaf and
+        cannot spawn further children (nested ``task`` calls run inline).
+        """
+        if self._task_input_queues is None:
+            raise RuntimeError(
+                "for_background_task requires task_input_queues "
+                "(no routing table wired on this interactive)"
+            )
+        child_queue: asyncio.Queue = asyncio.Queue()
+        child = TaskWebSocketInteractive(self._send, child_queue, task_id=task_id)
+        # Point-in-time snapshot of the dispatching turn's prompt_data so the
+        # child's first asend_response can inline it. NOT kept in sync: the
+        # parent's _last_prompt_data is later reassigned (not mutated) by
+        # ConversationService._on_new_turn, which does not propagate here.
+        child._last_prompt_data = self._last_prompt_data
+        self._task_input_queues[task_id] = child_queue
+
+        def _cleanup() -> None:
+            self._task_input_queues.pop(task_id, None)
+
+        return child, _cleanup
 
     _graph_send_failures: int = 0
     _graph_send_disabled: bool = False

@@ -379,3 +379,130 @@ class TestToolJsonExecutorField:
         data = self._read_tool_json("role_setup")
         fn = ToolDispatcher._import_callable(data["executor"])
         assert callable(fn)
+
+
+# ---------------------------------------------------------------------------
+# Tests: _dispatch_as_task interactive plumbing (agent-dispatched async tools)
+# ---------------------------------------------------------------------------
+
+def _make_async_tool_def(name: str):
+    """A registry tool def flagged asynchronous (triggers _dispatch_as_task)."""
+    td = _make_tool_def(name)
+    td.asynchronous = True
+    return td
+
+
+async def _wait_until(predicate, timeout: float = 2.0) -> None:
+    """Poll predicate while the background _run task drains the event loop."""
+    import asyncio as _asyncio
+    elapsed = 0.0
+    while not predicate() and elapsed < timeout:
+        await _asyncio.sleep(0.01)
+        elapsed += 0.01
+
+
+class TestDispatchAsTaskInteractive:
+    """The agent-dispatched async path mints a registered per-task child
+    interactive and couples router_interactive_safe to that registration."""
+
+    @pytest.mark.asyncio
+    async def test_async_path_uses_registered_child_and_sets_flag(self, tmp_path):
+        from openteam.server.services.websocket_interactive import (
+            TaskWebSocketInteractive,
+            WebSocketInteractive,
+        )
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+            ToolExecutionResult,
+        )
+
+        registry: dict = {}
+
+        async def _send(msg):
+            return None
+
+        parent = WebSocketInteractive(
+            _send, asyncio.Queue(), task_input_queues=registry
+        )
+
+        captured: dict = {}
+
+        async def mock_execute(arguments, session_context):
+            captured["ctx"] = session_context
+            # The queue must be registered while the task is actually running.
+            captured["registered_during_run"] = (
+                session_context["task_id"] in registry
+            )
+            return ToolExecutionResult(result="done", context_updates={})
+
+        tool_def = _make_async_tool_def("task")
+        integration = _make_integration_executor([])
+        dispatcher = ToolDispatcher(
+            tool_registry={"task": tool_def},
+            integration_executor=integration,
+            session_context={"session_root": str(tmp_path)},
+            interactive=parent,
+        )
+        dispatcher._executor_map["task"] = mock_execute
+
+        result = await dispatcher("task", {"request": "do it"})
+
+        # Dispatcher returns immediately; the background task runs separately.
+        assert result.context_updates.get("is_background_task") is True
+        task_id = result.context_updates["task_id"]
+        # Registration is synchronous (inside _dispatch_as_task, before spawn).
+        assert registry.get(task_id) is not None
+
+        # Let the background _run() complete (cleanup pops the registry entry).
+        await _wait_until(lambda: "ctx" in captured and task_id not in registry)
+
+        ctx = captured["ctx"]
+        assert isinstance(ctx["interactive"], TaskWebSocketInteractive)
+        assert ctx["interactive"]._task_id == task_id
+        assert ctx["router_interactive_safe"] is True
+        assert captured["registered_during_run"] is True
+        # Cleanup ran in _run's finally — no leak.
+        assert task_id not in registry
+
+    @pytest.mark.asyncio
+    async def test_async_path_fallback_when_interactive_lacks_method(self, tmp_path):
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+            ToolExecutionResult,
+        )
+
+        class _BareInteractive:
+            """A non-WebSocket interactive without for_background_task."""
+
+            def __init__(self):
+                self.sent = []
+
+            async def send_task_status(self, *args, **kwargs):
+                return None
+
+            async def _send(self, msg):
+                self.sent.append(msg)
+
+        bare = _BareInteractive()
+        captured: dict = {}
+
+        async def mock_execute(arguments, session_context):
+            captured["ctx"] = session_context
+            return ToolExecutionResult(result="done", context_updates={})
+
+        tool_def = _make_async_tool_def("task")
+        integration = _make_integration_executor([])
+        dispatcher = ToolDispatcher(
+            tool_registry={"task": tool_def},
+            integration_executor=integration,
+            session_context={"session_root": str(tmp_path)},
+            interactive=bare,
+        )
+        dispatcher._executor_map["task"] = mock_execute
+
+        await dispatcher("task", {"request": "do it"})
+        await _wait_until(lambda: "ctx" in captured)
+
+        ctx = captured["ctx"]
+        # No registered queue -> flag stays False (router stays in yolo),
+        # and the parent interactive is reused.
+        assert ctx["router_interactive_safe"] is False
+        assert ctx["interactive"] is bare
