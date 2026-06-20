@@ -37,6 +37,7 @@ from openteam.server.routes.role_skill_routes import router as role_skill_router
 from openteam.server.routes.manager_websocket_routes import router as manager_ws_router
 from openteam.server.routes.org_routes import router as org_router, employee_org_router
 from openteam.server.routes.meta_routes import router as meta_router
+from openteam.server.routes.workspace_routes import router as workspace_router
 from openteam.server.services.data_service import MockDataService
 from openteam.server.services.intelligence_service import MockIntelligenceService
 
@@ -250,6 +251,7 @@ app.include_router(role_skill_router, prefix="/api/role-skills", tags=["role-ski
 app.include_router(manager_ws_router, prefix="/ws", tags=["websocket"])
 app.include_router(org_router, prefix="/api/orgs", tags=["organizations"])
 app.include_router(meta_router, prefix="/api", tags=["meta"])
+app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 
 from openteam.server.routes.view_routes import router as view_router
 app.include_router(view_router, prefix="/api", tags=["file-viewer"])

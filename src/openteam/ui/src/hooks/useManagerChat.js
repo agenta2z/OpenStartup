@@ -29,6 +29,30 @@ function _resolveWidgetType(pendingInput) {
   return inputMode.metadata?.widget_type || inputMode.mode || 'free_text';
 }
 
+/**
+ * Compute the user-facing display text for a raw round buffer using the same
+ * strip chain message_end uses today (stripToolsToInvoke → parseResponseTags
+ * responseContent → stripResponseTags + noise strips). Returns '' when the
+ * round has no displayable content (pure thinking / pure tool-call round).
+ */
+function _displayFromBuffer(raw) {
+  const content = raw || '';
+  if (!content.trim()) return '';
+  const parsed = parseResponseTags(content);
+  const phase = parsed.phase === 'pre_response' ? 'no_tags' : parsed.phase;
+  let display;
+  if (phase === 'no_tags') {
+    display = stripAnsi(stripAcliNoise(stripToolsToInvoke(content)));
+  } else {
+    display = stripSessionContext(
+      stripResponseTags(
+        stripAnsi(stripAcliNoise(stripToolsToInvoke(parsed.responseContent || '')))
+      )
+    );
+  }
+  return (display || '').trim();
+}
+
 function getWsUrl() {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   // In development, CRA proxy doesn't reliably forward WebSocket upgrades.
@@ -63,6 +87,14 @@ export function useManagerChat(sessionId) {
   const submittedRef = useRef(false);      // double-submit guard
   const pendingInputRef = useRef(null);    // stable ref to current pendingInput (avoids stale closure)
   const turnCountRef = useRef(0);          // tracks current turn number for live messages
+  // r12/r13 per-round bubble lifecycle (RoundContext from AF on_round_start):
+  //   currentRoundIdRef  — message_id of the round currently buffering tokens
+  //   committedRoundIdsRef — message_ids already committed (dedupe; a round commits at most once)
+  // The route's per-turn message_start/status drives isStreaming (turn-level busy);
+  // per-round message_id on token/stream_correction/message_end/pending_input drives bubbles.
+  const currentRoundIdRef = useRef(null);
+  const currentRoundIndexRef = useRef(null);  // round_index of the round currently buffering
+  const committedRoundIdsRef = useRef(new Set());
   // Most-recent task_status task_id that is still in flight ("starting"/"running" but not
   // "completed"/"error"/"cancelled"). Routed through cancelRequest + sendPendingInputResponse
   // so dev-tool cancels and Approve/Reject widget responses reach the right per-task queue
@@ -123,6 +155,37 @@ export function useManagerChat(sessionId) {
 
   // Keep connectRef up to date
   connectRef.current = connect;
+
+  // Commit a per-round bubble (dedupe by message_id). `display` must already be
+  // the cleaned, display-facing text; if empty, nothing is committed/persisted.
+  // `raw` (optional) is kept as rawContent for the "Full Response" RAW tab.
+  const commitRoundBubble = useCallback((messageId, display, opts = {}) => {
+    if (!messageId) return;
+    if (committedRoundIdsRef.current.has(messageId)) return;
+    const displayText = (display || '').trim();
+    if (!displayText) return; // empty round → never committed/persisted
+    committedRoundIdsRef.current.add(messageId);
+    const raw = opts.raw != null ? opts.raw : display;
+    const parsed = parseResponseTags(raw || '');
+    const finalPhase = parsed.phase === 'pre_response' ? 'no_tags' : parsed.phase;
+    setMessages(prev => [...prev, {
+      id: messageId,
+      role: 'agent',
+      content: displayText,
+      rawContent: raw || '',
+      timestamp: new Date().toISOString(),
+      thinkingContent: opts.thinkingContent != null ? opts.thinkingContent : (parsed.thinkingContent || ''),
+      responsePhase: finalPhase,
+      sessionContext: opts.sessionContext != null ? opts.sessionContext : parseSessionContext(raw || ''),
+      promptData: opts.promptData || null,
+      turnNumber: opts.turnNumber != null ? opts.turnNumber : (turnCountRef.current || 0) + 1,
+      roundIndex: opts.roundIndex != null ? opts.roundIndex : null,
+      roundNumber: opts.roundIndex != null ? opts.roundIndex : null,
+      agent_name: opts.agent_name
+        || streamingMetadataRef.current?.agent_name
+        || 'Orchestrator',
+    }]);
+  }, []);
 
   const handleServerMessage = useCallback((data) => {
     switch (data.type) {
@@ -234,7 +297,25 @@ export function useManagerChat(sessionId) {
           });
           break;
         }
-        // Conversation streaming (existing behaviour)
+        // Conversation streaming (existing behaviour) + r12 per-round identity.
+        // RoundContext message_id changes each AF round. When the id rolls over,
+        // commit the PRIOR round's transient buffer as a bubble IF its cleaned
+        // display text is non-empty, then reset the buffer for the new round.
+        const roundId = data.message_id;
+        if (roundId && roundId !== currentRoundIdRef.current) {
+          const priorRaw = streamingContentRef.current;
+          const priorId = currentRoundIdRef.current;
+          if (priorId) {
+            commitRoundBubble(priorId, _displayFromBuffer(priorRaw), {
+              raw: priorRaw,
+              roundIndex: currentRoundIndexRef.current,
+              turnNumber: data.turn_number,
+            });
+          }
+          streamingContentRef.current = '';
+          currentRoundIdRef.current = roundId;
+          currentRoundIndexRef.current = data.round_index != null ? data.round_index : null;
+        }
         streamingContentRef.current += data.content;
         if (data.metadata) {
           streamingMetadataRef.current = data.metadata;
@@ -251,64 +332,43 @@ export function useManagerChat(sessionId) {
           responseContent: parsedToken.responseContent,
           responsePhase: parsedToken.phase,
           sessionContext: ctxToken,
+          roundIndex: currentRoundIndexRef.current,
+          roundNumber: currentRoundIndexRef.current,
         });
         setIsStreaming(true);
         break;
       }
 
       case 'message_start':
-        streamingContentRef.current = '';
-        streamingMetadataRef.current = {};
-        setStreamingMessage({ role: 'agent', content: '', metadata: {}, responsePhase: 'pre_response' });
-        setIsStreaming(true);
+        // Route-level (per-turn) message_start has no message_id → this is the
+        // "request_in_flight ON" signal. Mark the turn busy. Do NOT open a
+        // committed bubble here (bubbles are per-round, keyed by RoundContext
+        // message_id from token/message_end). Reset round buffers for a fresh turn.
+        if (!data.message_id) {
+          streamingContentRef.current = '';
+          streamingMetadataRef.current = {};
+          currentRoundIdRef.current = null;
+          currentRoundIndexRef.current = null;
+          committedRoundIdsRef.current = new Set();
+          setStreamingMessage({ role: 'agent', content: '', metadata: {}, responsePhase: 'pre_response' });
+          setIsStreaming(true);
+        }
         break;
 
       case 'pending_input': {
-        // Commit any in-progress streaming content as a completed message
-        // (the AI's preamble text before the conversation tool invocation)
-        const streamContent = streamingContentRef.current;
-        if (streamContent && streamContent.trim()) {
-          const parsed = parseResponseTags(streamContent);
-          // 'pre_response': only thinking so far, no <Response> tag yet.
-          // Don't show raw thinking as message content — show nothing (thinking-only preamble).
-          // 'in_response' or 'post_response': use parsed.responseContent (already after <Response>).
-          // 'no_tags': no XML tags at all — show stripped full content (old-style responses).
-          const phase = parsed.phase;
-          let displayContent;
-          if (phase === 'pre_response') {
-            // Only thinking content — no user-visible response yet. Skip commit.
-            displayContent = '';
-          } else if (phase === 'no_tags') {
-            displayContent = stripSessionContext(stripAnsi(stripAcliNoise(stripToolsToInvoke(streamContent))));
-          } else {
-            // in_response or post_response: use the extracted response content
-            displayContent = stripSessionContext(stripAnsi(stripAcliNoise(stripToolsToInvoke(parsed.responseContent || ''))));
-          }
-          // For pre_response: still commit if there's thinking content (show collapsed ThinkingFold)
-          // so the user can see the AI was reasoning, even though no response was emitted yet.
-          const hasResponse = displayContent.trim().length > 0;
-          const hasThinking = (parsed.thinkingContent || '').trim().length > 0;
-          if (hasResponse || hasThinking) {
-            setMessages(prev => [...prev, {
-              id: `pending-pre-${Date.now()}`,
-              role: 'agent',
-              content: displayContent,
-              rawContent: streamContent, // original raw LLM output for "Full Response" RAW tab
-              timestamp: new Date().toISOString(),
-              agent_name: streamingMetadataRef.current?.agent_name || 'Orchestrator',
-              thinkingContent: parsed.thinkingContent || '',
-              responsePhase: hasResponse ? phase : 'no_tags',
-              sessionContext: null,
-              // Server now sends prompt_data inline on pending_input messages
-              // (via WebSocketInteractive.asend_response), so the View Prompt
-              // button on this preamble can open the drawer immediately without
-              // a REST round-trip. Falls back to null if the server hasn't
-              // populated it (older code path or missing inferencer state).
-              promptData: data.prompt_data || null,
-              turnNumber: (turnCountRef.current || 0) + 1,
-            }]);
-          }
-        }
+        // r13: commit the matching round's preamble bubble (the AI's text before
+        // the conversation tool invocation) IF non-empty, deduped by the
+        // RoundContext message_id, then show the widget. The committed bubble is
+        // keyed by message_id (same as the per-round message_end), so a later
+        // message_end for the same round is a no-op (already committed).
+        const preMsgId = data.message_id;
+        const preRaw = streamingContentRef.current;
+        commitRoundBubble(preMsgId, _displayFromBuffer(preRaw), {
+          raw: preRaw,
+          promptData: data.prompt_data || null,
+          roundIndex: data.round_index != null ? data.round_index : currentRoundIndexRef.current,
+          turnNumber: data.turn_number != null ? data.turn_number : (turnCountRef.current || 0) + 1,
+        });
         // Clear streaming state (turn is still active — don't set isStreaming=false)
         setStreamingMessage(null);
         streamingContentRef.current = '';
@@ -319,6 +379,13 @@ export function useManagerChat(sessionId) {
         const newPending = {
           content: data.content,
           inputMode: data.input_mode || null,
+          // pending_input_id is the stable id minted by the server for this
+          // widget round; the optimistic widget_response card keys off it and
+          // the response echoes it back (see sendPendingInputResponse).
+          pendingInputId: data.pending_input_id || null,
+          messageId: preMsgId || null,
+          roundIndex: data.round_index != null ? data.round_index : currentRoundIndexRef.current,
+          turnNumber: data.turn_number != null ? data.turn_number : null,
         };
         pendingInputRef.current = newPending;
         setPendingInput(newPending);
@@ -331,6 +398,14 @@ export function useManagerChat(sessionId) {
         // message_end commits it. streamingContentRef is updated so message_end
         // uses clean content as the fallback if final_content is empty.
         const rawClean = data.content || '';
+        // r12 per-round identity: stream_correction carries the RoundContext
+        // {message_id}. Adopt it as the current round (so a correction that
+        // arrives before any token for this round still buffers correctly) and
+        // replace this round's transient buffer with the clean version.
+        if (data.message_id && data.message_id !== currentRoundIdRef.current) {
+          currentRoundIdRef.current = data.message_id;
+          if (data.round_index != null) currentRoundIndexRef.current = data.round_index;
+        }
         streamingContentRef.current = rawClean;
 
         const corrParsed = parseResponseTags(rawClean);
@@ -355,55 +430,40 @@ export function useManagerChat(sessionId) {
       }
 
       case 'message_end': {
-        console.debug('[useManagerChat] message_end — turn_number:', data.turn_number,
-          '| prompt_data keys:', Object.keys(data.prompt_data || {}),
-          '| rendered_prompt len:', (data.prompt_data?.rendered_prompt || '').length);
-        // pendingInput is normally already cleared on submit (RankEvolve pattern),
-        // but keep as safety net for edge cases (error mid-turn, WS reconnect, etc.).
-        // Setting null→null is a React no-op in normal flow.
-        setPendingInput(null);
-        pendingInputRef.current = null;
-        submittedRef.current = false;
-        const finalContent = data.final_content || streamingContentRef.current;
-        const finalParsed = parseResponseTags(finalContent);
-        // If stream ended without <Response>, treat as no_tags
-        const finalPhase = finalParsed.phase === 'pre_response' ? 'no_tags' : finalParsed.phase;
-        const finalCtx = parseSessionContext(finalContent);
-
-        // Clean up the display content
-        let displayContent;
-        if (finalPhase === 'no_tags') {
-          displayContent = stripAnsi(stripAcliNoise(stripToolsToInvoke(finalContent)));
-        } else {
-          // Strip noise from the response portion too (including any leaked ToolsToInvoke blocks)
-          displayContent = stripSessionContext(stripAnsi(stripAcliNoise(stripToolsToInvoke(finalParsed.responseContent))));
-        }
-
-        const turnNumber = data.turn_number || ++turnCountRef.current;
-        setMessages(prev => [...prev, {
-          id: data.message_id || `msg-${Date.now()}`,
-          role: 'agent',
-          content: displayContent,
-          timestamp: new Date().toISOString(),
-          thinkingContent: finalParsed.thinkingContent,
-          responsePhase: finalPhase,
-          sessionContext: finalCtx,
+        console.debug('[useManagerChat] message_end — message_id:', data.message_id,
+          '| round_index:', data.round_index, '| turn_number:', data.turn_number,
+          '| final_content len:', (data.final_content || '').length,
+          '| prompt_data keys:', Object.keys(data.prompt_data || {}));
+        // r13: PER-ROUND message_end. final_content is already display-clean from
+        // the server; commit/persist a bubble ONLY when it is non-empty, keyed by
+        // message_id, deduped (a round commits at most once — e.g. if a preamble
+        // already committed it via pending_input/token-rollover, this is a no-op).
+        // Empty round → balanced terminal message_end with final_content:'' →
+        // nothing committed. Do NOT clear isStreaming here: turn-level busy is
+        // owned by the route's message_start / status terminal.
+        const finalContent = data.final_content != null ? data.final_content : '';
+        const roundMsgId = data.message_id;
+        // Reuse the raw buffer (if this round is the one currently streaming) for
+        // the RAW "Full Response" tab and thinking extraction; final_content from
+        // the server is already cleaned, so use it directly as the display text.
+        const isCurrentRound = roundMsgId && roundMsgId === currentRoundIdRef.current;
+        const rawForRound = isCurrentRound ? streamingContentRef.current : finalContent;
+        commitRoundBubble(roundMsgId, finalContent, {
+          raw: rawForRound,
           promptData: data.prompt_data || null,
-          turnNumber,
-          // Match the preamble path's pattern: prefer the explicit value from
-          // the server, fall back to the streaming metadata captured at
-          // message_start, then a sensible default. Without this, the bubble
-          // header rendered the AgentMessageBubble fallback "AI Assistant"
-          // for the FINAL committed message — even though the same session's
-          // preamble messages correctly showed "Orchestrator".
-          agent_name: data.agent_name
-            || streamingMetadataRef.current?.agent_name
-            || 'Orchestrator',
-        }]);
-        setStreamingMessage(null);
-        streamingContentRef.current = '';
-        streamingMetadataRef.current = {};
-        setIsStreaming(false);
+          roundIndex: data.round_index != null ? data.round_index : (isCurrentRound ? currentRoundIndexRef.current : null),
+          turnNumber: data.turn_number != null ? data.turn_number : (turnCountRef.current || 0) + 1,
+          agent_name: data.agent_name || streamingMetadataRef.current?.agent_name || 'Orchestrator',
+        });
+        // This round is done buffering — clear the transient display + buffer so
+        // the live StreamingMessage doesn't keep showing the just-committed text.
+        if (isCurrentRound || !roundMsgId) {
+          setStreamingMessage(null);
+          streamingContentRef.current = '';
+          streamingMetadataRef.current = {};
+          currentRoundIdRef.current = null;
+          currentRoundIndexRef.current = null;
+        }
         break;
       }
 
@@ -448,11 +508,23 @@ export function useManagerChat(sessionId) {
         }]);
         setIsStreaming(false);
         setStreamingMessage(null);
+        streamingContentRef.current = '';
+        streamingMetadataRef.current = {};
+        currentRoundIdRef.current = null;
+        currentRoundIndexRef.current = null;
         break;
 
       case 'status':
+        // Turn-level terminal: clears the per-turn busy flag set by message_start.
+        // Per-round bubbles are committed by their own message_end handlers, so we
+        // only need to drop any leftover transient streaming display + round refs.
         if (data.status === 'complete' || data.status === 'error') {
           setIsStreaming(false);
+          setStreamingMessage(null);
+          streamingContentRef.current = '';
+          streamingMetadataRef.current = {};
+          currentRoundIdRef.current = null;
+          currentRoundIndexRef.current = null;
         }
         break;
 
@@ -465,24 +537,59 @@ export function useManagerChat(sessionId) {
         setTasks({});
         setActiveTabType('session');
         setActiveTaskId(null);
-        // Load existing messages from session history,
-        // parsing thinking/response phases for agent messages.
-        // Compute turn_number for each agent message (1-based count of agent msgs seen so far).
+        // Reset per-round bubble lifecycle state for the (re)loaded session.
+        streamingContentRef.current = '';
+        streamingMetadataRef.current = {};
+        currentRoundIdRef.current = null;
+        currentRoundIndexRef.current = null;
+        committedRoundIdsRef.current = new Set();
+        // Load existing messages from session history (r13 round-aware reload).
         if (data.messages) {
-          let agentTurnCount = 0;
+          let maxTurn = 0;
           setMessages(data.messages.map((msg, i) => {
             // Hide auto-advance system messages (RankEvolve pattern)
             if (msg.metadata?.is_auto_advance) return null;
-            const isAgent = msg.role === 'assistant' || msg.role === 'agent';
-            if (isAgent) agentTurnCount += 1;
+            // r13: derive next turn from max(persisted turn_number), EXCLUDING the
+            // seeded welcome message (turn_number === 0). Only count real turns.
+            const persistedTurn = msg.turn_number != null ? msg.turn_number : null;
+            if (persistedTurn != null && persistedTurn > maxTurn) maxTurn = persistedTurn;
+            // round identity carried onto reloaded bubbles (accept camel + snake)
+            const roundIndex = msg.round_index != null ? msg.round_index
+              : (msg.roundIndex != null ? msg.roundIndex : null);
+
+            // PRESERVE persisted widget_response cards BEFORE the generic role
+            // coercion, so they re-hydrate as cards (not blank agent bubbles).
+            if (msg.role === 'widget_response') {
+              const im = msg.inputMode || msg.input_mode || null;
+              return {
+                id: msg.id || `loaded-${i}`,
+                role: 'widget_response',
+                widgetType: msg.widgetType || msg.widget_type || _resolveWidgetType({ inputMode: im }),
+                prompt: msg.prompt || '',
+                response: msg.response,
+                inputMode: im,
+                viewPath: msg.viewPath != null ? msg.viewPath : (msg.view_path != null ? msg.view_path : null),
+                viewLabel: msg.viewLabel || msg.view_label || 'View Document',
+                viewType: msg.viewType || msg.view_type || 'file',
+                timestamp: msg.timestamp,
+                turnNumber: persistedTurn,
+                roundIndex,
+                roundNumber: roundIndex,
+              };
+            }
+
+            const isManager = msg.role === 'manager';
             const base = {
               id: msg.id || `loaded-${i}`,
-              role: msg.role === 'manager' ? 'manager' : 'agent',
+              role: isManager ? 'manager' : 'agent',
               content: msg.content,
               timestamp: msg.timestamp,
               agent_name: msg.agent_name,
-              // carry persisted turn_number if present (set by server), else compute
-              turnNumber: msg.turn_number || (isAgent ? agentTurnCount : null),
+              // key/turn off the persisted turn_number (server-stamped); welcome
+              // message is turn_number 0 and stays 0 here.
+              turnNumber: persistedTurn,
+              roundIndex,
+              roundNumber: roundIndex,
             };
             // For agent messages, parse out thinking vs response content
             if (msg.role === 'assistant' || msg.role === 'agent') {
@@ -509,7 +616,8 @@ export function useManagerChat(sessionId) {
             return base;
           }).filter(Boolean));
           // Sync turnCountRef so live messages continue from the right turn number
-          turnCountRef.current = agentTurnCount;
+          // (next user turn = maxTurn + 1). Welcome (turn 0) doesn't bump this.
+          turnCountRef.current = maxTurn;
         }
         break;
 
@@ -522,9 +630,13 @@ export function useManagerChat(sessionId) {
     }
   }, []);
 
-  const fetchTurnData = useCallback(async (sid, turnNum) => {
+  const fetchTurnData = useCallback(async (sid, turnNum, round = null) => {
     try {
-      const res = await fetch(`/api/sessions/${sid}/turns/${turnNum}`);
+      // r13 round-aware: when a round index is known, hit ?round=<m> so the
+      // server returns that round's prompt data (turn_NNN/round_MMM) instead of
+      // the turn root summary.
+      const qs = round != null ? `?round=${encodeURIComponent(round)}` : '';
+      const res = await fetch(`/api/sessions/${sid}/turns/${turnNum}${qs}`);
       if (!res.ok) return null;
       const json = await res.json();
       return json.data || null;
@@ -563,16 +675,21 @@ export function useManagerChat(sessionId) {
     // Insert committed widget_response message into history (RankEvolve: ADD_WIDGET_MESSAGE).
     // This persists the user's choice visually after the widget unmounts.
     const currentPending = pendingInputRef.current;
+    // pending_input_id is the stable server-minted id for this widget round.
+    // r13: the optimistic widget_response card keys off it (NOT Date.now()) so a
+    // later session_init reload re-hydrates the SAME card id, and the response
+    // echoes it back so the server can look up its pending_input_cache entry.
+    const _pendingInputId = currentPending?.pendingInputId || null;
     if (currentPending) {
       const _widgetType = _resolveWidgetType(currentPending);
       const _viewPath = currentPending.inputMode?.metadata?.view || null;
       const _viewLabel = currentPending.inputMode?.metadata?.view_label || 'View Document';
       const _viewType = currentPending.inputMode?.metadata?.view_type || 'file';
       console.debug('[sendPendingInputResponse] widgetType:', _widgetType,
-        'viewPath:', _viewPath, 'viewType:', _viewType,
+        'pendingInputId:', _pendingInputId, 'viewPath:', _viewPath, 'viewType:', _viewType,
         'response:', typeof response === 'string' ? response : JSON.stringify(response).slice(0, 100));
       setMessages(prev => [...prev, {
-        id: `widget-resp-${Date.now()}`,
+        id: _pendingInputId || `widget-resp-${Date.now()}`,
         role: 'widget_response',
         widgetType: _widgetType,
         prompt: currentPending.inputMode?.prompt || currentPending.content || '',
@@ -582,6 +699,9 @@ export function useManagerChat(sessionId) {
         viewLabel: _viewLabel,
         viewType: _viewType,
         timestamp: new Date().toISOString(),
+        turnNumber: currentPending.turnNumber != null ? currentPending.turnNumber : (turnCountRef.current || 0) + 1,
+        roundIndex: currentPending.roundIndex != null ? currentPending.roundIndex : null,
+        roundNumber: currentPending.roundIndex != null ? currentPending.roundIndex : null,
       }]);
     }
 
@@ -591,12 +711,19 @@ export function useManagerChat(sessionId) {
     setPendingInput(null);
     pendingInputRef.current = null;
 
-    // Send to server. Include task_id so dev-tool widget responses route to the
-    // per-task input queue (manager_websocket_routes R9b); omitted task_id falls
-    // through to the conversation queue (existing behavior).
+    // Send to server. Echo pending_input_id so the server can look up its
+    // pending_input_cache entry and persist the widget_response history message
+    // (r13). For a CONVERSATION pending input (pendingInputId present) do NOT
+    // attach the global currentTaskIdRef — that routes to the per-task input
+    // queue and is only for the dev-tool/task widget path (manager_websocket
+    // R9b). A dev-tool widget has no pendingInputId, so it still routes by task.
     const content = typeof response === 'string' ? response : JSON.stringify(response);
     const payload = { type: 'pending_input_response', content };
-    if (currentTaskIdRef.current) payload.task_id = currentTaskIdRef.current;
+    if (_pendingInputId) {
+      payload.pending_input_id = _pendingInputId;
+    } else if (currentTaskIdRef.current) {
+      payload.task_id = currentTaskIdRef.current;
+    }
     wsRef.current.send(JSON.stringify(payload));
   }, []);
 

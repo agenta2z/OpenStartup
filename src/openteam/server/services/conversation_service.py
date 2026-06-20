@@ -15,7 +15,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import agent_foundation.resources as _af_res
 
@@ -516,210 +519,201 @@ class ConversationService:
                         if p.is_dir() and p.name.startswith("turn_")
                     )
 
-        current_turn = [initial_turn]                # 1-based after first increment
-        last_widget_response: list[Any] = [None]      # tracked for final-turn user_input
+        # ── CANONICAL TURN (round-lifecycle core) ───────────────────────
+        # Allocate EXACTLY ONE user-turn number for this whole call. The
+        # existing dir-count + 1 is the canonical turn; compute it once and
+        # keep it fixed. Turn identity NO LONGER comes from _on_new_turn /
+        # current_turn / final_turn — per-round artifacts and bubbles are owned
+        # by the round hooks below, all stamped with this single user_turn.
+        user_turn = initial_turn + 1
 
-        # ── on_new_turn callback (fires between agentic-loop iterations) ──
-        # When the inferencer hands control back to the user (widget, free-text),
-        # the previous iteration's prompt+response is now complete. We:
-        #   1) Log the per-turn artifacts to JSONL (PromptTemplate, RenderedPrompt, …)
-        #   2) Save turn.json via save_turn_data so REST View Prompt works
-        #   3) Update WebSocketInteractive._last_prompt_data so the NEXT preamble
-        #      message can carry inline prompt_data
-        #   4) Point the inferencer's cache_folder at the next turn's directory
-        #      so streaming cache files (stream_*.txt) co-locate with that turn.
-        # Returns the new turn number (1-based) so the inferencer can use it for
-        # its own per-turn output paths if it wants.
-        #
-        # NOTE: Must be `async def` — `run_agentic_loop` calls this with `await`
-        # (see conversational_inferencer.py: `new_turn = await on_new_turn(...)`).
-        # All work inside is synchronous (file I/O via JsonLogger, save_turn_data),
-        # but the function signature must be a coroutine. We don't actually need
-        # any `await` calls inside; making it `async` simply ensures the returned
-        # value is a coroutine object that can be awaited.
-        async def _on_new_turn(prev_turn: int, widget_response: Any) -> int:
-            last_widget_response[0] = widget_response
-            new_turn = (prev_turn or 0) + 1
-            current_turn[0] = new_turn
+        # The current RoundContext (minted in on_round_start, consumed in
+        # on_round_complete). Kept on a 1-slot list so the closures share it.
+        round_ctx_holder: list[dict[str, Any] | None] = [None]
 
-            import json as _json
-            # 1) Per-turn JSONL records (RankEvolve-style, group= → subfolder)
-            if json_logger is not None:
-                _grp = f"turn_{new_turn:03d}"
-                try:
-                    if widget_response is not None:
-                        json_logger(
-                            {"type": "UserInput", "item": str(widget_response)},
-                            group=_grp, parts_key_path_root="item",
-                        )
-                    if getattr(inferencer, "_last_template_source", None):
-                        json_logger(
-                            {"type": "PromptTemplate",
-                             "item": inferencer._last_template_source},
-                            group=_grp, parts_key_path_root="item",
-                        )
-                    if getattr(inferencer, "_last_rendered_prompt", None):
-                        json_logger(
-                            {"type": "RenderedPrompt",
-                             "item": inferencer._last_rendered_prompt},
-                            group=_grp, parts_key_path_root="item",
-                        )
-                    if getattr(inferencer, "_last_template_feed", None):
-                        json_logger(
-                            {"type": "TemplateFeed",
-                             "item": _json.dumps(inferencer._last_template_feed,
-                                                  indent=2, ensure_ascii=False, default=str)},
-                            group=_grp, parts_key_path_root="item",
-                        )
-                    if getattr(inferencer, "_last_template_config", None):
-                        json_logger(
-                            {"type": "TemplateConfig",
-                             "item": _json.dumps(inferencer._last_template_config,
-                                                  indent=2, ensure_ascii=False, default=str)},
-                            group=_grp, parts_key_path_root="item",
-                        )
-                    json_logger(
-                        {"type": "ApiPayload",
-                         "item": _json.dumps({
-                             # ConversationalInferencer exposes system_prompt as a property
-                             # (→ base_inferencer.system_prompt), same concept as
-                             # RankEvolve's conversation.system_prompt.
-                             "system_prompt": getattr(inferencer, "system_prompt", "") or "",
-                             # Use _messages (live state, updated via add_message() throughout
-                             # the loop) — NOT session["messages"] (a snapshot from turn start).
-                             "messages": list(getattr(inferencer, "_messages", [])),
-                         }, indent=2, ensure_ascii=False, default=str)},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                    # InferenceResponse: empty placeholder for the widget-interrupted
-                    # iteration; the LLM didn't fully respond (handed off to the user).
-                    json_logger(
-                        {"type": "InferenceResponse", "item": ""},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                except Exception as e:
-                    logger.debug("[_on_new_turn] JSONL logging failed: %s", e)
+        # Parent user-message id minted at the route and threaded onto the
+        # appended user message; used as parent_user_message_id on each round.
+        parent_user_message_id = None
+        for _m in reversed(session.get("messages", [])):
+            if _m.get("role") in ("manager", "user"):
+                parent_user_message_id = _m.get("id")
+                break
 
-            # 2) save_turn_data so REST View Prompt has turn.json available
-            if data_service is not None and hasattr(data_service, "save_turn_data"):
-                prompt_data = self.get_last_prompt_data(sid) or {}
-                if widget_response is not None:
-                    prompt_data["user_input"] = str(widget_response)
-                try:
-                    data_service.save_turn_data(sid, new_turn, prompt_data)
-                except Exception as e:
-                    logger.debug("[_on_new_turn] save_turn_data failed: %s", e)
-
-                # 3) Refresh the interactive's inline prompt_data cache so the next
-                # preamble carries the latest rendered prompt without a REST round-trip.
-                if hasattr(interactive, "_last_prompt_data"):
-                    interactive._last_prompt_data = prompt_data
-
-            # 4) Co-locate the next turn's streaming cache with its directory
-            if session_dir is not None and hasattr(inferencer, "cache_folder"):
-                try:
-                    next_turn_dir = session_dir / f"turn_{(new_turn + 1):03d}"
-                    next_turn_dir.mkdir(parents=True, exist_ok=True)
-                    inferencer.cache_folder = str(next_turn_dir)
-                except Exception as e:
-                    logger.debug("[_on_new_turn] cache_folder rotation failed: %s", e)
-
-            return new_turn
-
-        # Set up cache_folder for the very first turn before the loop starts.
-        if session_dir is not None and hasattr(inferencer, "cache_folder"):
+        # At turn ENTRY, seed the turn root so round=None View-Prompt has a root:
+        #   turn_NNN/user_input.txt  +  turn_NNN/turn.json {…, rounds: []}
+        if session_dir is not None:
             try:
-                first_turn_dir = session_dir / f"turn_{(initial_turn + 1):03d}"
-                first_turn_dir.mkdir(parents=True, exist_ok=True)
-                inferencer.cache_folder = str(first_turn_dir)
+                turn_dir = session_dir / f"turn_{user_turn:03d}"
+                turn_dir.mkdir(parents=True, exist_ok=True)
+                (turn_dir / "user_input.txt").write_text(user_message, encoding="utf-8")
             except Exception as e:
-                logger.debug("Initial cache_folder setup failed: %s", e)
+                logger.debug("Turn-entry user_input.txt write failed: %s", e)
+        if data_service is not None and hasattr(data_service, "update_turn_root_summary"):
+            try:
+                data_service.update_turn_root_summary(
+                    sid,
+                    user_turn,
+                    {
+                        "user_input": user_message,
+                        "turn_number": user_turn,
+                        "session_id": sid,
+                        "rounds": [],
+                    },
+                )
+            except Exception as e:
+                logger.debug("Turn-entry root summary write failed: %s", e)
 
-        # Run the full agentic loop
+        # ── on_new_turn: NEUTERED ────────────────────────────────────────
+        # No longer creates sibling turn dirs, rotates cache, writes JSONL, or
+        # calls save_turn_data. Returns the SAME fixed user_turn so the loop's
+        # turn_number stays constant (send_turn_boundary won't spuriously fire)
+        # and the round hooks own all per-turn/round artifacts.
+        async def _on_new_turn(prev_turn: int, widget_response: Any) -> int:
+            return user_turn
+
+        # ── on_round_start: mint RoundContext, mkdir round dir ───────────
+        async def _on_round_start(iteration: int, turn_number: int) -> dict[str, Any] | None:
+            round_index = iteration + 1
+            message_id = uuid.uuid4().hex[:12]
+            round_dir = ""
+            if session_dir is not None:
+                rd = session_dir / f"turn_{user_turn:03d}" / f"round_{round_index:03d}"
+                try:
+                    rd.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    logger.debug("[_on_round_start] round dir mkdir failed: %s", e)
+                round_dir = str(rd)
+            ctx: dict[str, Any] = {
+                "message_id": message_id,
+                "round_index": round_index,
+                "turn_number": user_turn,
+                "cache_folder": round_dir,
+                "round_dir": round_dir,
+                "parent_user_message_id": parent_user_message_id,
+                "session_id": sid,
+            }
+            round_ctx_holder[0] = ctx
+            return ctx
+
+        # ── on_round_complete: SOLE turn-data writer + per-round persist ─
+        async def _on_round_complete(
+            inf: Any,
+            iteration: int,
+            turn_number: int,
+            raw_response: str,
+            clean_response: str,
+            display_text: str,
+            conv_response: Any,
+        ) -> None:
+            ctx = round_ctx_holder[0] or {}
+            round_index = ctx.get("round_index", iteration + 1)
+            message_id = ctx.get("message_id") or uuid.uuid4().hex[:12]
+
+            # 1) Per-round artifact (turn_NNN/round_MMM/…)
+            prompt_data = {
+                "rendered_prompt": getattr(inf, "_last_rendered_prompt", "") or "",
+                "template_source": getattr(inf, "_last_template_source", "") or "",
+                "template_feed": self._sanitize_feed(
+                    getattr(inf, "_last_template_feed", {}) or {}
+                ),
+                "template_config": getattr(inf, "_last_template_config", {}) or {},
+                "inference_response": clean_response,
+                "raw_response": raw_response,
+                "user_input": user_message,
+            }
+            if data_service is not None and hasattr(data_service, "save_turn_data"):
+                try:
+                    data_service.save_turn_data(
+                        sid, user_turn, prompt_data, round=round_index
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_complete] save_turn_data failed: %s", e)
+
+            # Keep the interactive's inline prompt_data cache fresh for any
+            # subsequent widget preamble in this round.
+            if hasattr(interactive, "_last_prompt_data"):
+                interactive._last_prompt_data = prompt_data
+
+            # 2) Commit the assistant bubble ONLY when there is displayable text.
+            if display_text and data_service is not None and hasattr(
+                data_service, "append_message"
+            ):
+                try:
+                    data_service.append_message(
+                        sid,
+                        {
+                            "id": message_id,
+                            "role": "assistant",
+                            "content": display_text,
+                            "turn_number": user_turn,
+                            "round_index": round_index,
+                            "parent_user_message_id": ctx.get("parent_user_message_id"),
+                            "agent_name": "Orchestrator",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_complete] append_message failed: %s", e)
+
+            # 3) ALWAYS emit the per-round message_end (balanced terminal). When
+            # display_text is "" nothing is committed UI-side.
+            if hasattr(interactive, "send_round_message_end"):
+                try:
+                    await interactive.send_round_message_end(
+                        message_id=message_id,
+                        round_index=round_index,
+                        turn_number=user_turn,
+                        final_content=display_text,
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_complete] send_round_message_end failed: %s", e)
+
+            # 4) Update the root turn summary once per round (assemble display text).
+            if data_service is not None and hasattr(
+                data_service, "update_turn_root_summary"
+            ):
+                try:
+                    prev = (
+                        data_service.get_turn_data(sid, user_turn)
+                        if hasattr(data_service, "get_turn_data")
+                        else None
+                    ) or {}
+                    assembled = prev.get("assembled_summary", "") or ""
+                    if display_text:
+                        assembled = (assembled + "\n\n" + display_text) if assembled else display_text
+                    data_service.update_turn_root_summary(
+                        sid,
+                        user_turn,
+                        {
+                            "user_input": user_message,
+                            "turn_number": user_turn,
+                            "latest_round": round_index,
+                            "assembled_summary": assembled,
+                            "session_id": sid,
+                        },
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_complete] root summary update failed: %s", e)
+
+        # Run the full agentic loop. Turn identity is the fixed user_turn; the
+        # round hooks own per-round cache_folder placement + persistence.
         result = await inferencer.run_agentic_loop(
             user_message,
             interactive=interactive,
             session_id=sid,
             on_new_turn=_on_new_turn,
-            turn_number=initial_turn,
+            on_round_start=_on_round_start,
+            on_round_complete=_on_round_complete,
+            turn_number=user_turn,
         )
 
-        # ── Final-turn logging (after the loop returns) ──────────────────
-        # The last iteration's prompt+response don't go through on_new_turn
-        # because there's no "next turn" handoff. Capture them here.
-        final_turn = current_turn[0] + 1
-        # Stash on result so manager_websocket_routes can use it as the canonical
-        # turn number (avoids the off-by-one recomputation).
+        # Stash the canonical turn number on the result for the route layer.
         try:
-            result.turn_number = final_turn  # type: ignore[attr-defined]
+            result.turn_number = user_turn  # type: ignore[attr-defined]
         except Exception:
             pass
 
-        if json_logger is not None:
-            import json as _json
-            _grp = f"turn_{final_turn:03d}"
-            try:
-                # The final turn's user_input is the most recent widget response
-                # (from the last on_new_turn iteration), or the original message
-                # if no widget interactions happened.
-                _user_input = last_widget_response[0] if last_widget_response[0] is not None else user_message
-                json_logger(
-                    {"type": "UserInput", "item": str(_user_input)},
-                    group=_grp, parts_key_path_root="item",
-                )
-                if getattr(result, "last_template_source", None):
-                    json_logger(
-                        {"type": "PromptTemplate", "item": result.last_template_source},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                if getattr(result, "last_rendered_prompt", None):
-                    json_logger(
-                        {"type": "RenderedPrompt", "item": result.last_rendered_prompt},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                if getattr(result, "last_template_feed", None):
-                    json_logger(
-                        {"type": "TemplateFeed",
-                         "item": _json.dumps(result.last_template_feed,
-                                              indent=2, ensure_ascii=False, default=str)},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                if getattr(result, "last_template_config", None):
-                    json_logger(
-                        {"type": "TemplateConfig",
-                         "item": _json.dumps(result.last_template_config,
-                                              indent=2, ensure_ascii=False, default=str)},
-                        group=_grp, parts_key_path_root="item",
-                    )
-                json_logger(
-                    {"type": "ApiPayload",
-                     "item": _json.dumps({
-                         "system_prompt": getattr(inferencer, "system_prompt", "") or "",
-                         "messages": list(getattr(inferencer, "_messages", [])),
-                     }, indent=2, ensure_ascii=False, default=str)},
-                    group=_grp, parts_key_path_root="item",
-                )
-                json_logger(
-                    {"type": "InferenceResponse",
-                     "item": getattr(result, "raw_response", "") or ""},
-                    group=_grp, parts_key_path_root="item",
-                )
-            except Exception as e:
-                logger.debug("[run_conversation_turn] final-turn JSONL logging failed: %s", e)
-
-        # save_turn_data for the final turn (REST View Prompt support)
-        if data_service is not None and hasattr(data_service, "save_turn_data"):
-            try:
-                prompt_data = self.get_last_prompt_data(sid) or {}
-                _user_input = last_widget_response[0] if last_widget_response[0] is not None else user_message
-                prompt_data["user_input"] = str(_user_input)
-                data_service.save_turn_data(sid, final_turn, prompt_data)
-                if hasattr(interactive, "_last_prompt_data"):
-                    interactive._last_prompt_data = prompt_data
-            except Exception as e:
-                logger.debug("Final-turn save_turn_data failed: %s", e)
-
-        # Persist updated workflow context
+        # Persist updated workflow context (session-state, NOT a per-turn artifact).
         self._persist_workflow_updates(session, inferencer.prior_context, data_service)
 
         return result

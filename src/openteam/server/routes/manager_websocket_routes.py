@@ -116,6 +116,7 @@ async def _try_dev_slash_command(
     dev_tool_tasks: "dict[str, asyncio.Task[Any]]" = None,
     dev_tool_input_queues: "dict[str, asyncio.Queue[Any]]" = None,
     session_store=None,
+    pending_input_cache: "dict[str, Any] | None" = None,
 ) -> bool:
     """Intercept ``/command-name --args`` slash commands.
 
@@ -152,6 +153,18 @@ async def _try_dev_slash_command(
         tools_dir = _Path(__file__).resolve().parent.parent / "resources" / "tools"
         registry = load_all_tools(extra_dirs=[tools_dir])
         tool_def = registry.get(cmd_name)
+
+        # Resolve aliases / preferred_prompt_alias to the canonical tool name
+        # (e.g. /enter_sop → sop). Direct-name hits skip this.
+        if not tool_def:
+            for _name, _t in registry.items():
+                if (
+                    cmd_name in getattr(_t, "aliases", [])
+                    or cmd_name == getattr(_t, "preferred_prompt_alias", "")
+                ):
+                    cmd_name = _name
+                    tool_def = _t
+                    break
 
         if not tool_def:
             available = [n for n, t in registry.items() if not t.agent_enabled]
@@ -203,6 +216,7 @@ async def _try_dev_slash_command(
         input_queue: "asyncio.Queue[Any]" = asyncio.Queue()
         interactive = WebSocketInteractive(
             send_safe, input_queue, task_input_queues=dev_tool_input_queues,
+            pending_input_cache=pending_input_cache,
         )
         dev_tool_input_queues[task_id] = input_queue
 
@@ -310,6 +324,11 @@ async def manager_websocket(websocket: WebSocket) -> None:
     # handlers in the main loop to route by `task_id`.
     dev_tool_tasks: dict[str, asyncio.Task[Any]] = {}
     dev_tool_input_queues: dict[str, asyncio.Queue[Any]] = {}
+    # Connection-scoped pending-input metadata cache (keyed by pending_input_id).
+    # Written by WebSocketInteractive.asend_response (conversation path only),
+    # read+popped by the pending_input_response handler to persist widget
+    # submissions as widget_response history messages.
+    pending_input_cache: dict[str, Any] = {}
 
     async def send_safe(msg: dict[str, Any]) -> None:
         """Send JSON to client. Logs errors but does not raise."""
@@ -342,7 +361,10 @@ async def manager_websocket(websocket: WebSocket) -> None:
         # Dev slash commands: intercept before conversation flow
         data_svc = websocket.app.state.data_service
         _ss = getattr(data_svc, "session_store", None)
-        if await _try_dev_slash_command(text, sid, send_safe, dev_tool_tasks, dev_tool_input_queues, session_store=_ss):
+        if await _try_dev_slash_command(
+            text, sid, send_safe, dev_tool_tasks, dev_tool_input_queues,
+            session_store=_ss, pending_input_cache=pending_input_cache,
+        ):
             return
         conv_svc = getattr(websocket.app.state, "conversation_service", None)
 
@@ -364,8 +386,45 @@ async def manager_websocket(websocket: WebSocket) -> None:
             await send_safe({"type": "error", "message": f"Session {sid} not found"})
             return
 
-        # 2. Signal streaming start
+        # 2. Signal streaming start (= request_in_flight ON). Emitted only after
+        # the pre-checks above (service-available, session-found) pass, so any
+        # earlier return needs no terminal frame.
         await send_safe({"type": "message_start"})
+
+        async def _emit_error_terminal(err_text: str) -> None:
+            """Emit exactly ONE terminal message_end{error} + persist an error
+            assistant message, then clear busy with status:error.
+
+            message_id provenance: prefer the active round id from the
+            conversation interactive; else mint a route id.
+            """
+            try:
+                active_mid = getattr(interactive, "current_message_id", None)
+            except (NameError, UnboundLocalError):
+                active_mid = None
+            message_id = active_mid or f"msg-{uuid.uuid4().hex[:8]}"
+            await send_safe({
+                "type": "message_end",
+                "error": True,
+                "message_id": message_id,
+                "final_content": err_text,
+            })
+            try:
+                data_svc.append_message(sid, {
+                    "id": message_id,
+                    "role": "assistant",
+                    "agent_name": "Orchestrator",
+                    "agent_id": "orchestrator",
+                    "content": err_text,
+                    "timestamp": _make_timestamp(),
+                    "error": True,
+                })
+            except Exception as persist_exc:
+                logger.warning("error-message persist failed: %s", persist_exc)
+            await send_safe({"type": "status", "status": "error"})
+
+        interactive = None  # bound below on the agentic path; referenced by
+        # _emit_error_terminal for round-id provenance.
 
         try:
             # Use workflow-controlled agentic loop when a real inferencer
@@ -389,10 +448,10 @@ async def manager_websocket(websocket: WebSocket) -> None:
                     logger.exception(
                         "Failed to build inferencer for session %s", sid
                     )
-                    await send_safe({
-                        "type": "error",
-                        "message": f"Backend unavailable: {build_exc}",
-                    })
+                    # Busy is already ON (message_start emitted) — emit the
+                    # balanced terminal message_end{error} + persist before
+                    # returning so the UI clears request_in_flight.
+                    await _emit_error_terminal(f"Backend unavailable: {build_exc}")
                     return
             if has_agentic_inferencer:
                 from openteam.server.services.websocket_interactive import (
@@ -406,6 +465,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 interactive = WebSocketInteractive(
                     send_safe, active_input_queue,
                     task_input_queues=dev_tool_input_queues,
+                    pending_input_cache=pending_input_cache,
                 )
 
                 result = await conv_svc.run_conversation_turn(
@@ -414,7 +474,12 @@ async def manager_websocket(websocket: WebSocket) -> None:
                     interactive=interactive,
                     data_service=data_svc,
                 )
-                final_content = result.text if hasattr(result, "text") else str(result)
+                # Agentic path: per-round persistence + per-round message_end
+                # bubbles are owned by ConversationService.on_round_complete.
+                # The route only clears the turn-level busy with a terminal
+                # status:complete (no post-loop assistant append / save_turn_data
+                # / bubble-committing message_end here).
+                await send_safe({"type": "status", "status": "complete"})
             else:
                 # Fallback: mock backend via astream_response
                 final_content = ""
@@ -426,101 +491,76 @@ async def manager_websocket(websocket: WebSocket) -> None:
                         "metadata": {"agent_name": "Orchestrator"},
                     })
 
-            # 3. Compute turn number (1-based: count of existing assistant messages before this one).
-            # If the run_conversation_turn path attached a canonical turn_number on the
-            # AgenticResult (set by ConversationService after run_agentic_loop), prefer
-            # that — it accounts for multi-iteration agentic loops (widget interactions
-            # internally count as turns) which the simple message-count heuristic misses.
-            existing_session = data_svc.get_session(sid)
-            turn_number = sum(
-                1 for m in (existing_session or {}).get("messages", [])
-                if m.get("role") in ("assistant", "agent")
-            ) + 1
-            try:
-                _result_turn = getattr(result, "turn_number", None)
-                if isinstance(_result_turn, int) and _result_turn > 0:
-                    turn_number = _result_turn
-            except (NameError, UnboundLocalError):
-                pass  # Mock backend path doesn't set `result`
+                # ── Mock path: route still owns persistence + bubble commit ──
+                # 3. Compute turn number (1-based: count of existing assistant
+                # messages before this one).
+                existing_session = data_svc.get_session(sid)
+                turn_number = sum(
+                    1 for m in (existing_session or {}).get("messages", [])
+                    if m.get("role") in ("assistant", "agent")
+                ) + 1
 
-            # 4. Persist assistant response (include turn_number for history lookup)
-            msg_id = f"msg-{uuid.uuid4().hex[:8]}"
-            assistant_msg = {
-                "id": msg_id,
-                "role": "assistant",
-                "agent_name": "Orchestrator",
-                "agent_id": "orchestrator",
-                "content": final_content,
-                "timestamp": _make_timestamp(),
-                "turn_number": turn_number,
-            }
-            data_svc.append_message(sid, assistant_msg)
+                # 4. Persist assistant response (include turn_number for history lookup)
+                msg_id = f"msg-{uuid.uuid4().hex[:8]}"
+                assistant_msg = {
+                    "id": msg_id,
+                    "role": "assistant",
+                    "agent_name": "Orchestrator",
+                    "agent_id": "orchestrator",
+                    "content": final_content,
+                    "timestamp": _make_timestamp(),
+                    "turn_number": turn_number,
+                }
+                data_svc.append_message(sid, assistant_msg)
 
-            # 5. Capture prompt data and persist to disk (survives server restarts)
-            prompt_data = {}
-            if hasattr(conv_svc, "get_last_prompt_data"):
+                # 5. Capture prompt data and persist to disk (survives restarts)
+                prompt_data = {}
+                if hasattr(conv_svc, "get_last_prompt_data"):
+                    try:
+                        prompt_data = conv_svc.get_last_prompt_data(sid)
+                    except Exception as e:
+                        logger.warning("get_last_prompt_data failed: %s", e)
+                        prompt_data = {}
+
+                if hasattr(data_svc, "save_turn_data"):
+                    try:
+                        turn_data = dict(prompt_data) if prompt_data else {}
+                        turn_data["inference_response"] = final_content
+                        turn_data["user_input"] = text
+                        turn_data["api_payload"] = {
+                            "messages": (existing_session or {}).get("messages", []),
+                        }
+                        data_svc.save_turn_data(sid, turn_number, turn_data)
+                    except Exception as e:
+                        logger.warning("save_turn_data failed: %s", e)
+
+                # 6. Signal streaming end — include prompt_data inline.
+                import json as _json
                 try:
-                    prompt_data = conv_svc.get_last_prompt_data(sid)
-                    logger.debug(
-                        "get_last_prompt_data: rendered_prompt=%d chars, feed=%d keys",
-                        len(prompt_data.get("rendered_prompt", "")),
-                        len(prompt_data.get("template_feed", {})),
+                    _json.dumps(prompt_data)
+                except (TypeError, ValueError) as e:
+                    logger.warning(
+                        "prompt_data is not JSON-serializable (%s) — sending without it", e
                     )
-                except Exception as e:
-                    logger.warning("get_last_prompt_data failed: %s", e)
                     prompt_data = {}
 
-            if hasattr(data_svc, "save_turn_data"):
-                try:
-                    # Save rich turn data (prompt + response + input + history)
-                    turn_data = dict(prompt_data) if prompt_data else {}
-                    turn_data["inference_response"] = final_content
-                    turn_data["user_input"] = text
-                    turn_data["api_payload"] = {
-                        "messages": (existing_session or {}).get("messages", []),
-                    }
-                    data_svc.save_turn_data(sid, turn_number, turn_data)
-                    logger.debug("Saved turn %d data to disk", turn_number)
-                except Exception as e:
-                    logger.warning("save_turn_data failed: %s", e)
-
-            # 6. Signal streaming end — include prompt_data inline (instant access)
-            # and turn_number (for history fetch on page reload).
-            # Verify prompt_data is JSON-safe before including — fall back to {} if not.
-            import json as _json
-            try:
-                _json.dumps(prompt_data)
-            except (TypeError, ValueError) as e:
-                logger.warning(
-                    "prompt_data is not JSON-serializable (%s) — sending without it", e
-                )
-                prompt_data = {}
-
-            await send_safe({
-                "type": "message_end",
-                "final_content": final_content,
-                "message_id": msg_id,
-                "turn_number": turn_number,
-                "prompt_data": prompt_data,
-            })
+                await send_safe({
+                    "type": "message_end",
+                    "final_content": final_content,
+                    "message_id": msg_id,
+                    "turn_number": turn_number,
+                    "prompt_data": prompt_data,
+                })
 
         except asyncio.CancelledError:
             logger.info("Message processing cancelled (session=%s)", sid)
             await send_safe({"type": "status", "status": "complete", "detail": "Cancelled"})
         except Exception as e:
             logger.error("Error processing message (session=%s): %s", sid, e, exc_info=True)
-            # Persist error as assistant message
-            error_msg = {
-                "id": f"msg-{uuid.uuid4().hex[:8]}",
-                "role": "assistant",
-                "agent_name": "Orchestrator",
-                "agent_id": "orchestrator",
-                "content": f"I encountered an error: {e!s}",
-                "timestamp": _make_timestamp(),
-                "error": True,
-            }
-            data_svc.append_message(sid, error_msg)
-            await send_safe({"type": "error", "message": str(e)})
+            # Emit exactly ONE terminal message_end{error} + persist an error
+            # assistant message, then status:error (busy off). message_id is the
+            # active round id if a round is in flight, else a freshly minted id.
+            await _emit_error_terminal(f"I encountered an error: {e!s}")
         finally:
             active_input_queue = None
 
@@ -595,6 +635,37 @@ async def manager_websocket(websocket: WebSocket) -> None:
                     target_q = active_input_queue
                 if target_q is not None:
                     await target_q.put(parsed_content)
+
+                # Widget-card persist: ONLY for conversation-scoped pending
+                # inputs (the dev-tool/task path has no cache entry and persists
+                # nothing). Independent of task_id. Dedup is handled by
+                # append_message (keyed by message id == pending_input_id).
+                pi_id = data.get("pending_input_id")
+                cache_entry = pending_input_cache.get(pi_id) if pi_id else None
+                if cache_entry and cache_entry.get("scope") == "conversation":
+                    data_svc = websocket.app.state.data_service
+                    widget_response = {
+                        "id": pi_id,
+                        "role": "widget_response",
+                        "prompt": cache_entry.get("prompt"),
+                        "response": parsed_content,
+                        "inputMode": cache_entry.get("input_mode"),
+                        "viewPath": cache_entry.get("viewPath"),
+                        "viewLabel": cache_entry.get("viewLabel"),
+                        "viewType": cache_entry.get("viewType"),
+                        "turn_number": cache_entry.get("turn_number"),
+                        "round_index": cache_entry.get("round_index"),
+                    }
+                    try:
+                        data_svc.append_message(
+                            cache_entry.get("session_id") or session_id,
+                            widget_response,
+                        )
+                    except Exception as persist_exc:
+                        logger.warning(
+                            "widget_response persist failed: %s", persist_exc
+                        )
+                    pending_input_cache.pop(pi_id, None)
 
             elif msg_type == "message":
                 content = data.get("content", "").strip()

@@ -43,6 +43,52 @@ import { BackendSelector } from '../chat/BackendSelector';
 
 
 /**
+ * Resolve a human label for a compound child output_var from the widget's
+ * tools config (input_mode.metadata.tools[].output_var → prompt/tool_type).
+ * Falls back to the raw key when no matching tool is found.
+ */
+function _compoundChildLabel(message, outputVar) {
+  const md = message.inputMode?.metadata || message.inputMode?.input_mode?.metadata || {};
+  const tools = md.tools || message.inputMode?.tools || [];
+  const tool = tools.find((t) => (t.output_var || t.tool_type) === outputVar);
+  const prompt = tool?.prompt || tool?.input_mode?.prompt || '';
+  if (prompt) return prompt.length > 40 ? prompt.slice(0, 40) + '…' : prompt;
+  return outputVar;
+}
+
+/** Stringify one compound child's raw response into a readable value. */
+function _compoundChildValue(childResponse) {
+  if (childResponse == null) return '';
+  if (typeof childResponse === 'string') return childResponse;
+  if (childResponse.content) return childResponse.content;
+  if (childResponse.custom_text) return childResponse.custom_text;
+  if (childResponse.choice != null) return String(childResponse.choice);
+  if (childResponse.choice_index != null) return `Option ${childResponse.choice_index + 1}`;
+  if (Array.isArray(childResponse.selections)) {
+    return childResponse.selections
+      .map((s) => s.custom_text || `Option ${(s.choice_index ?? 0) + 1}`)
+      .join(', ');
+  }
+  return JSON.stringify(childResponse);
+}
+
+/**
+ * Detect a compound DIRECT MAP response: a plain object whose keys are
+ * output_vars mapping directly to each child's raw response — i.e. NOT one of
+ * the known single-widget / envelope shapes (content/choice/selections/values/
+ * submitted_child). Used to format the committed card per-tab instead of dumping
+ * raw JSON.
+ */
+function _isCompoundDirectMap(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+  const envelopeKeys = ['content', 'choice', 'choice_index', 'selections',
+    'custom_text', 'values', 'submitted_child', 'payload'];
+  if (envelopeKeys.some((k) => k in response)) return false;
+  const keys = Object.keys(response).filter((k) => k !== 'variable_override');
+  return keys.length > 0;
+}
+
+/**
  * CommittedWidgetMessage — read-only record of a user's widget submission.
  * Rendered in message history after pendingInput is cleared (RankEvolve: widget_response role).
  */
@@ -104,6 +150,32 @@ function CommittedWidgetMessage({ message, onView, onViewFolder }) {
             }}>
             {isApproved ? '✅ Approved' : '❌ Declined'}
           </Button>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Compound DIRECT MAP {output_var: rawChildResponse} — format per-tab
+  // (label/value) instead of raw JSON.stringify. Item 9: the round preamble is
+  // its own committed bubble now, so this card renders ONLY the per-tab values
+  // (no prompt preamble re-render).
+  if (_isCompoundDirectMap(response)) {
+    const entries = Object.keys(response)
+      .filter((k) => k !== 'variable_override')
+      .map((k) => ({ key: k, label: _compoundChildLabel(message, k), value: _compoundChildValue(response[k]) }));
+    return (
+      <Box sx={containerSx}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {entries.map((e) => (
+            <Box key={e.key}>
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
+                {e.label}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                {e.value || '—'}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       </Box>
     );
@@ -239,6 +311,29 @@ function WsStatusBadge({ status }) {
 }
 
 
+/**
+ * Host-provided path-autocomplete for conversation-tool path inputs.
+ * Calls the OpenStartup workspace route (mounted at /api/workspace/path-complete,
+ * which validates the prefix against the session root). Returns [] on any error
+ * so the widget degrades gracefully to manual text entry.
+ */
+async function pathAutocompleteProvider({ prefix, partial = '', dirsOnly = false, limit = 50 }) {
+  try {
+    const qs = new URLSearchParams({
+      prefix: prefix || '',
+      partial: partial || '',
+      dirs_only: String(!!dirsOnly),
+      limit: String(limit),
+    });
+    const res = await fetch(`/api/workspace/path-complete?${qs.toString()}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onActiveTaskChanged, onSwitchTabRef }) {
   // Load session metadata (title etc.) via REST
   const { data: sessionMeta, loading } = useApiData(
@@ -286,9 +381,13 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
       console.log('[ViewPrompt] opening from inline promptData');
       promptViewer.openPrompt(message.promptData);
     } else if (message.turnNumber && fetchTurnData) {
-      // Slow path: fetch from disk (history messages / after server restart)
-      console.log('[ViewPrompt] fetching from disk, turnNumber=', message.turnNumber);
-      const data = await fetchTurnData(sessionId, message.turnNumber);
+      // Slow path: fetch from disk (history messages / after server restart).
+      // r13: thread the round index so the fetch hits ?round=<m> and resolves
+      // the specific round's prompt (turn_NNN/round_MMM), not the turn root.
+      const round = message.roundIndex != null ? message.roundIndex
+        : (message.roundNumber != null ? message.roundNumber : null);
+      console.log('[ViewPrompt] fetching from disk, turnNumber=', message.turnNumber, 'round=', round);
+      const data = await fetchTurnData(sessionId, message.turnNumber, round);
       console.log('[ViewPrompt] fetched data:', data ? Object.keys(data) : null);
       // Skip drawer if data is empty (no prompt content to show).
       // The server now returns 200 with note="..." for missing turns instead of 404,
@@ -453,6 +552,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
               onSubmit={sendPendingInputResponse}
               onView={openFileViewer}
               onViewFolder={openFolderViewer}
+              pathAutocompleteProvider={pathAutocompleteProvider}
             />
           </Box>
         )}

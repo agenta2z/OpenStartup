@@ -676,11 +676,34 @@ class RealSessionDataService(MockDataService):
     def update_workflow_context(self, session_id: str, wc_dict: dict) -> dict | None:
         return self._session_store.update_workflow_context(session_id, wc_dict)
 
-    def save_turn_data(self, session_id: str, turn_number: int, turn_data: dict) -> None:
-        return self._session_store.save_turn_data(session_id, turn_number, turn_data)
+    def save_turn_data(
+        self,
+        session_id: str,
+        turn_number: int,
+        turn_data: dict,
+        round: int | None = None,
+    ) -> None:
+        return self._session_store.save_turn_data(
+            session_id, turn_number, turn_data, round=round
+        )
 
-    def get_turn_data(self, session_id: str, turn_number: int) -> dict | None:
-        return self._session_store.get_turn_data(session_id, turn_number)
+    def get_turn_data(
+        self, session_id: str, turn_number: int, round: int | None = None
+    ) -> dict | None:
+        return self._session_store.get_turn_data(session_id, turn_number, round=round)
+
+    def update_turn_root_summary(
+        self, session_id: str, turn_number: int, summary: dict
+    ) -> None:
+        """Delegate to SessionStore.update_turn_root_summary (round-lifecycle core).
+
+        Maintains the assembled ROOT turn summary document
+        (``turn_NNN/turn.json``) that stitches together the per-round artifacts
+        written via :meth:`save_turn_data` with a ``round`` argument.
+        """
+        return self._session_store.update_turn_root_summary(
+            session_id, turn_number, summary
+        )
 
     def get_session_dir(self, session_id: str):
         """Public accessor for the session's on-disk directory.
