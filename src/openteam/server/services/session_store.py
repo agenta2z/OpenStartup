@@ -267,6 +267,9 @@ class SessionStore:
                         "What would you like to work on?"
                     ),
                     "timestamp": timestamp,
+                    # Stamp the seeded welcome message with turn 0 so UI fallbacks
+                    # can exclude it from turn counting.
+                    "turn_number": 0,
                 },
             ],
         }
@@ -339,9 +342,23 @@ class SessionStore:
         if session is None:
             return None
 
+        # Defensive id-dedup guard: if a message with the same 'id' already
+        # exists, treat the append as idempotent and skip it. Protects against
+        # double-delivery (e.g. retried WS frames) duplicating history.
+        new_id = message.get("id")
+        if new_id is not None and any(
+            m.get("id") == new_id for m in session["messages"]
+        ):
+            logger.debug(
+                "append_message: skipping duplicate message id %s for session %s",
+                new_id, session_id,
+            )
+            return session
+
         session["messages"].append(message)
         session["updated_at"] = _iso_now()
         self._persist_session(session_id, session)
+        self._update_index()
         return session
 
     def update_session(
@@ -357,6 +374,7 @@ class SessionStore:
                 session[key] = value
         session["updated_at"] = _iso_now()
         self._persist_session(session_id, session)
+        self._update_index()
         return session
 
     def update_workflow_context(
@@ -366,7 +384,11 @@ class SessionStore:
         return self.update_session(session_id, {"workflow_context": wc_dict})
 
     def save_turn_data(
-        self, session_id: str, turn_number: int, turn_data: dict[str, Any]
+        self,
+        session_id: str,
+        turn_number: int,
+        turn_data: dict[str, Any],
+        round: int | None = None,
     ) -> None:
         """Persist per-turn data to <session_dir>/turn_NNN/ directory (RankEvolve style).
 
@@ -375,6 +397,12 @@ class SessionStore:
         - template_feed.json, template_config.json, api_payload.json
         - metadata.json (catch-all for other keys)
         - turn.json (combined, backward compat for get_turn_data)
+
+        When ``round`` is not None, the per-key files + combined ``turn.json`` are
+        written under the per-round subdir ``turn_NNN/round_MMM/`` instead of the
+        turn root. The turn root ``turn_NNN/turn.json`` remains the assembled
+        round-summary (written via :meth:`update_turn_root_summary`). When
+        ``round`` is None, behavior is unchanged: writes go to the turn root.
 
         NOTE: We unified the layout to `<session_dir>/turn_NNN/` (no `turns/` parent)
         to match RankEvolve's structure and to co-locate per-turn JsonLogger output
@@ -385,6 +413,8 @@ class SessionStore:
             logger.debug("save_turn_data: no session dir found for %s", session_id)
             return
         turn_dir = session_dir / f"turn_{turn_number:03d}"
+        if round is not None:
+            turn_dir = turn_dir / f"round_{round:03d}"
         turn_dir.mkdir(parents=True, exist_ok=True)
 
         _TEXT_KEYS = {"rendered_prompt", "template_source", "inference_response", "user_input"}
@@ -407,20 +437,45 @@ class SessionStore:
         # Combined turn.json for backward compat with get_turn_data
         self._atomic_write(turn_dir / "turn.json", turn_data)
 
-        # Clean up old flat file at the legacy location if it exists.
-        old_flat = session_dir / "turns" / f"turn_{turn_number:03d}.json"
-        if old_flat.is_file():
-            old_flat.unlink()
+        # Clean up old flat file at the legacy location if it exists. Only
+        # relevant for the turn root (the legacy layout never had per-round
+        # subdirs), so skip when writing a per-round dir.
+        if round is None:
+            old_flat = session_dir / "turns" / f"turn_{turn_number:03d}.json"
+            if old_flat.is_file():
+                old_flat.unlink()
 
         logger.debug("Saved turn %d data for session %s → %s", turn_number, session_id, turn_dir)
 
     def get_turn_data(
-        self, session_id: str, turn_number: int
+        self, session_id: str, turn_number: int, round: int | None = None
     ) -> dict[str, Any] | None:
-        """Load per-turn data from directory (new) or flat file (old format)."""
+        """Load per-turn data from directory (new) or flat file (old format).
+
+        When ``round`` is not None, reads the per-round combined file
+        ``turn_NNN/round_MMM/turn.json``. When ``round`` is None, reads the turn
+        root ``turn_NNN/turn.json`` (with the legacy flat-file fallbacks).
+        """
         session_dir = self._find_session_dir(session_id)
         if session_dir is None:
             return None
+
+        # Per-round read: turn_NNN/round_MMM/turn.json only (no legacy fallback —
+        # the round layout is new and never had flat/nested variants).
+        if round is not None:
+            round_combined = (
+                session_dir
+                / f"turn_{turn_number:03d}"
+                / f"round_{round:03d}"
+                / "turn.json"
+            )
+            if not round_combined.is_file():
+                return None
+            try:
+                return json.loads(round_combined.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to read turn data %s: %s", round_combined, e)
+                return None
 
         # Try new layout: <session_dir>/turn_NNN/turn.json (RankEvolve style)
         for combined in (
@@ -443,6 +498,51 @@ class SessionStore:
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Failed to read turn data %s: %s", turn_file, e)
             return None
+
+    def update_turn_root_summary(
+        self, session_id: str, turn_number: int, summary: dict[str, Any]
+    ) -> None:
+        """Write/merge the ROOT turn_NNN/turn.json (assembled turn summary).
+
+        The turn root ``turn.json`` is the per-turn summary document: it carries
+        the user_input, the assembled cross-round summary, a pointer to the
+        latest round, and session metadata. Per-round artifacts live under
+        ``turn_NNN/round_MMM/`` (written by :meth:`save_turn_data` with a
+        ``round``); this method maintains the single root document that stitches
+        them together.
+
+        The provided ``summary`` keys are merged on top of any existing root
+        ``turn.json`` (shallow merge — top-level keys in ``summary`` overwrite),
+        so repeated calls across rounds accumulate rather than clobber. Reuses
+        the existing atomic-write helper.
+        """
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            logger.debug(
+                "update_turn_root_summary: no session dir found for %s", session_id
+            )
+            return
+        turn_dir = session_dir / f"turn_{turn_number:03d}"
+        turn_dir.mkdir(parents=True, exist_ok=True)
+        root_file = turn_dir / "turn.json"
+
+        merged: dict[str, Any] = {}
+        if root_file.is_file():
+            try:
+                existing = json.loads(root_file.read_text(encoding="utf-8"))
+                if isinstance(existing, dict):
+                    merged = existing
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(
+                    "update_turn_root_summary: failed to read existing %s: %s",
+                    root_file, e,
+                )
+        merged.update(summary)
+        self._atomic_write(root_file, merged)
+        logger.debug(
+            "Updated turn %d root summary for session %s → %s",
+            turn_number, session_id, root_file,
+        )
 
     def find_session_dir(self, session_id: str) -> Path | None:
         """Return the session directory if it exists, or None.

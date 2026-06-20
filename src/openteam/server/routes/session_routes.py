@@ -146,16 +146,29 @@ async def delete_session(request: Request, session_id: str):
 
 
 @router.get("/{session_id}/turns/{turn_number}")
-async def get_turn_data(request: Request, session_id: str, turn_number: int):
+async def get_turn_data(
+    request: Request, session_id: str, turn_number: int, round: int | None = None
+):
     """Fetch per-turn prompt metadata (template, feed, rendered prompt).
 
     Used by the frontend "View Prompt" button for history messages.
     turn_number is 1-based (first assistant message = turn 1).
+
+    Optional ``round`` query param selects a specific re-run/round of the turn;
+    when omitted (``None``) the root turn summary is returned (unchanged
+    behavior).
     """
     svc = request.app.state.data_service
     if not hasattr(svc, "get_turn_data"):
         raise HTTPException(400, "Turn data not available in mock mode")
-    data = svc.get_turn_data(session_id, turn_number)
+    # Forward the round param. The underlying DataService gains a ``round``
+    # parameter in a sibling slice; a Mock data service still wired for the
+    # 2-arg signature would raise TypeError on the keyword — fall back to the
+    # legacy 2-arg call so mock mode keeps working.
+    try:
+        data = svc.get_turn_data(session_id, turn_number, round=round)
+    except TypeError:
+        data = svc.get_turn_data(session_id, turn_number)
     # Welcome message (turn 1) and other non-LLM turns have no saved prompt data.
     # Return graceful empty payload instead of 404 so the UI can show a friendly
     # "no prompt data" message rather than a console error.

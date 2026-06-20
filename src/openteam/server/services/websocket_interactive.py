@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from typing import Any, AsyncIterator, Callable, Coroutine
 
 
@@ -25,6 +26,7 @@ class WebSocketInteractive:
         input_queue: asyncio.Queue,
         *,
         task_input_queues: "dict[str, asyncio.Queue] | None" = None,
+        pending_input_cache: "dict[str, Any] | None" = None,
     ) -> None:
         self._send = send_callback
         self._input_queue = input_queue
@@ -35,11 +37,38 @@ class WebSocketInteractive:
         # table) — for_background_task() then raises and callers fall back to
         # non-interactive (yolo).
         self._task_input_queues = task_input_queues
+        # Connection-scoped pending-input metadata cache (keyed by
+        # pending_input_id), shared with the route's pending_input_response
+        # handler so widget submissions can be persisted as widget_response
+        # history messages. None on the dev-tool/CLI path (no round context).
+        self._pending_input_cache = pending_input_cache
         self._clean_output: str | None = None  # set by on_clean_output_available()
-        # Latest rendered prompt data, kept in sync by ConversationService._on_new_turn
-        # so that intermediate widget interactions can carry inline prompt_data.
-        # Used by asend_response to populate pending_input messages without a REST round-trip.
+        # Current RoundContext (set by AF via set_round_context). Carries
+        # message_id + round_index that stamp every per-round WS event.
+        self._round_ctx: dict[str, Any] | None = None
+        # Latest rendered prompt data, kept in sync by ConversationService
+        # on_round_complete so that intermediate widget interactions can carry
+        # inline prompt_data. Used by asend_response to populate pending_input
+        # messages without a REST round-trip.
         self._last_prompt_data: dict[str, Any] | None = None
+
+    def set_round_context(self, ctx: dict[str, Any] | None) -> None:
+        """Store the current RoundContext and reset per-round clean output.
+
+        Called by AF's run_agentic_loop at the top of each round (via the
+        server's on_round_start hook). The ctx carries ``message_id`` and
+        ``round_index`` which are stamped onto every per-round WS event
+        (token, stream_correction, pending_input, message_end).
+        """
+        self._round_ctx = ctx
+        self._clean_output = None  # per-round reset
+
+    @property
+    def current_message_id(self) -> str | None:
+        """The current round's message_id, or None when no round is active."""
+        if self._round_ctx:
+            return self._round_ctx.get("message_id")
+        return None
 
     @property
     def clean_output(self) -> str | None:
@@ -170,10 +199,12 @@ class WebSocketInteractive:
                 code fences intact, no terminal-width line wrapping).
         """
         self._clean_output = clean_output
-        await self._send({
+        msg: dict[str, Any] = {
             "type": "stream_correction",
             "content": clean_output,
-        })
+        }
+        self._stamp_round(msg)
+        await self._send(msg)
 
     async def stream_token_batches(
         self,
@@ -204,6 +235,7 @@ class WebSocketInteractive:
                 }
                 if task_id:
                     msg["task_id"] = task_id
+                self._stamp_round(msg)
                 await self._send(msg)
                 batch = []
                 last_flush = time.monotonic()
@@ -217,9 +249,24 @@ class WebSocketInteractive:
             }
             if task_id:
                 msg["task_id"] = task_id
+            self._stamp_round(msg)
             await self._send(msg)
 
         return "".join(full_text)
+
+    def _stamp_round(self, msg: dict[str, Any]) -> None:
+        """Stamp {message_id, round_index} from the current RoundContext.
+
+        No-op when no round context is set (e.g. dev-tool path), keeping
+        background-task token messages unchanged.
+        """
+        if self._round_ctx:
+            mid = self._round_ctx.get("message_id")
+            ridx = self._round_ctx.get("round_index")
+            if mid is not None:
+                msg["message_id"] = mid
+            if ridx is not None:
+                msg["round_index"] = ridx
 
     async def send_task_status(
         self,
@@ -256,6 +303,28 @@ class WebSocketInteractive:
         await self._send({
             "type": "turn_boundary",
             "turn_number": turn_number,
+        })
+
+    async def send_round_message_end(
+        self,
+        *,
+        message_id: str,
+        round_index: int,
+        turn_number: int,
+        final_content: str,
+    ) -> None:
+        """Emit the per-round terminal message_end.
+
+        Always emitted (balanced terminal) for every round. When
+        ``final_content`` is "" the UI commits/persists nothing; otherwise it
+        commits the round's assistant bubble carrying {message_id, round_index}.
+        """
+        await self._send({
+            "type": "message_end",
+            "message_id": message_id,
+            "round_index": round_index,
+            "turn_number": turn_number,
+            "final_content": final_content,
         })
 
     @staticmethod
@@ -342,8 +411,51 @@ class WebSocketInteractive:
         # aget_input() waiting for a user response that can never arrive
         # because the UI never received the widget request.
         prompt_data = kwargs.get("prompt_data") or self._last_prompt_data
+        sanitized_prompt_data = None
         if prompt_data:
-            msg["prompt_data"] = self._sanitize_for_json(prompt_data)
+            sanitized_prompt_data = self._sanitize_for_json(prompt_data)
+            msg["prompt_data"] = sanitized_prompt_data
+
+        # Per-round identity + a unique pending_input_id so the route's
+        # pending_input_response handler can correlate the widget submission
+        # back to this prompt (and persist it as a widget_response message).
+        pending_input_id = uuid.uuid4().hex
+        msg["pending_input_id"] = pending_input_id
+        if self._round_ctx:
+            mid = self._round_ctx.get("message_id")
+            ridx = self._round_ctx.get("round_index")
+            turn_number = self._round_ctx.get("turn_number")
+            if mid is not None:
+                msg["message_id"] = mid
+            if ridx is not None:
+                msg["round_index"] = ridx
+            if turn_number is not None:
+                msg["turn_number"] = turn_number
+
+            # Only the conversation path (round context present) writes a cache
+            # entry. The dev-tool interactive has no round ctx → no entry.
+            if self._pending_input_cache is not None:
+                mode_dict = msg.get("input_mode")
+                metadata = (
+                    mode_dict.get("metadata", {})
+                    if isinstance(mode_dict, dict)
+                    else {}
+                ) or {}
+                self._pending_input_cache[pending_input_id] = {
+                    "scope": "conversation",
+                    "session_id": self._round_ctx.get("session_id"),
+                    "turn_number": turn_number,
+                    "round_index": ridx,
+                    "message_id": mid,
+                    "pending_input_id": pending_input_id,
+                    "prompt": str(response),
+                    "input_mode": mode_dict,
+                    "widget_type": kwargs.get("widget_type"),
+                    "viewPath": metadata.get("viewPath"),
+                    "viewLabel": metadata.get("viewLabel"),
+                    "viewType": metadata.get("viewType"),
+                    "prompt_data": sanitized_prompt_data,
+                }
 
         await self._send(msg)
 

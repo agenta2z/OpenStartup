@@ -123,9 +123,29 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     from openteam.server.services.tool_dispatcher import ToolDispatcher
 
     # (a) Prompt renderer
+    #
+    # The conversational template lives in AgentFoundation (canonical):
+    #     agent_foundation/resources/prompt_templates/conversation/main/initial.jinja2
+    # OpenStartup's own ``prompt_templates/`` contains tool-specific templates
+    # (task_breakdown/, plan/, implementation/, deep_research/) but does NOT
+    # ship a ``conversation/`` subdir. If we pointed TemplateManager only at
+    # OpenStartup's dir, the renderer would silently resolve to "" and the
+    # backend would hang on an empty prompt (regression observed in production
+    # session server_20260615_194631_8e0863a8 / turn_002).
+    #
+    # ``TemplateManager.templates`` accepts a list of roots; earlier roots are
+    # consulted first. We pass AgentFoundation first (canonical templates),
+    # then OpenStartup (overrides / app-specific additions).
+    # ``prompt_templates`` is an implicit namespace package, so ``__file__``
+    # is None on Python 3.13. ``__path__`` (a _NamespacePath) is the
+    # canonical way to recover the directory list — element [0] is the
+    # primary AF location.
+    from agent_foundation.resources import prompt_templates as _af_prompt_templates
+
+    _af_templates_dir = Path(list(_af_prompt_templates.__path__)[0])
     prompt_renderer = TemplateManagerPromptRenderer(
         template_manager=TemplateManager(
-            templates=str(ctx.templates_dir),
+            templates=[str(_af_templates_dir), str(ctx.templates_dir)],
             active_template_root_space="conversation",
             active_template_type="main",
         ),
@@ -199,6 +219,19 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
         Path(agent_foundation.__file__).parent
         / "resources" / "configs" / "conversational" / "default.yaml"
     )
+    # SOP discovery filters for the Orchestrator's "Available SOPs" prompt
+    # section. Semantics match iptables / AWS IAM / k8s NetworkPolicy:
+    #   * allowed_sops (whitelist) — if non-empty, ONLY these names pass.
+    #   * disallowed_sops (denylist) — then filters the survivors.
+    # Both empty = framework default (every discovered SOP visible).
+    # Hidden SOPs remain loadable via /sop <name> explicitly — this is
+    # purely a cosmetic filter on the LLM's discovery prompt. May also be
+    # set in the YAML at
+    # AgentFoundation/.../resources/configs/conversational/default.yaml;
+    # explicit values here override the YAML defaults.
+    allowed_sops: list[str] = []
+    disallowed_sops: list[str] = []
+
     conv_inferencer = _ci_host.build_ci_from_config(
         ci_config_path,
         base_inferencer=base,
@@ -206,6 +239,8 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
         tool_registry=tool_registry,
         tool_executor=tool_executor,
         extra_sop_dirs=[openteam_sops_dir],
+        allowed_sops=allowed_sops or None,
+        disallowed_sops=disallowed_sops or None,
     )
     # (i) Attach dispatcher for per-turn interactive injection
     conv_inferencer._tool_dispatcher = dispatcher
