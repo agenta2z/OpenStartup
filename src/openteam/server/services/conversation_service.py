@@ -142,6 +142,10 @@ class ConversationService:
         self._cache_dir = cache_dir
         self._session_store = session_store
         self._inferencers: dict[str, object] = {}  # session_id → ConversationalInferencer
+        # session_id → ONE session-scoped RunContext root, reused across all turns
+        # (each turn derives child("turn_N")). Loaded once from run_state/store.json;
+        # mirrors the _inferencers cache lifecycle (evicted in lock-step). §9.4.
+        self._session_roots: dict[str, object] = {}
         self._mock_prompt_cache: dict[str, dict] = {}  # session_id → last prompt data (mock mode)
         # Per-session JsonLogger cache for RankEvolve-style structured logging.
         # Created lazily on first run_conversation_turn call so that we have
@@ -267,6 +271,59 @@ class ConversationService:
         self._inferencers[session_id] = inferencer
         return inferencer
 
+    def _get_session_root(
+        self,
+        session_id: str,
+        *,
+        session_dir: "Path | None" = None,
+        cwd: str = "",
+    ):
+        """Get or create the ONE session-scoped RunContext root for a session.
+
+        Cached per ``session_id`` and reused across every turn — each turn derives
+        ``child(f"turn_N")`` from it (§9.4). The Tier-1 ``RunStateStore`` is loaded
+        ONCE from ``session_dir/run_state/store.json`` (resume across restart) and
+        then kept in memory, so we don't reload the whole store every turn.
+
+        Sharing one root across turns is concurrency-safe: the conversational path
+        never mutates Tier-2 bindings — ``interactive`` and cancellation are threaded
+        per turn via kwargs (and direct dispatcher injection), not via ``ctx.runtime``
+        — and concurrent same-session turns derive distinct ``turn_N`` child nodes off
+        the one shared in-memory store (which also avoids the per-turn-reload
+        lost-update race the previous per-turn-root code had).
+
+        Best-effort: returns ``None`` on any failure (incl. an AgentFoundation build
+        without RunContext) so the caller falls back to legacy ``run_context=None``.
+        """
+        existing = self._session_roots.get(session_id)
+        if existing is not None:
+            return existing
+        try:
+            from agent_foundation.common.inferencers.inferencer_workspace import (
+                InferencerWorkspace,
+            )
+            from agent_foundation.common.inferencers.run_context import (
+                RunContext,
+                RunStateStore,
+            )
+
+            store = None
+            if session_dir is not None:
+                store_path = Path(session_dir) / "run_state" / "store.json"
+                if store_path.exists():
+                    try:
+                        store = RunStateStore.load(str(store_path))
+                    except Exception:  # pragma: no cover - corrupt snapshot -> fresh
+                        store = None
+            root = RunContext.root(
+                workspace=InferencerWorkspace(root=str(cwd)) if cwd else None,
+                store=store,
+            )
+            self._session_roots[session_id] = root
+            return root
+        except Exception:  # pragma: no cover - never block a turn on context setup
+            return None
+
     def set_session_backend(
         self,
         session_id: str,
@@ -293,6 +350,7 @@ class ConversationService:
 
         # Evict cached inferencer so the next turn rebuilds with the new backend
         self._inferencers.pop(session_id, None)
+        self._session_roots.pop(session_id, None)  # lock-step with _inferencers
 
         if self._session_store is None or not hasattr(
             self._session_store, "update_session"
@@ -309,6 +367,7 @@ class ConversationService:
     def evict_session_inferencer(self, session_id: str) -> None:
         """Free memory when a session is deleted."""
         self._inferencers.pop(session_id, None)
+        self._session_roots.pop(session_id, None)  # lock-step with _inferencers
 
     def get_last_prompt_data(self, session_id: str) -> dict:
         """Return cached prompt data from the last turn for a given session.
@@ -695,17 +754,43 @@ class ConversationService:
                 except Exception as e:
                     logger.debug("[_on_round_complete] root summary update failed: %s", e)
 
+        # §9.4: derive this turn's context from the ONE session-scoped root
+        # (cached + reused across all turns; its run-state store is loaded ONCE in
+        # _get_session_root, not reloaded per turn). Each turn is a child("turn_N")
+        # off that root. Best-effort: a None root falls back to the legacy call
+        # (run_context=None -> byte-identical). Never block a turn on this.
+        _turn_store_path = (
+            session_dir / "run_state" / "store.json" if session_dir is not None else None
+        )
+        _cwd = getattr(inferencer, "effective_cwd", "") or ""
+        _session_root = self._get_session_root(sid, session_dir=session_dir, cwd=_cwd)
+        _turn_root = (
+            _session_root.child(f"turn_{user_turn}") if _session_root is not None else None
+        )
+
         # Run the full agentic loop. Turn identity is the fixed user_turn; the
         # round hooks own per-round cache_folder placement + persistence.
-        result = await inferencer.run_agentic_loop(
-            user_message,
-            interactive=interactive,
-            session_id=sid,
-            on_new_turn=_on_new_turn,
-            on_round_start=_on_round_start,
-            on_round_complete=_on_round_complete,
-            turn_number=user_turn,
-        )
+        try:
+            result = await inferencer.run_agentic_loop(
+                user_message,
+                interactive=interactive,
+                session_id=sid,
+                on_new_turn=_on_new_turn,
+                on_round_start=_on_round_start,
+                on_round_complete=_on_round_complete,
+                turn_number=user_turn,
+                run_context=_turn_root,
+            )
+        finally:
+            # M9/§9.4: persist the session run-state store on EVERY exit (success/
+            # error/cancel) so an interrupted turn can resume — parity with task/SOP.
+            # Saving the session root persists all turns (the turn child shares its
+            # store by reference).
+            if _session_root is not None and _turn_store_path is not None:
+                try:
+                    _session_root._store.save(str(_turn_store_path))
+                except Exception:  # pragma: no cover - best-effort
+                    pass
 
         # Stash the canonical turn number on the result for the route layer.
         try:
@@ -768,11 +853,33 @@ class ConversationService:
                 )
             inferencer.set_messages(conv_messages)
 
+            # §9.4: mint a best-effort EPHEMERAL per-stream root RunContext. Unlike
+            # run_conversation_turn(), this fallback path is INTENTIONALLY not tied to
+            # the cached session root: it doesn't drive run_agentic_loop and doesn't
+            # persist a store, so a one-off stream context is correct here (sharing the
+            # session root would wrongly persist non-loop state). Degrades to None ->
+            # legacy, byte-identical, on any failure. Never block streaming on setup.
+            _stream_root = None
+            try:
+                from agent_foundation.common.inferencers.inferencer_workspace import (
+                    InferencerWorkspace,
+                )
+                from agent_foundation.common.inferencers.run_context import RunContext
+
+                _cwd = getattr(inferencer, "effective_cwd", "") or ""
+                _stream_root = RunContext.root(
+                    workspace=InferencerWorkspace(root=str(_cwd)) if _cwd else None
+                ).child("stream")
+            except Exception:  # pragma: no cover - never block streaming on setup
+                _stream_root = None
+
             # Stream via base ainfer_streaming() — NOTE: this bypasses run_agentic_loop(),
             # so workflow context, SOP, and tools are NOT active in this path.
             # Prefer run_conversation_turn() for full workflow-controlled streaming.
             full_response = ""
-            async for chunk in inferencer.ainfer_streaming(user_message):
+            async for chunk in inferencer.ainfer_streaming(
+                user_message, run_context=_stream_root
+            ):
                 chunk_str = str(chunk) if not isinstance(chunk, str) else chunk
                 if chunk_str:
                     full_response += chunk_str
