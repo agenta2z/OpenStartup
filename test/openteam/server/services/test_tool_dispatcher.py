@@ -124,6 +124,75 @@ class TestLoadExecutors:
 
         assert "no_executor" not in dispatcher._executor_map
 
+    def test_loads_derived_tool_executor(self, tmp_path):
+        """A tool with `derived_from` and NO `executor` (e.g. understand_codebase,
+        research_propose, understand_data) must still get a registry executor —
+        wired to the generic resolver. Skipping it caused KeyError when a SOP
+        phase invoked it.
+        """
+        tool_dir = tmp_path / "understand_codebase"
+        tool_dir.mkdir()
+        tool_json = tool_dir / "tool.json"
+        tool_json.write_text(json.dumps({
+            "name": "understand_codebase",
+            "tool_type": "Action",
+            "derived_from": {
+                "tool": "task",
+                "arg_mappings": {"target": "request", "investigation_only": "no_implementation"},
+                "defaults": {"template_master_version": "understand_codebase", "full": True},
+                "target_path_arg": "target",
+            },
+        }))
+        tool_def = _make_tool_def("understand_codebase", source_path=str(tool_json))
+        dispatcher = ToolDispatcher(
+            tool_registry={"understand_codebase": tool_def},
+            integration_executor=_make_integration_executor([]),
+            session_context={},
+        )
+        assert "understand_codebase" in dispatcher._executor_map
+        assert callable(dispatcher._executor_map["understand_codebase"])
+
+    @pytest.mark.asyncio
+    async def test_derived_tool_delegates_to_task_with_mapped_args(self, tmp_path):
+        """The derived executor maps the tool's args to the parent (task) and
+        applies `defaults`/`target_path_arg` before delegating."""
+        tool_dir = tmp_path / "understand_codebase"
+        tool_dir.mkdir()
+        (tool_dir / "tool.json").write_text(json.dumps({
+            "name": "understand_codebase",
+            "tool_type": "Action",
+            "derived_from": {
+                "tool": "task",
+                "arg_mappings": {"target": "request", "investigation_only": "no_implementation"},
+                "defaults": {"template_master_version": "understand_codebase", "full": True},
+                "target_path_arg": "target",
+            },
+        }))
+        tool_def = _make_tool_def("understand_codebase", source_path=str(tool_dir / "tool.json"))
+        dispatcher = ToolDispatcher(
+            tool_registry={"understand_codebase": tool_def},
+            integration_executor=_make_integration_executor([]),
+            session_context={},
+        )
+
+        import agent_foundation.resources.tools.task.executor as task_mod
+        captured: dict = {}
+
+        async def fake_task_execute(args, ctx):
+            captured["args"] = args
+            return MagicMock(result="ok", context_updates={})
+
+        with patch.object(task_mod, "execute", fake_task_execute):
+            await dispatcher._executor_map["understand_codebase"](
+                {"target": "/tmp/repo", "investigation_only": True}, {"working_dir": "/tmp"},
+            )
+
+        a = captured["args"]
+        assert a["template_master_version"] == "understand_codebase"
+        assert a["full"] is True
+        assert a["no_implementation"] is True
+        assert any(str(o).startswith("_target_path=") for o in a.get("override", []))
+
     def test_handles_import_error_gracefully(self, tmp_path):
         """Bad executor ref logs warning and skips — no crash."""
         tool_json = _make_tool_json(

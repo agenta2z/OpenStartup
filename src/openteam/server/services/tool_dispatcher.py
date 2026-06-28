@@ -86,6 +86,7 @@ class ToolDispatcher:
                 )
                 continue
             executor_ref = data.get("executor")
+            derived_from = data.get("derived_from")
             if executor_ref:
                 try:
                     self._executor_map[name] = self._import_callable(executor_ref)
@@ -97,6 +98,18 @@ class ToolDispatcher:
                         "[ToolDispatcher] Failed to load executor for %s (%s): %s",
                         name, executor_ref, e,
                     )
+            elif isinstance(derived_from, dict) and derived_from.get("tool"):
+                # Derived tools (e.g. understand_codebase, research_propose,
+                # understand_data) declare NO `executor` — they map their args to a
+                # parent tool (task) via `derived_from`. Without this branch they
+                # never enter _executor_map, so a SOP phase that invokes one raises
+                # KeyError. Wire them to AgentFoundation's canonical generic
+                # resolver so they actually run.
+                self._executor_map[name] = self._make_derived_executor(name, derived_from)
+                logger.debug(
+                    "[ToolDispatcher] Loaded derived executor for %s (-> %s)",
+                    name, derived_from.get("tool"),
+                )
 
     @staticmethod
     def _import_callable(ref: str) -> Callable:
@@ -119,6 +132,30 @@ class ToolDispatcher:
         module = importlib.import_module(module_path)
         return getattr(module, callable_name)
 
+    @staticmethod
+    def _make_derived_executor(name: str, derived_from: dict[str, Any]) -> Callable:
+        """Build an executor for a ``derived_from`` tool.
+
+        Delegates to AgentFoundation's canonical generic resolver
+        (``derived_tool_execute``), which maps the tool's args to its parent
+        (``task``) per ``arg_mappings``/``defaults``/``target_path_arg`` and runs
+        the task executor. Conforms to the registry executor shape:
+        async (arguments, session_context) -> ToolExecutionResult.
+        """
+        from agent_foundation.resources.tools.registry import derived_tool_execute
+
+        async def _execute(
+            arguments: dict[str, Any], session_context: dict[str, Any]
+        ) -> Any:
+            return await derived_tool_execute(
+                arguments,
+                session_context,
+                derived_from=derived_from,
+                tool_name=name,
+            )
+
+        return _execute
+
     def handles(self, tool_name: str) -> bool:
         """Check if this dispatcher can handle the given tool name."""
         return (
@@ -140,9 +177,21 @@ class ToolDispatcher:
         from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
             ToolExecutionResult,
         )
+        from openteam.server.services.cli_args import coerce_tool_arguments
 
         # 1. Async tools → background task with subtab
         tool_def = self._tool_registry.get(tool_name)
+
+        # The LLM may emit an action's `arguments` as a CLI-style string (it
+        # mirrors the tool's own usage examples, e.g. "<path> --template-version
+        # modeling") instead of the documented dict. Downstream executors index
+        # args by key (`_dispatch_as_task` does `arguments.get(...)`,
+        # `derived_tool_execute` does `arguments.items()`), so a bare string
+        # raised `'str' object has no attribute 'get'` and silently killed the
+        # task in the background. Coerce any shape to the canonical dict here —
+        # the single boundary every agent action tool passes through.
+        arguments = coerce_tool_arguments(arguments, tool_def)
+
         if tool_def and tool_def.asynchronous and self._interactive:
             return await self._dispatch_as_task(tool_name, arguments, tool_def)
 

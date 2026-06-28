@@ -164,11 +164,14 @@ if $RUN_SERVER; then
     err "Set OPENSTARTUP_PYTHON to your Python 3.10+ interpreter."
     exit 1
   fi
-  if ! "$PYTHON" -c "import fastapi, uvicorn" 2>/dev/null; then
-    warn "Missing Python dependencies. Attempting: pip install fastapi uvicorn"
-    "$PYTHON" -m pip install --quiet fastapi uvicorn pydantic || {
+  # omegaconf + hydra are required by the YAML-driven conversation inferencer
+  # build path (build_ci_from_config → OmegaConf + hydra.utils.instantiate);
+  # without them, non-mock backends fail lazily with "Backend unavailable".
+  if ! "$PYTHON" -c "import fastapi, uvicorn, omegaconf, hydra" 2>/dev/null; then
+    warn "Missing Python dependencies. Attempting: pip install fastapi uvicorn pydantic omegaconf hydra-core"
+    "$PYTHON" -m pip install --quiet fastapi uvicorn pydantic omegaconf hydra-core || {
       err "Failed to install Python dependencies. Please install them manually:"
-      err "  $PYTHON -m pip install fastapi uvicorn pydantic"
+      err "  $PYTHON -m pip install fastapi uvicorn pydantic omegaconf hydra-core"
       exit 1
     }
   fi
@@ -199,7 +202,7 @@ if $RUN_SERVER; then
       "${SERVER_EXTRA_ARGS[@]+"${SERVER_EXTRA_ARGS[@]}"}"
   ) &
   PIDS+=($!)
-  ok "Server PID: ${PIDS[-1]}"
+  ok "Server PID: ${PIDS[$((${#PIDS[@]}-1))]}"
 fi
 
 # ── Start React UI (or build for production) ─────────────────────────
@@ -217,7 +220,7 @@ if $RUN_UI; then
     log "Starting React dev server on http://localhost:3000 (proxy → :${SERVER_PORT})…"
     (cd "$UI_DIR" && npm start) &
     PIDS+=($!)
-    ok "UI PID: ${PIDS[-1]}"
+    ok "UI PID: ${PIDS[$((${#PIDS[@]}-1))]}"
   fi
 fi
 

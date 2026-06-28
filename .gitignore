@@ -19,6 +19,14 @@ roles/
 # Temp files
 tmp_rovodev_*
 
+# OS / editor cruft and generated artifacts
+.DS_Store
+_build/
+*.log
+*.zip
+*.pickle
+*.pdf
+
 # Development directories (tracked on dev branch, ignored on main)
 _dev/
 _archive/

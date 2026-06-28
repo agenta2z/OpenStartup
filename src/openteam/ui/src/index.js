@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createTheme } from '@mui/material/styles';
 import { AppThemeProvider, registerTheme } from './theme';
+import { UiPreferencesProvider } from './preferences/UiPreferencesProvider';
 import App from './App';
 import './App.css';
 
@@ -19,7 +20,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <AppThemeProvider createThemeFn={createTheme} defaultThemeId="dark">
-      <App />
+      <UiPreferencesProvider>
+        <App />
+      </UiPreferencesProvider>
     </AppThemeProvider>
   </React.StrictMode>
 );
