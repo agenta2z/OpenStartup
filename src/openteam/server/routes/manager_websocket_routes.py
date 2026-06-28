@@ -51,8 +51,9 @@ _SLASH_CMD_RE = _re.compile(r"^/([a-zA-Z][a-zA-Z0-9_-]*)\b(.*)", _re.DOTALL)
 
 # Patch 3.2 — boolean-aware + shlex-quoted parser. Whitelist for /task's bool flags
 # so /task --plan "request" parses as {plan: True, request: "request"} not {plan: "request"}.
-import shlex as _shlex
-_REPEATABLE_KEYS = {"override"}
+# The parser itself now lives in services/cli_args (one source of truth, shared
+# with the agent action path in ToolDispatcher); imported here as _parse_slash_args.
+from openteam.server.services.cli_args import parse_cli_args as _parse_slash_args
 _TASK_BOOL_FLAGS = {"plan", "execute", "full", "confirm",
                     "no_dual", "analysis", "multi_iter",
                     "in_place", "copy_workspace"}
@@ -63,50 +64,6 @@ _TASK_BOOL_FLAGS = {"plan", "execute", "full", "confirm",
 # Patch 3.1 — task-* alias mapping (cmd_name is post-`replace("-", "_")` so keys use _).
 _TASK_MODE_ALIASES = {"task_plan": "plan", "task_execute": "execute",
                       "task_full": "full", "task_confirm": "confirm"}
-
-
-def _parse_slash_args(args_str: str, bool_flags: set[str] = frozenset()) -> dict[str, Any]:
-    """Parse ``--key value`` pairs + bare ``--flag`` + positional ``request``.
-
-    R10 rules:
-      - known bool-flag → {key: True}, advance 1
-      - next token starts with `--` → bare flag, advance 1
-      - otherwise consume next token as value
-    Repeated keys in `_REPEATABLE_KEYS` accumulate into a list.
-    All unconsumed non-flag tokens become the positional `request` (joined by space).
-    """
-    result: dict[str, Any] = {}
-    try:
-        parts = _shlex.split(args_str, posix=True)
-    except ValueError:
-        parts = args_str.split()
-    consumed: set[int] = set()
-    i = 0
-    while i < len(parts):
-        if parts[i].startswith("--"):
-            # CANONICAL CONVENTION (Option D, 2026-05-18): normalize incoming
-            # dash form to underscores so `arguments` dict keys are uniformly
-            # underscored. Bool-flag set `_TASK_BOOL_FLAGS` is also stored in
-            # underscore form (see line 55-57) so the `key in bool_flags` check
-            # below works AFTER normalization.
-            key = parts[i].lstrip("-").replace("-", "_")
-            if key in bool_flags or i + 1 >= len(parts) or parts[i + 1].startswith("--"):
-                result[key] = True
-                consumed.add(i); i += 1
-            else:
-                val = parts[i + 1]
-                if key in _REPEATABLE_KEYS:
-                    result.setdefault(key, []).append(val)
-                else:
-                    result[key] = val
-                consumed.update({i, i + 1}); i += 2
-        else:
-            i += 1
-    positional = [parts[j] for j in range(len(parts))
-                  if j not in consumed and not parts[j].startswith("--")]
-    if positional:
-        result.setdefault("request", " ".join(positional))
-    return result
 
 
 async def _try_dev_slash_command(

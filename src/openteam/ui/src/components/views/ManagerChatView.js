@@ -40,6 +40,7 @@ import ConnectionStatusBar from '../layout/ConnectionStatusBar';
 import { TaskCard } from '../chat/TaskCard';
 import { TaskPanel } from '../chat/TaskPanel';
 import { BackendSelector } from '../chat/BackendSelector';
+import { useUiPreferences } from '../../preferences/UiPreferencesProvider';
 
 
 /**
@@ -56,17 +57,33 @@ function _compoundChildLabel(message, outputVar) {
   return outputVar;
 }
 
-/** Stringify one compound child's raw response into a readable value. */
-function _compoundChildValue(childResponse) {
+/**
+ * Render one compound child's raw response as a readable value. `tool` (the
+ * matching input_mode tool) lets us resolve a choice_index to its option label
+ * (e.g. "Auto discover") instead of a bare "Option 1".
+ */
+function _compoundChildValue(childResponse, tool) {
   if (childResponse == null) return '';
   if (typeof childResponse === 'string') return childResponse;
-  if (childResponse.content) return childResponse.content;
+  const opts = tool?.input_mode?.options || tool?.options || [];
+  if (childResponse.content != null) {
+    return Array.isArray(childResponse.content)
+      ? childResponse.content.join(', ')
+      : String(childResponse.content);
+  }
   if (childResponse.custom_text) return childResponse.custom_text;
+  if (childResponse.choice_index != null) {
+    const label = opts[childResponse.choice_index]?.label || `Option ${childResponse.choice_index + 1}`;
+    // A composite choice (e.g. "Specify paths") also carries a nested input value.
+    const inputVals = childResponse.inputs && typeof childResponse.inputs === 'object'
+      ? Object.values(childResponse.inputs).flat().filter(Boolean).join(', ')
+      : '';
+    return inputVals ? `${label}: ${inputVals}` : label;
+  }
   if (childResponse.choice != null) return String(childResponse.choice);
-  if (childResponse.choice_index != null) return `Option ${childResponse.choice_index + 1}`;
   if (Array.isArray(childResponse.selections)) {
     return childResponse.selections
-      .map((s) => s.custom_text || `Option ${(s.choice_index ?? 0) + 1}`)
+      .map((s) => s.custom_text || opts[s.choice_index]?.label || `Option ${(s.choice_index ?? 0) + 1}`)
       .join(', ');
   }
   return JSON.stringify(childResponse);
@@ -89,12 +106,29 @@ function _isCompoundDirectMap(response) {
 }
 
 /**
- * CommittedWidgetMessage — read-only record of a user's widget submission.
+ * Normalize a committed widget response. The compound widget commits a
+ * JSON-stringified object; parse it so per-tab rendering (summary card OR
+ * read-only widget) works. Non-compound widgets and backend-reloaded responses
+ * are already objects; non-JSON strings (e.g. a confirmation 'yes') pass through.
+ */
+function normalizeWidgetResponse(response) {
+  if (typeof response === 'string') {
+    const trimmed = response.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(response); } catch { /* keep original string */ }
+    }
+  }
+  return response;
+}
+
+/**
+ * CommittedWidgetMessage — text-summary record of a user's widget submission.
  * Rendered in message history after pendingInput is cleared (RankEvolve: widget_response role).
  */
 function CommittedWidgetMessage({ message, onView, onViewFolder }) {
   const theme = useTheme();
-  const { widgetType, response, prompt } = message;
+  const { widgetType, prompt } = message;
+  const response = normalizeWidgetResponse(message.response);
 
   console.debug('[CommittedWidgetMessage] widgetType:', widgetType, 'viewPath:', message.viewPath, 'response:', response);
 
@@ -160,9 +194,14 @@ function CommittedWidgetMessage({ message, onView, onViewFolder }) {
   // its own committed bubble now, so this card renders ONLY the per-tab values
   // (no prompt preamble re-render).
   if (_isCompoundDirectMap(response)) {
+    const md = message.inputMode?.metadata || message.inputMode?.input_mode?.metadata || {};
+    const tools = md.tools || message.inputMode?.tools || [];
     const entries = Object.keys(response)
       .filter((k) => k !== 'variable_override')
-      .map((k) => ({ key: k, label: _compoundChildLabel(message, k), value: _compoundChildValue(response[k]) }));
+      .map((k) => {
+        const tool = tools.find((t) => (t.output_var || t.tool_type) === k);
+        return { key: k, label: _compoundChildLabel(message, k), value: _compoundChildValue(response[k], tool) };
+      });
     return (
       <Box sx={containerSx}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -218,6 +257,27 @@ function CommittedWidgetMessage({ message, onView, onViewFolder }) {
         {statusText}
       </Typography>
     </Box>
+  );
+}
+
+/**
+ * ReadOnlyCommittedWidget — the ORIGINAL conversation widget, frozen & disabled,
+ * still showing the user's submitted values (the "interactive" committed mode,
+ * vs. CommittedWidgetMessage's text-summary mode). Reconstructed from the
+ * widget_response message's inputMode + response.
+ */
+function ReadOnlyCommittedWidget({ message, onView, onViewFolder }) {
+  const responseValues = normalizeWidgetResponse(message.response);
+  const pendingLike = { inputMode: message.inputMode, content: message.prompt };
+  return (
+    <ConversationToolWidget
+      pendingInput={pendingLike}
+      readOnly
+      responseValues={responseValues}
+      onView={onView}
+      onViewFolder={onViewFolder}
+      pathAutocompleteProvider={pathAutocompleteProvider}
+    />
   );
 }
 
@@ -340,6 +400,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     sessionId ? `/sessions/${sessionId}` : null
   );
   const { status: serverStatus, serverInfo } = useServerStatus();
+  const { committedWidgetMode } = useUiPreferences();
 
   // WebSocket streaming chat
   const {
@@ -505,7 +566,13 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
           if (msg.role === 'widget_response') {
             return (
               <Box key={msg.id} sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2, ml: 5 }}>
-                <CommittedWidgetMessage message={msg} onView={openFileViewer} onViewFolder={openFolderViewer} />
+                {committedWidgetMode === 'readonly' ? (
+                  <Box sx={{ maxWidth: widgetMaxWidth }}>
+                    <ReadOnlyCommittedWidget message={msg} onView={openFileViewer} onViewFolder={openFolderViewer} />
+                  </Box>
+                ) : (
+                  <CommittedWidgetMessage message={msg} onView={openFileViewer} onViewFolder={openFolderViewer} />
+                )}
               </Box>
             );
           }

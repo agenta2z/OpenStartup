@@ -19,5 +19,13 @@ roles/
 # Temp files
 tmp_rovodev_*
 
+# OS / editor cruft and generated artifacts
+.DS_Store
+_build/
+*.log
+*.zip
+*.pickle
+*.pdf
+
 # Development directories — tracked here on dev, ignored on main
 # (main's .gitignore lists _dev/ _archive/ _docs/ _plan/)
