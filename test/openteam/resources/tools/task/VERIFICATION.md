@@ -1,10 +1,16 @@
 # task — Run Verification Catalog
 
-> **Purpose**: Tool-specific post-run verification for `/task` (the production task tool). Use **together with** the common catalog at `../VERIFICATION.md` (covers A1–A19 / O-1 – O-22 that apply to any BTA/Dual-based tool).
+> **Purpose**: Tool-specific post-run verification for `/task` (the production task tool).
+>
+> **Prerequisites**: This catalog extends the **Common Catalog** at [`../VERIFICATION.md`](../VERIFICATION.md).
+> Run the common audit pack (A1–A20) FIRST, then this task-specific pack. The common catalog
+> covers tool-agnostic checks (clean termination, session logs, aggregator behavior, response
+> protocol, etc.) that apply to all BTA/Dual-based tools. This file covers only task-specific
+> topology, deliverable, and dispatch checks.
 >
 > Only **historical, documented** observations appear in §2. Speculative "what could go wrong" items are intentionally excluded — VERIFICATION docs catalog observed reality, not imagined risk.
 >
-> **Last updated**: 2026-05-27
+> **Last updated**: 2026-06-28
 
 ---
 
@@ -91,6 +97,13 @@ These rows extend the common audit with task-only structural concerns (multi-agg
 | TK-A-5 | `--plan` mode loaded plan-only YAML (not plan-then-implement) | When CLI used `--plan`, the workspace's `artifacts/topology_source.yaml` (or equivalent) resolves to `breakdown-multiflow-plan.yaml`, NOT `breakdown-multiflow-plan-then-implement.yaml` | TK-O-4 |
 | TK-A-6 | Inner aggregators reference peer flows via `(See file: ...)` | For each `worker_N/children/propose/children/aggregator/.../InferenceInput/*.txt`, the prompt contains `(See file: ...)` references pointing to `flow_0/.../output.md` AND `flow_1/.../output.md` of the SAME worker_N subtree | (Common A7 extension) |
 | TK-A-7 | No iteration runaway | `worker_N/.../jsonl.parts/Round<NN>/` count ≤ `flow_max_dynamic_steps`; top-level `round_NN/` count ≤ `consensus_max_iterations` | (Cost guard) |
+| TK-A-8 | Fix contributed to every non-consensus worker | For every MFDual worker whose last review was NOT consensus (`consensus_reached=false` in round_log), `output.md` size MUST differ from `propose/outputs/.../output.md` size (fix changed the output) | TK-O-5 |
+| TK-A-9 | No CRITICAL-rejected output shipped | No worker's final `output.md` corresponds to a last-round review with unresolved CRITICAL severity. Check the last `audit_kind: "merged"` entry in each worker's `round_log.jsonl` — if `severity=CRITICAL`, a fix entry MUST follow | TK-O-5 |
+| TK-A-10 | Round log entries have decision fields | Every review entry in `round_log.jsonl` MUST contain `consensus_reached`, `severity`, `approved`, `audit_kind`. Every fix entry MUST contain `consensus_reached`, `audit_kind: "fix"` | TK-O-6 |
+| TK-A-11 | Per-panelist audit entries present | In panel mode (2+ reviewers), each review round has per-panelist entries (`audit_kind: "panelist"`) plus one merged entry (`audit_kind: "merged"`) | TK-O-6 |
+| TK-A-12 | Session logs for ALL CLI types | Every flow step (initial, round01, etc.) MUST have non-empty `logs/session/` regardless of CLI type (Codex, Claude, RovoDev) | TK-O-7 |
+| TK-A-13 | Consistent panelist dirs | In panel mode, primary reviewer gets `panelist_00/` (not bare `review/`). All panelists have `panelist_NN/` dirs. No panelist numbering gaps | TK-O-8 |
+| TK-A-14 | No empty scaffold dirs | No empty `children/review/`, `children/fix/`, or `children/guardrail/` dirs at worker root or for accepted (PASS) guardrail verdicts | TK-O-9 |
 
 ### Quick wrapper
 
@@ -175,6 +188,31 @@ echo "TK-A-7 outer Dual rounds: $top_rounds (cap = consensus_max_iterations, def
 - **Look for**: Run was invoked with `--plan` but execution proceeds into the implementation stage; OR the outer Dual reviews an empty PTI implementation deliverable using `template_root_space=implementation` criteria (wrong review semantics, wasted iterations).
 - **Source**: `OpenStartup/test/openteam/resources/tools/task/preflight/test_plan_mode_yaml_swap.py` (preflight regression test) — guards `executor._run_topology` swap from `breakdown-multiflow-plan-then-implement.yaml` → `breakdown-multiflow-plan.yaml` when `mode == "plan"`.
 - **Distinguishes from healthy**: When `--plan` is used, the workspace's effective topology contains NO PTI implementation stage; only Dual{BTA{MFDual}} appears; review criteria explicitly load `plan/main/review.jinja2` (not `implementation/main/review.jinja2`).
+
+### TK-O-5 — Worker fix step silently skipped despite CRITICAL review rejection (B1)
+- **Look for**: A worker's `round_log.jsonl` contains a review entry with `consensus_reached: false` and `severity: CRITICAL` or `MAJOR`, but NO subsequent fix entry. The worker's `output.md` is byte-identical to `propose/outputs/.../output.md` — the review/fix cycle contributed nothing. `consensus_achieved: true` in the MFDual's InferenceResponse despite the review rejection.
+- **Source**: Runs `multimodal_plan_3flow_20260627_140601_8d62955c` (v5) and `multimodal_plan_3flow_20260628_091301_3b63d7fd` (v6) — worker_00 hit this in both. Root cause: `fixer_strategy=winner` with no winner detected → fixer defaults to MFI orchestrator (not a TemplatedInferencerBase) → `_RoleDisabledError` → handler forced `consensus_reached=True`. Fixed by falling back to first flow inferencer as fixer when winner=None.
+- **Distinguishes from healthy**: A healthy worker with non-consensus review has fix entries in round_log, output.md differs from propose output, and `total_iterations` matches `consensus_max_iterations`.
+
+### TK-O-6 — round_log.jsonl lacks decision fields / per-panelist entries (B2)
+- **Look for**: `round_log.jsonl` entries contain only `{round, phase, inferencer_class, timestamp}` — missing `consensus_reached`, `severity`, `approved`, `audit_kind`, `panelist` fields. In panel mode, only one review entry per round (no per-panelist breakdown).
+- **Source**: Run `multimodal_plan_3flow_20260627_140601_8d62955c` (v5) — all workers' round_logs had bare entries with no decision fields. Fixed by passing `extra` dicts with decision fields at both review and fix audit call sites, plus per-panelist audit entries with `audit_kind: "panelist"`.
+- **Distinguishes from healthy**: A healthy round_log has per-panelist entries (`audit_kind: "panelist"`) for each reviewer, a merged entry (`audit_kind: "merged"`) with `consensus_reached`/`severity`/`approved`, and fix entries with `audit_kind: "fix"` + `consensus_reached`.
+
+### TK-O-7 — Per-step session logs empty for CodexCLI / ClaudeCodeCLI (B3)
+- **Look for**: Flow step directories (`flow_00/children/initial/logs/session/`, `flow_01/children/round01/logs/session/`) have the `logs/session/` dir created but contain 0 files — no `.jsonl` session log. Only RovoDevCLI (flow_02) writes session logs. The `logs/` dir exists (workspace was assigned) but the logger was never configured.
+- **Source**: Run `multimodal_plan_3flow_20260627_140601_8d62955c` (v5) — flow_00 (Codex) and flow_01 (Claude) had 0 session log files across all workers and all steps, while flow_02 (RovoDev) had 8 files per step. Fixed by workspace/context propagation changes that ensured `_logger_awaiting_workspace` flag was properly resolved for all CLI types.
+- **Distinguishes from healthy**: Every flow step has non-empty `logs/session/` with InferenceInput + InferenceResponse entries regardless of CLI type.
+
+### TK-O-8 — Primary reviewer (panelist 0) has no dedicated workspace dir (B4)
+- **Look for**: In panel mode (2+ reviewers), the primary reviewer runs under bare `review/` while extra panelists get `review/children/panelist_01/`, `panelist_02/`. No `panelist_00/` dir exists. Panelist count in dirs doesn't match actual reviewer count (e.g., 2 reviewers but only 1 panelist dir).
+- **Source**: Run `multimodal_plan_3flow_20260627_140601_8d62955c` (v5) — worker_01/02 had only `panelist_01/` (1 dir for 2 reviewers), worker_00 had `panelist_01/` + `panelist_02/` (2 dirs for 3 reviewers, still no panelist_00). Fixed by giving the primary reviewer `panelist_00/` in panel mode; single-reviewer mode keeps bare `review/`.
+- **Distinguishes from healthy**: In panel mode, all reviewers have `panelist_NN/` dirs starting from `panelist_00/`, with no gaps.
+
+### TK-O-9 — Empty scaffold dirs pollute workspace tree (B5)
+- **Look for**: Each worker has empty `children/review/` and `children/fix/` dirs at the worker root (alongside the real `round_NN/children/review/fix/` dirs). Also: empty `children/guardrail/` dirs with scaffold subdirs (`artifacts/`, `checkpoints/`, `logs/`, `outputs/`) but 0 files — created when the guardrail judge accepted (PASS) without running.
+- **Source**: Run `multimodal_plan_3flow_20260627_140601_8d62955c` (v5) — 6 empty scaffold dirs. Run `multimodal_plan_3flow_20260628_152604_4fab40a1` (v7) — ~20 empty guardrail scaffold dirs. Fixed by: (1) removing workspace creation from `_reassign_role_workspace` (review/fix scaffolds); (2) removing eager `ensure_dirs()` from `_run_output_guardrail` (guardrail scaffolds).
+- **Distinguishes from healthy**: No empty `review/`, `fix/`, or `guardrail/` dirs anywhere. Every workspace dir that exists contains actual files.
 
 ---
 
