@@ -55,13 +55,18 @@ function _displayFromBuffer(raw) {
 
 function getWsUrl() {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // In development, CRA proxy doesn't reliably forward WebSocket upgrades.
-  // Connect directly to the backend port instead.
-  const backendPort = process.env.REACT_APP_BACKEND_PORT || '8000';
-  const host = window.location.hostname;
-  const isDev = process.env.NODE_ENV === 'development';
-  const wsHost = isDev ? `${host}:${backendPort}` : window.location.host;
-  return `${proto}//${wsHost}/ws/manager`;
+  // Always connect SAME-ORIGIN (the exact host:port the page was served from) and
+  // let the CRA dev-server proxy forward /ws/manager to the backend (setupProxy.js
+  // proxies /ws/manager with ws:true). Do NOT dial the backend port (e.g. :8089)
+  // directly: in many environments the browser can reach the UI's port but NOT a
+  // separate backend port — a corp→devserver path that only exposes the navigated
+  // port, an SSH tunnel/port-forward, or a reverse proxy. A direct dial to such a
+  // port silently hangs (the SYN is dropped, not refused) and the socket sits in
+  // CONNECTING forever → a permanent "Connecting…" badge. The page itself and every
+  // /api request already ride this same-origin path, so the WebSocket must too. In
+  // production FastAPI serves the built UI and /ws/manager from one origin, so
+  // same-origin is correct there as well (and yields wss: automatically over HTTPS).
+  return `${proto}//${window.location.host}/ws/manager`;
 }
 
 export function useManagerChat(sessionId) {

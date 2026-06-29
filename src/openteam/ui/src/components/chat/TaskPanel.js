@@ -174,8 +174,15 @@ export function TaskPanel({ task, onBack, graphState }) {
       const hasSubGraph = task?.subGraphs?.[nodeId];
       if (hasSubGraph) {
         setFocusedPath(prev => {
-          if (prev.length === 1 && prev[0] === nodeId) return [];
-          return [nodeId];
+          // Collapse if clicking the currently-deepest focused container.
+          if (prev.length && prev[prev.length - 1] === nodeId) {
+            return prev.slice(0, -1);
+          }
+          // Jump up if clicking an ancestor already in the focused chain.
+          const idx = prev.indexOf(nodeId);
+          if (idx >= 0) return prev.slice(0, idx + 1);
+          // Otherwise drill one level deeper into this container.
+          return [...prev, nodeId];
         });
         setUserSelectedNodeId(null);
       } else {
