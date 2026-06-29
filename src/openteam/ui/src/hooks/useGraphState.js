@@ -43,7 +43,13 @@ function applyStatusToTask(task, evt) {
   if (!task) return task;
 
   const nodeId = evt.node_id;
-  const slashIdx = nodeId.indexOf('/');
+  // Route by the parent sub-graph key = the node id up to its LAST slash
+  // (equivalently the longest matching subGraphs key). Node ids are fully
+  // qualified by ctx path (e.g. "planner/propose/breakdown"), and a sub-graph
+  // is keyed by its parent_node_id ("planner/propose"); local ids never contain
+  // a slash, so lastIndexOf is exactly that parent key. (Using the FIRST slash
+  // mis-routes any node at depth >= 2 to the wrong sub-graph → silent no-op.)
+  const slashIdx = nodeId.lastIndexOf('/');
   const ts = evt.timestamp ?? Date.now() / 1000;
 
   const updateNode = (n) => {
@@ -215,7 +221,10 @@ export function useGraphState(setTasks) {
       const updated = applyStatusToTask(task, evt);
       if (updated === null) {
         // Sub-graph not yet present — buffer for replay
-        const parentId = evt.node_id.substring(0, evt.node_id.indexOf('/'));
+        // Same depth-safe parent key as applyStatusToTask: split on the LAST
+        // slash so the buffer key matches the sub-graph's parent_node_id used at
+        // replay time (handleGraphTopology), for nodes at any nesting depth.
+        const parentId = evt.node_id.substring(0, evt.node_id.lastIndexOf('/'));
         if (!raceBuffer.current[tid]) raceBuffer.current[tid] = {};
         if (!raceBuffer.current[tid][parentId]) raceBuffer.current[tid][parentId] = [];
         if (raceBuffer.current[tid][parentId].length < RACE_BUFFER_MAX_PER_PARENT) {

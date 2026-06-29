@@ -40,7 +40,10 @@ export function BackendSelector({ sessionId, sessionLlmBackend, sessionLlmModel,
   const effectiveBackend = activeBackend || defaultBackend;
   const effectiveModel = activeModel || (() => {
     const desc = backends.find((b) => b.name === effectiveBackend);
-    return desc?.default_model || defaultModel;
+    // Prefer the server's live default model (the --llm-model the server was
+    // launched with, e.g. "sonnet") over the backend descriptor's hardcoded
+    // fallback (e.g. "opus[1m]"), so the badge reflects what actually runs.
+    return defaultModel || desc?.default_model;
   })();
 
   const open = Boolean(anchorEl);
