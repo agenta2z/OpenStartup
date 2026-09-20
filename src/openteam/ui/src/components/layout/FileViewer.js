@@ -39,6 +39,7 @@ import { FolderTree } from './FolderTree';
 
 export function FileViewer({
   open, onClose, fileName, fileContent, fileError, fileLoading,
+  isHtmlFile, htmlFilePath,
   isFolderMode, folderTree, selectedFilePath, onFileSelect,
 }) {
   const theme = useTheme();
@@ -135,7 +136,7 @@ export function FileViewer({
       )}
 
       {/* Content area */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', ...(isHtmlFile ? { p: 0 } : { p: 2.5 }) }}>
         {fileLoading && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 4, justifyContent: 'center' }}>
             <CircularProgress size={20} />
@@ -146,12 +147,20 @@ export function FileViewer({
         )}
 
         {fileError && !fileLoading && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2, mx: isHtmlFile ? 2 : 0 }}>
             {fileError}
           </Alert>
         )}
 
-        {fileContent && !fileLoading && (
+        {isHtmlFile && htmlFilePath && !fileLoading && !fileError && (
+          <iframe
+            src={`/api/view/${htmlFilePath}`}
+            title={fileName}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        )}
+
+        {!isHtmlFile && fileContent && !fileLoading && (
           <Box
             sx={{
               '& p': { mt: 0, mb: 1.5 },
@@ -164,7 +173,7 @@ export function FileViewer({
           </Box>
         )}
 
-        {!fileContent && !fileLoading && !fileError && (
+        {!isHtmlFile && !fileContent && !fileLoading && !fileError && (
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
             {isFolderMode && folderTree ? 'Select a file to view its contents.' : 'No content available.'}
           </Typography>

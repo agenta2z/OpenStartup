@@ -21,10 +21,19 @@ from pathlib import Path
 from typing import Any
 
 import agent_foundation.resources as _af_res
+from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversational_inferencer import (
+    _CONTINUE_AFTER_TOOLS,
+)
+from openteam.server.services.json_io import write_json_atomic
 
 _AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
 
 logger = logging.getLogger(__name__)
+
+# Roles that are UI-only chrome (chips/cards) and must be excluded from the LLM
+# conversation feed. ``task_ref`` / ``dashboard_ref`` are purely-visual subtab
+# markers; including them would inject junk empty assistant turns.
+_UI_ONLY_ROLES = {"task_ref", "dashboard_ref"}
 
 
 class _SimplePromptRenderer:
@@ -79,7 +88,9 @@ class _SimplePromptRenderer:
             if candidate.is_file():
                 try:
                     data = _yaml.safe_load(candidate.read_text(encoding="utf-8"))
-                    self._cached_template_config = data if isinstance(data, dict) else {}
+                    self._cached_template_config = (
+                        data if isinstance(data, dict) else {}
+                    )
                     return self._cached_template_config
                 except Exception:
                     pass
@@ -141,17 +152,28 @@ class ConversationService:
         self._working_dir = working_dir or str(Path.home())
         self._cache_dir = cache_dir
         self._session_store = session_store
-        self._inferencers: dict[str, object] = {}  # session_id → ConversationalInferencer
+        self._inferencers: dict[
+            str, object
+        ] = {}  # session_id → ConversationalInferencer
         # session_id → ONE session-scoped RunContext root, reused across all turns
         # (each turn derives child("turn_N")). Loaded once from run_state/store.json;
         # mirrors the _inferencers cache lifecycle (evicted in lock-step). §9.4.
         self._session_roots: dict[str, object] = {}
-        self._mock_prompt_cache: dict[str, dict] = {}  # session_id → last prompt data (mock mode)
+        self._mock_prompt_cache: dict[
+            str, dict
+        ] = {}  # session_id → last prompt data (mock mode)
         # Per-session JsonLogger cache for RankEvolve-style structured logging.
         # Created lazily on first run_conversation_turn call so that we have
         # a session_dir to bind to. Reused across turns so the JSONL file
         # accumulates and the parts/ subfolders persist across the session.
         self._session_loggers: dict[str, Any] = {}
+        # Per-session registry of agent-invoked background tasks (asyncio.Task),
+        # so a resume/restore can cancel + await them before mutating disk.
+        # Inner dict is keyed by task_id so reconcile_task_ref_statuses can
+        # ask "is this task_id still alive?" via get_live_task_ids() — the
+        # authoritative liveness signal that distinguishes a WS reconnect
+        # (registry has the task) from a crash/restart (registry is empty).
+        self._bg_tasks: dict[str, dict[str, asyncio.Task]] = {}
         self._template_manager = self._build_template_manager()
 
     def _build_template_manager(self):
@@ -195,6 +217,8 @@ class ConversationService:
         conversation_history = []
         for msg in messages:
             role = msg.get("role", "manager")
+            if role in _UI_ONLY_ROLES:
+                continue  # task_ref chips are UI-only — never feed to the LLM
             # Map OpenStartup roles to prompt template roles
             prompt_role = "manager" if role in ("manager", "user") else "assistant"
             conversation_history.append(
@@ -226,6 +250,7 @@ class ConversationService:
         /api/server/backends meta route.
         """
         from openteam.server.backends import get_registry
+
         return list(get_registry().list_backends())
 
     # ── Workflow-controlled conversation ────────────────────────────
@@ -357,7 +382,9 @@ class ConversationService:
         ):
             logger.warning(
                 "set_session_backend(%s, %s): no session_store wired — "
-                "in-memory eviction only", session_id, backend,
+                "in-memory eviction only",
+                session_id,
+                backend,
             )
             return None
 
@@ -365,9 +392,81 @@ class ConversationService:
         return self._session_store.update_session(session_id, updates)
 
     def evict_session_inferencer(self, session_id: str) -> None:
-        """Free memory when a session is deleted."""
+        """Drop cached per-session state (on delete, or to force a resume rebuild).
+
+        Removes the cached inferencer + session root so the next turn rebuilds
+        the CI (which re-restores ``sop_state`` in the factory) and re-binds the
+        per-session JsonLogger after a truncate/restore rewrites ``session.jsonl``.
+        """
         self._inferencers.pop(session_id, None)
         self._session_roots.pop(session_id, None)  # lock-step with _inferencers
+        self._session_loggers.pop(session_id, None)  # re-bind session.jsonl on reload
+        self._bg_tasks.pop(session_id, None)  # drained explicitly by resume/restore
+
+    def _register_bg_task(
+        self, session_id: str, task_id: str, task: asyncio.Task
+    ) -> None:
+        """Record an agent-invoked background task for later draining.
+
+        Wired into the dispatcher per turn (``_register_bg_task`` callback) so
+        when an async tool spawns its background ``_run`` we keep a handle.
+        ``add_done_callback`` self-evicts the task when it finishes.
+
+        Keyed by ``task_id`` so :meth:`get_live_task_ids` can answer the
+        "is this chip's task still alive?" question that reconcile needs to
+        distinguish a WS reconnect from a crash/restart.
+        """
+        bucket = self._bg_tasks.setdefault(session_id, {})
+        bucket[task_id] = task
+
+        def _evict(
+            _t: asyncio.Task, _sid: str = session_id, _tid: str = task_id
+        ) -> None:
+            b = self._bg_tasks.get(_sid)
+            # Identity guard: a re-registered task_id (unlikely but possible on
+            # rapid dispatch/retry) must not be evicted by a stale done-callback
+            # from a prior Task object.
+            if b is not None and b.get(_tid) is _t:
+                b.pop(_tid, None)
+                if not b:
+                    self._bg_tasks.pop(_sid, None)
+
+        task.add_done_callback(_evict)
+
+    def get_live_task_ids(self, session_id: str) -> set[str]:
+        """Return the ``task_id``s of this session's background tasks that are
+        still alive (not ``done()``).
+
+        Used by ``reconcile_task_ref_statuses`` to skip chips whose background
+        ``_run()`` is still executing. Pure read; no locks needed (single-
+        threaded asyncio event loop). Empty when the session has no bg tasks
+        or all completed (and were evicted via ``add_done_callback``).
+
+        Callers on the resume path MUST capture this BEFORE calling
+        :meth:`evict_session_inferencer` — that method pops the registry
+        without cancelling tasks, so a post-evict call would return an empty
+        set even though tasks are still running (they'd be orphans, but alive).
+        """
+        bucket = self._bg_tasks.get(session_id, {})
+        return {tid for tid, t in bucket.items() if not t.done()}
+
+    async def drain_session_background_tasks(self, session_id: str) -> None:
+        """Cancel + await all in-flight background tasks for a session.
+
+        MUST be called before any resume/restore disk mutation (checkpoint copy,
+        ``turn_NNN`` rmtree, task-workspace rmtree) so a live writer can't race
+        the copy/delete. ``CancelledError`` is ``BaseException``-derived, so it
+        skips the background ``_run``'s ``except Exception``, runs its ``finally``
+        (per-task queue cleanup), and the task ends cancelled.
+        """
+        tasks = [t for t in self._bg_tasks.get(session_id, {}).values() if not t.done()]
+        if not tasks:
+            self._bg_tasks.pop(session_id, None)
+            return
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self._bg_tasks.pop(session_id, None)
 
     def get_last_prompt_data(self, session_id: str) -> dict:
         """Return cached prompt data from the last turn for a given session.
@@ -386,7 +485,9 @@ class ConversationService:
             return self._mock_prompt_cache.get(session_id, {})
         return {
             "template_source": getattr(inf, "_last_template_source", "") or "",
-            "template_feed": self._sanitize_feed(getattr(inf, "_last_template_feed", {}) or {}),
+            "template_feed": self._sanitize_feed(
+                getattr(inf, "_last_template_feed", {}) or {}
+            ),
             "rendered_prompt": getattr(inf, "_last_rendered_prompt", "") or "",
             "template_config": getattr(inf, "_last_template_config", {}) or {},
         }
@@ -428,8 +529,8 @@ class ConversationService:
         else:
             wc = WorkflowContext()
 
-        return {
-            "session_root_path": self._working_dir,
+        result: dict = {
+            "session_root_path": session.get("session_root_path") or self._working_dir,
             "workflow_status": wc.to_status_text(),
             "workflow_description": wc.workflow_description,
             "strategy": wc.strategy,
@@ -438,6 +539,15 @@ class ConversationService:
             "completed_phases": wc.completed_phases,
             "phase_outputs": wc.phase_outputs,
         }
+        # A4 (v3): hoist any `<tool>__<key>` entries persisted to
+        # phase_outputs (by tool_dispatcher.py's A4 persist block) to
+        # top-level prior_context so the SOP Jinja renderer finds
+        # `{{ research_propose__proposals_path }}` after a server restart.
+        # Pairs with the dispatcher-side A1 publish + A4 persist.
+        for k, v in (wc.phase_outputs or {}).items():
+            if isinstance(k, str) and "__" in k and k not in result:
+                result[k] = v
+        return result
 
     def _load_workflow_description(self) -> str:
         """Load the default workflow description from prompt templates."""
@@ -481,8 +591,52 @@ class ConversationService:
 
         if data_service and hasattr(data_service, "update_workflow_context"):
             data_service.update_workflow_context(session["id"], wc.to_dict())
-        elif self._session_store and hasattr(self._session_store, "update_workflow_context"):
+        elif self._session_store and hasattr(
+            self._session_store, "update_workflow_context"
+        ):
             self._session_store.update_workflow_context(session["id"], wc.to_dict())
+
+        root_path = prior_context.get("session_root_path", "")
+        if root_path and root_path != session.get("session_root_path", ""):
+            session["session_root_path"] = root_path
+            if self._session_store and hasattr(self._session_store, "update_session"):
+                try:
+                    self._session_store.update_session(
+                        session["id"], {"session_root_path": root_path}
+                    )
+                except Exception:
+                    pass
+
+    # ── SOP-state persistence (Piece F) ─────────────────────────────
+
+    @staticmethod
+    def _sop_snapshot(inferencer: Any) -> dict[str, Any]:
+        """Serialize the inferencer's live SOP state (active + suspended stack).
+
+        Returns ``{"sop_state": <dict|None>, "suspended_sops": [<dict>, ...]}``.
+        ``SOPState.to_dict()`` drops the non-serializable ``.sop`` graph; it is
+        reattached on restore (in ``factories._restore_sop_state``) via
+        ``build_sop_state(extra_sop_dirs=...)``.
+        """
+
+        def _td(s: Any) -> dict[str, Any] | None:
+            if s is None:
+                return None
+            try:
+                return s.to_dict()
+            except Exception:
+                return None
+
+        sop = getattr(inferencer, "sop_state", None)
+        suspended = getattr(inferencer, "_suspended_sops", []) or []
+        return {
+            "sop_state": _td(sop),
+            "suspended_sops": [d for d in (_td(s) for s in suspended) if d is not None],
+        }
+
+    def _write_sop_snapshot(self, path: Path, inferencer: Any) -> None:
+        """Atomically write the pre-turn SOP snapshot to ``path``."""
+        write_json_atomic(path, self._sop_snapshot(inferencer))
 
     def _get_or_create_session_logger(self, session_id: str, data_service):
         """Lazily create the per-session JsonLogger.
@@ -503,14 +657,18 @@ class ConversationService:
         try:
             from rich_python_utils.io_utils.json_io import JsonLogger
         except ImportError:
-            logger.debug("JsonLogger not available; skipping structured session logging")
+            logger.debug(
+                "JsonLogger not available; skipping structured session logging"
+            )
             return None
         json_logger = JsonLogger(
             file_path=str(session_dir / "session.jsonl"),
             append=True,
-            parts_min_size=0,            # all fields → parts/ files (matches RankEvolve)
-            is_artifact=True,            # auto-sets parts_key_paths='*'
-            parts_file_namer=lambda obj: obj.get("type", "") if isinstance(obj, dict) else "",
+            parts_min_size=0,  # all fields → parts/ files (matches RankEvolve)
+            is_artifact=True,  # auto-sets parts_key_paths='*'
+            parts_file_namer=lambda obj: obj.get("type", "")
+            if isinstance(obj, dict)
+            else "",
             # space_ext_mode omitted: only affects space= param, not group=/subfolder=
         )
         self._session_loggers[session_id] = json_logger
@@ -519,53 +677,30 @@ class ConversationService:
     async def run_conversation_turn(
         self, session: dict, user_message: str, *, interactive, data_service=None
     ):
-        """Run a full conversation turn with workflow-controlled agentic loop.
+        """Run a full conversation turn (fresh USER turn) with the agentic loop.
 
-        Unlike astream_response() (async generator yielding chunks),
-        this returns AgenticResult after run_agentic_loop() completes.
-        Streaming happens inside run_agentic_loop() via interactive.stream_token_batches().
+        Allocates the next canonical user-turn number, seeds the turn-entry
+        artifacts (user_input.txt + the pre-turn sop_state_in.json boundary +
+        turn.json {rounds: []}), then delegates the loop to the shared
+        ``_run_agentic_turn`` helper. Returns AgenticResult after
+        run_agentic_loop() completes; streaming happens inside the loop via
+        interactive.stream_token_batches().
         """
-        inferencer = self._get_session_inferencer(session["id"])
-        if inferencer is None:
-            raise RuntimeError("ConversationalInferencer not initialized")
-
-        # Inject per-turn interactive into the dispatcher so async tools (create_role,
-        # role_setup) can send task_status WS messages and spawn background tasks.
-        if hasattr(inferencer, "_tool_dispatcher"):
-            inferencer._tool_dispatcher._interactive = interactive
-
-        # Inject workflow state as prior_context
-        session_ctx = self._compute_session_context(session)
-        inferencer.set_prior_context(session_ctx)
-
-        # Sync conversation history
-        conv_messages = [
-            {
-                "role": "user" if m.get("role") in ("manager", "user") else "assistant",
-                "content": m.get("content", ""),
-            }
-            for m in session.get("messages", [])
-        ]
-        inferencer.set_messages(conv_messages)
-
-        # ── RankEvolve-style structured logging setup ─────────────────────
-        # Get/create per-session JsonLogger; compute initial turn number from
-        # what's already on disk; track the current turn so we can save data
-        # for both intermediate iterations (via on_new_turn) and the final turn.
         sid = session["id"]
-        json_logger = self._get_or_create_session_logger(sid, data_service)
         session_dir = (
             data_service.get_session_dir(sid)
             if data_service is not None and hasattr(data_service, "get_session_dir")
             else None
         )
 
-        # Count existing turn directories. Prefer new-style (turn_NNN/ at root,
-        # RankEvolve layout); fall back to legacy nested (turns/turn_NNN/).
+        # Count existing turn dirs → allocate EXACTLY ONE user-turn number for
+        # this call. Prefer new-style (turn_NNN/ at root, RankEvolve layout); fall
+        # back to legacy nested (turns/turn_NNN/).
         initial_turn = 0
         if session_dir is not None:
             new_style = sum(
-                1 for p in session_dir.iterdir()
+                1
+                for p in session_dir.iterdir()
                 if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
             )
             if new_style > 0:
@@ -574,40 +709,33 @@ class ConversationService:
                 legacy_dir = session_dir / "turns"
                 if legacy_dir.is_dir():
                     initial_turn = sum(
-                        1 for p in legacy_dir.iterdir()
+                        1
+                        for p in legacy_dir.iterdir()
                         if p.is_dir() and p.name.startswith("turn_")
                     )
-
-        # ── CANONICAL TURN (round-lifecycle core) ───────────────────────
-        # Allocate EXACTLY ONE user-turn number for this whole call. The
-        # existing dir-count + 1 is the canonical turn; compute it once and
-        # keep it fixed. Turn identity NO LONGER comes from _on_new_turn /
-        # current_turn / final_turn — per-round artifacts and bubbles are owned
-        # by the round hooks below, all stamped with this single user_turn.
         user_turn = initial_turn + 1
 
-        # The current RoundContext (minted in on_round_start, consumed in
-        # on_round_complete). Kept on a 1-slot list so the closures share it.
-        round_ctx_holder: list[dict[str, Any] | None] = [None]
-
-        # Parent user-message id minted at the route and threaded onto the
-        # appended user message; used as parent_user_message_id on each round.
-        parent_user_message_id = None
-        for _m in reversed(session.get("messages", [])):
-            if _m.get("role") in ("manager", "user"):
-                parent_user_message_id = _m.get("id")
-                break
-
-        # At turn ENTRY, seed the turn root so round=None View-Prompt has a root:
-        #   turn_NNN/user_input.txt  +  turn_NNN/turn.json {…, rounds: []}
+        # At turn ENTRY, seed the turn root: turn_NNN/user_input.txt + the pre-turn
+        # SOP boundary (sop_state_in.json, read by truncate_session_at_message /
+        # _read_sop_boundary) + turn.json {rounds: []}. INTENTIONALLY only on the
+        # fresh-turn path — resume_conversation_from_round must NOT re-run this or
+        # it would clobber turn_T/sop_state_in.json (the turn-entry SOP boundary)
+        # with round-Y inferencer state and corrupt a later turn-resume of turn T.
         if session_dir is not None:
+            # Backend-aware fetch (honors a per-session llm_backend override); also
+            # gives the live SOP state for the pre-turn boundary snapshot.
+            _inf = self._get_session_inferencer(sid, session=session)
             try:
                 turn_dir = session_dir / f"turn_{user_turn:03d}"
                 turn_dir.mkdir(parents=True, exist_ok=True)
                 (turn_dir / "user_input.txt").write_text(user_message, encoding="utf-8")
+                if _inf is not None:
+                    self._write_sop_snapshot(turn_dir / "sop_state_in.json", _inf)
             except Exception as e:
-                logger.debug("Turn-entry user_input.txt write failed: %s", e)
-        if data_service is not None and hasattr(data_service, "update_turn_root_summary"):
+                logger.debug("Turn-entry artifact write failed: %s", e)
+        if data_service is not None and hasattr(
+            data_service, "update_turn_root_summary"
+        ):
             try:
                 data_service.update_turn_root_summary(
                     sid,
@@ -622,16 +750,226 @@ class ConversationService:
             except Exception as e:
                 logger.debug("Turn-entry root summary write failed: %s", e)
 
+        return await self._run_agentic_turn(
+            session,
+            user_turn=user_turn,
+            user_message=user_message,
+            interactive=interactive,
+            data_service=data_service,
+            resume_blob=None,
+        )
+
+    async def resume_conversation_from_round(
+        self,
+        session: dict,
+        *,
+        target_turn: int,
+        target_round: int,
+        resume_blob: dict,
+        interactive,
+        data_service=None,
+    ):
+        """Auto-forward re-entry: regenerate turn ``target_turn`` from assistant
+        round ``target_round``. Rounds ``1..target_round-1`` are kept (the caller's
+        truncate removed round >= target_round and read the round-entry blob into
+        ``resume_blob``); the loop regenerates round ``target_round`` onward under
+        the SAME turn, driven by a self-continuation — NO new user message.
+
+        Does NOT allocate/seed a turn: turn ``target_turn`` already exists and its
+        user_input.txt / sop_state_in.json MUST be preserved. SOP is reattached by
+        the factory (_restore_sop_state) on the rebuilt CI; the blob restores
+        messages/prior_context/dynamic_context via _restore_pause_state(
+        reattach_sop=False) inside _run_agentic_turn.
+        """
+        sid = session["id"]
+        session_dir = (
+            data_service.get_session_dir(sid)
+            if data_service is not None and hasattr(data_service, "get_session_dir")
+            else None
+        )
+        # The turn's original user input (for per-round artifacts + round-1 content).
+        user_message = ""
+        if session_dir is not None:
+            uin = session_dir / f"turn_{target_turn:03d}" / "user_input.txt"
+            try:
+                if uin.is_file():
+                    user_message = uin.read_text(encoding="utf-8")
+            except OSError as e:
+                logger.debug("resume: user_input.txt read failed: %s", e)
+        if not user_message:
+            for _m in reversed(session.get("messages", [])):
+                if _m.get("role") in ("manager", "user"):
+                    user_message = _m.get("content", "") or ""
+                    break
+
+        # What round M renders with: the blob's captured content (authoritative);
+        # fallback = the continuation sentinel (M>1) or the user input (M==1).
+        content = resume_blob.get("content") or (
+            _CONTINUE_AFTER_TOOLS if target_round > 1 else user_message
+        )
+
+        return await self._run_agentic_turn(
+            session,
+            user_turn=target_turn,
+            user_message=user_message,
+            interactive=interactive,
+            data_service=data_service,
+            resume_blob=resume_blob,
+            content=content,
+        )
+
+    async def resume_conversation_from_widget(
+        self,
+        session: dict,
+        *,
+        marker: dict,
+        blob: dict,
+        raw_value,
+        interactive,
+        data_service=None,
+    ):
+        """Recover an unanswered conversation widget after a reconnect/restart:
+        inject the user's answer into the loop at the widget's iteration (restored
+        from ``blob``) so it applies to the EXACT persisted widget with NO LLM
+        re-inference, then continue the SOP. Reconstructs the ConversationTool
+        objects from the durable marker; clears the marker when done."""
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversation_tools import (  # noqa: E501
+            ConversationTool,
+        )
+
+        def _revive(t):
+            if isinstance(t, ConversationTool):
+                return t
+            if isinstance(t, dict) and hasattr(ConversationTool, "from_dict"):
+                return ConversationTool.from_dict(t)
+            return t
+
+        pending_widget = {
+            "raw_value": raw_value,
+            "tools": [_revive(t) for t in (marker.get("tools") or [])],
+            "action_tools": marker.get("action_tools") or [],
+        }
+        target_turn = int(marker.get("turn_number") or blob.get("turn_number") or 1)
+        try:
+            return await self._run_agentic_turn(
+                session,
+                user_turn=target_turn,
+                user_message="",
+                interactive=interactive,
+                data_service=data_service,
+                resume_blob=blob,
+                content=_CONTINUE_AFTER_TOOLS,
+                pending_widget=pending_widget,
+            )
+        finally:
+            # Clear-at-END (idempotency): the widget is resolved once the
+            # continuation runs. Cleared in ``finally`` so an error can't leave a
+            # stale marker that re-arms a ghost widget on the next connect
+            # (at-most-once; full message-dedup idempotency is a follow-up).
+            if data_service is not None and hasattr(data_service, "session_store"):
+                try:
+                    data_service.session_store.clear_pending_input(session["id"])
+                except Exception as e:
+                    logger.warning("clear_pending_input failed: %s", e)
+
+    async def _run_agentic_turn(
+        self,
+        session: dict,
+        *,
+        user_turn: int,
+        user_message: str,
+        interactive,
+        data_service=None,
+        resume_blob: dict | None = None,
+        content: str | None = None,
+        pending_widget: dict | None = None,
+    ):
+        """Shared agentic-loop driver for a fresh turn (resume_blob=None) and a
+        round-resume (resume_blob set). Owns the dispatcher per-turn injections,
+        the per-round persistence closures, the run_agentic_loop call, and the
+        turn-exit persistence. The caller owns turn-number allocation and (fresh
+        turn only) turn-entry seeding.
+        """
+        sid = session["id"]
+        # Backend-aware fetch so a per-session llm_backend override survives an
+        # eviction+rebuild (the resume path evicts the CI before calling us).
+        inferencer = self._get_session_inferencer(sid, session=session)
+        if inferencer is None:
+            raise RuntimeError("ConversationalInferencer not initialized")
+
+        session_dir = (
+            data_service.get_session_dir(sid)
+            if data_service is not None and hasattr(data_service, "get_session_dir")
+            else None
+        )
+        # Bind (or re-bind, after an eviction) the per-session structured logger.
+        json_logger = self._get_or_create_session_logger(sid, data_service)
+
+        # ── Dispatcher per-turn injections (BOTH paths — all load-bearing on
+        # resume too, since regenerated rounds may dispatch async tools) ──
+        #   _interactive: gates async-tool dispatch + task/dashboard WS emission
+        #   _current_turn: stamps task_meta/task_ref/dashboard turn_number
+        #   _register_bg_task: registers spawned bg tasks so a later resume/restore
+        #     can drain (cancel+await) them before mutating the session on disk
+        if hasattr(inferencer, "_tool_dispatcher"):
+            inferencer._tool_dispatcher._interactive = interactive
+            inferencer._tool_dispatcher._current_turn = user_turn
+            inferencer._tool_dispatcher._register_bg_task = (
+                lambda t, tid, _sid=sid: self._register_bg_task(_sid, tid, t)
+            )
+
+        # ── Prepare the inferencer's conversation state ──────────────────
+        if resume_blob is None:
+            # Fresh turn: seed prior_context + messages from the session.
+            inferencer.set_prior_context(self._compute_session_context(session))
+            conv_messages = [
+                {
+                    "role": (
+                        "user" if m.get("role") in ("manager", "user") else "assistant"
+                    ),
+                    "content": m.get("content", ""),
+                }
+                for m in session.get("messages", [])
+                if m.get("role") not in _UI_ONLY_ROLES
+            ]
+            inferencer.set_messages(conv_messages)
+        else:
+            # Round-resume: restore the round-ENTRY snapshot (full _messages incl.
+            # tool-result / widget / synthetic turns + prior_context +
+            # dynamic_context) and set the start_iteration marker. SOP is left to
+            # the factory restore (already applied on this rebuilt CI);
+            # reattach_sop=False avoids the CI's non-extra-dirs-aware
+            # _reload_sop_definition raising SOPNotFound on OpenTeam SOPs.
+            inferencer._restore_pause_state(resume_blob, reattach_sop=False)
+
+        # Widget recovery: seed the injected answer so the loop's pending-widget
+        # branch (fired at the widget's iteration, restored from resume_blob)
+        # applies it deterministically — no re-inference, exact persisted widget.
+        if pending_widget is not None:
+            inferencer._pending_widget_result = pending_widget
+
+        # The current RoundContext (minted in on_round_start, consumed in
+        # on_round_complete). Kept on a 1-slot list so the closures share it.
+        round_ctx_holder: list[dict[str, Any] | None] = [None]
+
+        # Parent user-message id; used as parent_user_message_id on each round.
+        parent_user_message_id = None
+        for _m in reversed(session.get("messages", [])):
+            if _m.get("role") in ("manager", "user"):
+                parent_user_message_id = _m.get("id")
+                break
+
         # ── on_new_turn: NEUTERED ────────────────────────────────────────
-        # No longer creates sibling turn dirs, rotates cache, writes JSONL, or
-        # calls save_turn_data. Returns the SAME fixed user_turn so the loop's
-        # turn_number stays constant (send_turn_boundary won't spuriously fire)
-        # and the round hooks own all per-turn/round artifacts.
+        # Returns the SAME fixed user_turn so the loop's turn_number stays
+        # constant (send_turn_boundary won't spuriously fire) and the round hooks
+        # own all per-turn/round artifacts.
         async def _on_new_turn(prev_turn: int, widget_response: Any) -> int:
             return user_turn
 
-        # ── on_round_start: mint RoundContext, mkdir round dir ───────────
-        async def _on_round_start(iteration: int, turn_number: int) -> dict[str, Any] | None:
+        # ── on_round_start: mint RoundContext, mkdir round dir, snapshot ──
+        async def _on_round_start(
+            iteration: int, turn_number: int
+        ) -> dict[str, Any] | None:
             round_index = iteration + 1
             message_id = uuid.uuid4().hex[:12]
             round_dir = ""
@@ -642,6 +980,24 @@ class ConversationService:
                 except Exception as e:
                     logger.debug("[_on_round_start] round dir mkdir failed: %s", e)
                 round_dir = str(rd)
+                # Per-round resume snapshot (round-ENTRY state — this hook fires at
+                # the TOP of the loop iteration, BEFORE render/infer, so
+                # inferencer._messages is exactly the state entering this round).
+                # PURE blob (no ctx-node mirror) so snapshotting every round never
+                # pollutes run_state/store.json. Best-effort; never block a round.
+                try:
+                    write_json_atomic(
+                        Path(round_dir) / "resume_state.json",
+                        inferencer._conversation_blob(
+                            turn_number=user_turn, iteration=iteration
+                        ),
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_start] resume snapshot failed: %s", e)
+            # Stamp the current round on the dispatcher so async tasks dispatched
+            # this round record round_number (round-granular keep/drop on resume).
+            if hasattr(inferencer, "_tool_dispatcher"):
+                inferencer._tool_dispatcher._current_round = round_index
             ctx: dict[str, Any] = {
                 "message_id": message_id,
                 "round_index": round_index,
@@ -694,8 +1050,10 @@ class ConversationService:
                 interactive._last_prompt_data = prompt_data
 
             # 2) Commit the assistant bubble ONLY when there is displayable text.
-            if display_text and data_service is not None and hasattr(
-                data_service, "append_message"
+            if (
+                display_text
+                and data_service is not None
+                and hasattr(data_service, "append_message")
             ):
                 try:
                     data_service.append_message(
@@ -725,7 +1083,9 @@ class ConversationService:
                         final_content=display_text,
                     )
                 except Exception as e:
-                    logger.debug("[_on_round_complete] send_round_message_end failed: %s", e)
+                    logger.debug(
+                        "[_on_round_complete] send_round_message_end failed: %s", e
+                    )
 
             # 4) Update the root turn summary once per round (assemble display text).
             if data_service is not None and hasattr(
@@ -739,7 +1099,11 @@ class ConversationService:
                     ) or {}
                     assembled = prev.get("assembled_summary", "") or ""
                     if display_text:
-                        assembled = (assembled + "\n\n" + display_text) if assembled else display_text
+                        assembled = (
+                            (assembled + "\n\n" + display_text)
+                            if assembled
+                            else display_text
+                        )
                     data_service.update_turn_root_summary(
                         sid,
                         user_turn,
@@ -752,7 +1116,9 @@ class ConversationService:
                         },
                     )
                 except Exception as e:
-                    logger.debug("[_on_round_complete] root summary update failed: %s", e)
+                    logger.debug(
+                        "[_on_round_complete] root summary update failed: %s", e
+                    )
 
         # §9.4: derive this turn's context from the ONE session-scoped root
         # (cached + reused across all turns; its run-state store is loaded ONCE in
@@ -760,19 +1126,26 @@ class ConversationService:
         # off that root. Best-effort: a None root falls back to the legacy call
         # (run_context=None -> byte-identical). Never block a turn on this.
         _turn_store_path = (
-            session_dir / "run_state" / "store.json" if session_dir is not None else None
+            session_dir / "run_state" / "store.json"
+            if session_dir is not None
+            else None
         )
         _cwd = getattr(inferencer, "effective_cwd", "") or ""
         _session_root = self._get_session_root(sid, session_dir=session_dir, cwd=_cwd)
         _turn_root = (
-            _session_root.child(f"turn_{user_turn}") if _session_root is not None else None
+            _session_root.child(f"turn_{user_turn}")
+            if _session_root is not None
+            else None
         )
 
-        # Run the full agentic loop. Turn identity is the fixed user_turn; the
-        # round hooks own per-round cache_folder placement + persistence.
+        # Run the full agentic loop. `content` is what round `start_iteration`
+        # renders with — user_message for a fresh turn, the blob's continuation
+        # content on resume. Turn identity is the fixed user_turn; the round hooks
+        # own per-round cache_folder placement + persistence.
+        _content = content if content is not None else user_message
         try:
             result = await inferencer.run_agentic_loop(
-                user_message,
+                _content,
                 interactive=interactive,
                 session_id=sid,
                 on_new_turn=_on_new_turn,
@@ -791,6 +1164,23 @@ class ConversationService:
                     _session_root._store.save(str(_turn_store_path))
                 except Exception:  # pragma: no cover - best-effort
                     pass
+            # Piece F: persist the live SOP state (active + suspended stack) at
+            # turn exit so it survives restart/eviction. Stored as a top-level
+            # session field (NOT inside workflow_context) so the turn-end
+            # _persist_workflow_updates cannot clobber it. Restored on the next
+            # CI build by factories._restore_sop_state.
+            if self._session_store is not None:
+                try:
+                    _snap = self._sop_snapshot(inferencer)
+                    self._session_store.update_session(
+                        sid,
+                        {
+                            "sop_state": _snap["sop_state"],
+                            "suspended_sops": _snap["suspended_sops"],
+                        },
+                    )
+                except Exception as e:  # pragma: no cover - best-effort
+                    logger.debug("sop_state persist failed: %s", e)
 
         # Stash the canonical turn number on the result for the route layer.
         try:
@@ -847,6 +1237,8 @@ class ConversationService:
             conv_messages = []
             for msg in messages:
                 role = msg.get("role", "manager")
+                if role in _UI_ONLY_ROLES:
+                    continue  # task_ref chips are UI-only — never feed to the LLM
                 prompt_role = "user" if role in ("manager", "user") else "assistant"
                 conv_messages.append(
                     {"role": prompt_role, "content": msg.get("content", "")}

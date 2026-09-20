@@ -20,9 +20,15 @@ import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ListItemText from '@mui/material/ListItemText';
+import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonIcon from '@mui/icons-material/Person';
+import HistoryIcon from '@mui/icons-material/History';
+import RestoreIcon from '@mui/icons-material/Restore';
 import { useApiData } from '../../hooks/useApiData';
 import { useServerStatus } from '../../hooks/useServerStatus';
 import { useManagerChat } from '../../hooks/useManagerChat';
@@ -288,7 +294,20 @@ function formatTime(timestamp) {
 }
 
 
-function ManagerMessage({ message }) {
+function ManagerMessage({ message, onResumeFromTurn, disabled }) {
+  // The Avatar doubles as a "resume from this turn" menu anchor. Only real human
+  // turns render this bubble (the messages.map hides auto-advance manager msgs),
+  // so the menu is always a valid resume point. Disabled while a turn streams.
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
+  const canResume = Boolean(onResumeFromTurn) && !disabled;
+  const handleOpen = (e) => { if (canResume) setAnchorEl(e.currentTarget); };
+  const handleClose = () => setAnchorEl(null);
+  const handleResume = (dropTasks) => {
+    handleClose();
+    onResumeFromTurn?.(message, dropTasks);
+  };
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
       <Box sx={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -311,9 +330,27 @@ function ManagerMessage({ message }) {
           {formatTime(message.timestamp)}
         </Typography>
       </Box>
-      <Avatar sx={{ ml: 1, width: 32, height: 32, bgcolor: 'primary.main', flexShrink: 0 }}>
-        <PersonIcon sx={{ fontSize: 18 }} />
-      </Avatar>
+      <Tooltip title={canResume ? 'Resume conversation from this turn' : ''} placement="left">
+        <Avatar
+          onClick={handleOpen}
+          sx={{
+            ml: 1, width: 32, height: 32, bgcolor: 'primary.main', flexShrink: 0,
+            cursor: canResume ? 'pointer' : 'default',
+            transition: 'box-shadow 0.15s',
+            '&:hover': canResume ? { boxShadow: '0 0 0 2px rgba(74,144,217,0.5)' } : undefined,
+          }}
+        >
+          <PersonIcon sx={{ fontSize: 18 }} />
+        </Avatar>
+      </Tooltip>
+      <Menu anchorEl={anchorEl} open={menuOpen} onClose={handleClose}>
+        <MenuItem onClick={() => handleResume(false)}>
+          Resume from this turn (keep tasks)
+        </MenuItem>
+        <MenuItem onClick={() => handleResume(true)}>
+          Resume from this turn (also drop tasks)
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }
@@ -372,6 +409,97 @@ function WsStatusBadge({ status }) {
 
 
 /**
+ * Format a checkpoint's created_at into a compact local timestamp for the menu.
+ */
+function formatCheckpointTime(createdAt) {
+  if (!createdAt) return '';
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return String(createdAt);
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+
+/**
+ * CheckpointsMenu — header control to list and restore session checkpoints.
+ * Fetches the checkpoint list lazily on open (GET /sessions/{id}/checkpoints,
+ * newest first) and restores a chosen one over the WebSocket. Disabled while a
+ * turn is streaming so a restore can't race an in-flight response.
+ */
+function CheckpointsMenu({ sessionId, fetchCheckpoints, restoreCheckpoint, disabled }) {
+  const theme = useTheme();
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [checkpoints, setCheckpoints] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const open = Boolean(anchorEl);
+
+  const handleOpen = useCallback(async (e) => {
+    setAnchorEl(e.currentTarget);
+    if (!sessionId || !fetchCheckpoints) return;
+    setLoading(true);
+    try {
+      const list = await fetchCheckpoints(sessionId);
+      setCheckpoints(Array.isArray(list) ? list : []);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, fetchCheckpoints]);
+
+  const handleClose = () => setAnchorEl(null);
+  const handleRestore = (name) => {
+    handleClose();
+    restoreCheckpoint?.(name);
+  };
+
+  return (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+      <Tooltip title="Restore a saved checkpoint">
+        <span>
+          <Chip
+            icon={<HistoryIcon sx={{ fontSize: 14 }} />}
+            label="Checkpoints"
+            size="small"
+            variant="outlined"
+            onClick={disabled ? undefined : handleOpen}
+            disabled={disabled}
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              cursor: disabled ? 'default' : 'pointer',
+              color: 'text.secondary',
+              borderColor: theme.custom?.surfaces?.cardBorder || 'rgba(255,255,255,0.12)',
+              '& .MuiChip-icon': { color: 'text.secondary', ml: 0.5 },
+            }}
+          />
+        </span>
+      </Tooltip>
+      <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+        {loading && (
+          <MenuItem disabled>Loading…</MenuItem>
+        )}
+        {!loading && checkpoints.length === 0 && (
+          <MenuItem disabled>No checkpoints</MenuItem>
+        )}
+        {!loading && checkpoints.map((cp, i) => (
+          <MenuItem key={cp.name || i} onClick={() => handleRestore(cp.name)}>
+            <RestoreIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
+            <ListItemText
+              primary={cp.name}
+              secondary={[
+                formatCheckpointTime(cp.created_at),
+                cp.message_count != null ? `${cp.message_count} msgs` : '',
+              ].filter(Boolean).join(' · ')}
+              primaryTypographyProps={{ variant: 'body2', sx: { fontSize: '0.8rem' } }}
+              secondaryTypographyProps={{ variant: 'caption', sx: { fontSize: '0.65rem' } }}
+            />
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
+  );
+}
+
+
+/**
  * Host-provided path-autocomplete for conversation-tool path inputs.
  * Calls the OpenStartup workspace route (mounted at /api/workspace/path-complete,
  * which validates the prefix against the session root). Returns [] on any error
@@ -394,7 +522,7 @@ async function pathAutocompleteProvider({ prefix, partial = '', dirsOnly = false
   }
 }
 
-export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onActiveTaskChanged, onSwitchTabRef }) {
+export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onActiveTaskChanged, onSwitchTabRef, onSessionsShouldRefresh }) {
   // Load session metadata (title etc.) via REST
   const { data: sessionMeta, loading } = useApiData(
     sessionId ? `/sessions/${sessionId}` : null
@@ -414,6 +542,10 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     pendingInput,
     sendPendingInputResponse,
     isConnected,
+    resumeFromTurn,
+    fetchCheckpoints,
+    restoreCheckpoint,
+    sessionsRefreshTick,
     tasks,
     activeTabType,
     activeTaskId,
@@ -425,6 +557,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
   const {
     fileViewerOpen, fileContent, fileName, fileError, fileLoading,
     openFileViewer, closeFileViewer,
+    isHtmlFile, htmlFilePath,
     folderTree, isFolderMode, selectedFilePath, openFolderViewer, selectFileInFolder,
   } = useFileViewer();
 
@@ -479,6 +612,13 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     setInputValue('');
   }, [inputValue, isConnected, sendMessage]);
 
+  // Resume the conversation from a chosen human turn (optionally dropping the
+  // tasks created after it). The hook truncates history at message.id, the
+  // server re-sends session_init, and the turn's text is auto-replayed.
+  const handleResumeFromTurn = useCallback((message, dropTasks) => {
+    resumeFromTurn?.(message.id, dropTasks, message.content);
+  }, [resumeFromTurn]);
+
   const theme = useTheme();
   const widgetMaxWidth = theme.custom?.layout?.widgetMaxWidth || '75%';
   const isRealSessions = serverInfo?.real_sessions;
@@ -497,6 +637,13 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
   useEffect(() => {
     onSwitchTabRef?.(switchTab);
   }, [switchTab, onSwitchTabRef]);
+
+  // Tell App to refetch the sidebar session list whenever the hook bumps its
+  // freshness tick (connect / session_init / turn end / task_status). Skip the
+  // initial 0 so we don't double-fetch on mount (Sidebar already fetches once).
+  useEffect(() => {
+    if (sessionsRefreshTick > 0) onSessionsShouldRefresh?.();
+  }, [sessionsRefreshTick, onSessionsShouldRefresh]);
 
   if (loading) return <LoadingIndicator />;
 
@@ -549,6 +696,14 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
             sessionLlmModel={sessionMeta?.llm_model}
           />
         )}
+        {isRealSessions && (
+          <CheckpointsMenu
+            sessionId={sessionId}
+            fetchCheckpoints={fetchCheckpoints}
+            restoreCheckpoint={restoreCheckpoint}
+            disabled={!isConnected || isStreaming}
+          />
+        )}
         {isRealSessions && <WsStatusBadge status={connectionStatus} />}
       </Box>
 
@@ -558,7 +713,14 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
           // Hide auto-advance messages (server-driven continuation, not user-visible)
           if (msg.metadata?.is_auto_advance) return null;
           if (msg.role === 'manager') {
-            return <ManagerMessage key={msg.id} message={msg} />;
+            return (
+              <ManagerMessage
+                key={msg.id}
+                message={msg}
+                onResumeFromTurn={isRealSessions ? handleResumeFromTurn : undefined}
+                disabled={!isConnected || isStreaming}
+              />
+            );
           }
           if (msg.role === 'error') {
             return <ErrorMessage key={msg.id} message={msg} />;
@@ -688,6 +850,8 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
         fileContent={fileContent}
         fileError={fileError}
         fileLoading={fileLoading}
+        isHtmlFile={isHtmlFile}
+        htmlFilePath={htmlFilePath}
         isFolderMode={isFolderMode}
         folderTree={folderTree}
         selectedFilePath={selectedFilePath}

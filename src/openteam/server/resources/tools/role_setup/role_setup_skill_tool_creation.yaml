@@ -27,12 +27,11 @@ _template_manager:
 
 # =====================================================================
 # Workspace — configure directory layout here, not on the BTA itself.
-# use_final_deliverables_folder: true → deliverables go to outputs/final_deliverables/
+# Deliverables are surfaced under outputs/ directly.
 # root is set at runtime via load_config overrides: {"workspace.root": str(workspace_root)}
 # =====================================================================
 workspace:
   _target_: InferencerWorkspace
-  use_final_deliverables_folder: true
 
 # =====================================================================
 # Pipeline: inferencers
@@ -76,14 +75,13 @@ worker_factory:
 # --- Aggregator ---
 # RovoDevCLI aggregator: has local file access, writes structured deliverables
 # (skills/<name>/SKILL.md, tools/<name>/tool.json, tools/<name>/executor.py)
-# directly to outputs/. output_is_deliverable moves them to outputs/final_deliverables/.
+# directly to outputs/.
 aggregator_inferencer:
   # task_preamble + task_response_format = aggregation defaulted by
   # BTA.SLOT_DEFAULTS; task_instructions: skill_tool_creation overrides
   # the default per-key (the skill-tool-specific instructions are what
   # tell the aggregator to write SKILL.md / tool.json / executor.py).
   _target_: RovoDevCLI
-  output_is_deliverable: true
   output_path: "aggregation_report.md"
   template_root_space: implementation
   template_variables:

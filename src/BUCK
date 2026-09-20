@@ -16,6 +16,7 @@ oncall("ml_oncall")
 python_library(
     name = "openteam",
     srcs = glob(["openteam/**/*.py"]),
+    base_module = "",
     resources = glob([
         # Bundle non-Python assets accessed via ``Path(pkg.__file__).parent``
         # at runtime: YAML topology configs, Jinja2 prompt templates, tool.json
@@ -26,25 +27,20 @@ python_library(
         "openteam/**/.initial.config.yaml",
         "openteam/**/.variables.yaml",
     ]),
-    base_module = "",
     typing = False,
     visibility = ["PUBLIC"],
     deps = [
-        "fbsource//third-party/pypi/attrs:attrs",
-        "fbsource//third-party/pypi/fastmcp:fastmcp",
-        "fbsource//third-party/pypi/httpx:httpx",
-        "fbsource//third-party/pypi/hydra-core:hydra-core",
-        "fbsource//third-party/pypi/jinja2:jinja2",
-        "fbsource//third-party/pypi/mcp:mcp",
-        "fbsource//third-party/pypi/omegaconf:omegaconf",
-        "fbsource//third-party/pypi/pydantic:pydantic",
-        "fbsource//third-party/pypi/pyre-extensions:pyre-extensions",
-        "fbsource//third-party/pypi/python-dotenv:python-dotenv",
-        "fbsource//third-party/pypi/pyyaml:pyyaml",
-        "fbsource//third-party/pypi/requests:requests",
-        "fbsource//third-party/pypi/typer:typer",
-        "fbsource//third-party/pypi/websockets:websockets",
         "fbcode//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
         "fbcode//_tony_dev/CoreProjects/RichPythonUtils/src:rich_python_utils",
+        "fbsource//third-party/pypi/attrs:attrs",
+        "fbsource//third-party/pypi/fastapi:fastapi",
+        "fbsource//third-party/pypi/fastmcp:fastmcp",
+        "fbsource//third-party/pypi/httpx:httpx",
+        "fbsource//third-party/pypi/jinja2:jinja2",
+        "fbsource//third-party/pypi/pydantic:pydantic",
+        "fbsource//third-party/pypi/pyyaml:pyyaml",
+        "fbsource//third-party/pypi/starlette:starlette",
+        "fbsource//third-party/pypi/typer:typer",
+        "fbsource//third-party/pypi/uvicorn:uvicorn",
     ],
 )

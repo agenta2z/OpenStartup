@@ -1,0 +1,1 @@
+stdout=/tmp/twg/1777672706/run.GNApDz/stdout.json

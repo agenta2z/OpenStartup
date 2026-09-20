@@ -1,0 +1,176 @@
+================================================================================
+COMPARATIVE AUDIT: DIR1 (AI-Built) vs DIR2 (Human-Calibrated)
+Executive Summary — 2026-05-06
+================================================================================
+
+QUESTION: Which documentation set provides genuine ANALYTICAL INSIGHT beyond
+mere description (what classes exist, what packages are there)?
+
+ANSWER: DIR2 decisively. DIR1 is a codebase snapshot; DIR2 is operational knowledge.
+
+================================================================================
+SCORE CARD
+================================================================================
+
+DIR1 (AI-Generated, ~7.3K lines):     4.2/10   [DESCRIPTIVE ONLY]
+DIR2 (Human-Calibrated, ~12.5K):     7.8/10   [ANALYTICAL + OPERATIONAL]
+
+================================================================================
+KEY DIFFERENTIATORS
+================================================================================
+
+1. ARCHITECTURAL DECISIONS
+   DIR1: Zero ADRs. Design decisions are implicit in code.
+   DIR2: 13 ADRs covering split-JVM, SQS durability, MDC propagation, 
+         visibility timeout extension, MCP integration. Each includes
+         rejected alternatives + quantified trade-offs.
+   EDGE: DIR2 (+13 points for explicit decision rationale)
+
+2. ARCHITECTURAL CONTRACTS (I-INVARIANTS)
+   DIR1: ~3 mentioned in passing (SQS attributes, feature gates).
+   DIR2: ~30+ formally specified per lifecycle stage with enforcement 
+         mechanisms (e.g., "I-1: Every request has MDC-restorable identity").
+   EDGE: DIR2 (+27 points for explicit contracts)
+
+3. REQUEST LIFECYCLE DEPTH
+   DIR1: 299 lines — bare call-stack flows. "Here's what happens."
+   DIR2: 758 lines — 3 distinct lifecycles (sync/async/Stratus), 9 
+         I-invariants per stage, failure modes table, latency budgets,
+         MDC lifecycle with code excerpts. "Here's what happens, why it
+         matters, what breaks, what it costs."
+   EDGE: DIR2 (+459 lines of actual insight)
+
+4. MODULE CATALOG DEPTH
+   DIR1: 15-line package summaries. "This package exists."
+   DIR2: File-by-file breakdown with purpose statements, test counts,
+         LoC verification, test:source ratios, cross-refs to deep-dives,
+         invariants per module. "This file exists, why, what it owns,
+         what it tests, where to find the rest of the story."
+   EDGE: DIR2 (+802 lines of encyclopedic depth)
+
+5. RISK ASSESSMENT
+   DIR1: None.
+   DIR2: Explicit bus-factor analysis (Zhangbin = 0.82 concentration),
+         strategic risks (competitive frame, post-OKR metric uncertainty),
+         velocity analytics with reproducible commands.
+   EDGE: DIR2 (only one has risk catalog)
+
+6. OPERATIONAL GUIDANCE
+   DIR1: Module reference.
+   DIR2: 20 problem playbooks + testing SOP + metrics catalog + 
+         optimization playbook. "I need to X" → here's the playbook.
+   EDGE: DIR2 (360° ops coverage vs. zero)
+
+7. FORWARD-LOOKING VISION
+   DIR1: None.
+   DIR2: FY26→FY28 strategy, north-star trajectory inference, open 
+         questions (post-OKR metric), provisional ADRs with sunset dates.
+   EDGE: DIR2 (only one has roadmap)
+
+================================================================================
+PADDING ANALYSIS
+================================================================================
+
+DIR1 PADDING (3 examples):
+  • Architecture overview: 90 extra lines of framework/version tables with
+    zero rationale (why 512 MB? why Spring 7.10?).
+  • Request lifecycle: thread pool config dump (10 core, 50 max, 200 queue)
+    with no explanation of WHY or failure modes.
+  • Module catalog utilities: "date, time, string, enum utilities" — 
+    literally just category names, zero substance.
+
+DIR2 PADDING (3 examples):
+  • Optimization playbook Lever 2.4: "concurrency controls threads" 
+    (tautological, no backpressure model).
+  • Metrics catalog Part 5: acknowledges "no CV/SLO file exists" but 
+    doesn't explain WHY (intentional pre-production? process gap?).
+  • Full history catalog PR highlights: "Kotlin-first codebase established"
+    without explaining WHY Kotlin (coroutines? JVM async? alternatives?).
+
+VERDICT: DIR1 has **structural** padding (tables everywhere); DIR2 has
+**explanatory** padding (incomplete reasoning in specific chapters).
+DIR2's padding is fixable gaps; DIR1's padding is structural overweight.
+
+================================================================================
+UNIQUE CHAPTERS IN DIR2 (5 RST + 3 MD)
+================================================================================
+
+10-vision-and-strategy.rst (385 lines) — GENUINE VALUE
+  • Mission statement + three-horizon view + north-star trajectory
+  • Strategic risks register (competitors, post-OKR uncertainty)
+  • Open questions for team decision (e.g., "what's the post-OKR metric?")
+  • Explicit honesty ("No formal Vision FY27 doc exists; inferred from OKR")
+
+11-metrics-catalog.rst (450 lines) — OPERATIONAL NECESSITY
+  • Source-of-truth for MetricKey enum (7 entries)
+  • Histogram boundaries, Micrometer tags, alarm definitions
+  • SLO registration status explicitly noted as missing
+  • Actionable but incomplete (no CV/SLO file)
+
+12-optimization-playbook.rst (368 lines) — UTILITY GRADE
+  • 10 levers for moving OKR + 8 for p95 latency
+  • Exact config file paths (service-descriptor.sd.yml § workers[...])
+  • Weakness: levers lack quantified impact; no measurement baseline
+
+14-architectural-decisions.rst (668 lines) — EXCELLENT
+  • 13 ADRs with rejected alternatives + trade-offs in each
+  • ADR-004: 8× throughput improvement via visibility-timeout extension
+  • Some ADRs marked as temporary/provisional (honest about incompleteness)
+
+15-velocity-and-debt.rst (564 lines) — EXCELLENT (REPRODUCIBLE)
+  • 12 parts with shell commands for full reproducibility
+  • Bus-factor = 0.82 (Zhangbin concentration risk)
+  • 9 of top-10 churn files are config/infra (not source quality issue)
+  • Every number is verifiable via git commands
+
+PROBLEM_PLAYBOOKS.md (384 lines) — HIGHLY ACTIONABLE
+  • 20 scenario-based playbooks ("investigate p95," "add feature flag," etc.)
+  • Each with problem statement, steps, file paths, commands
+  • Reduces tribal knowledge significantly
+  • Gap: assumes prior doc reading (circular dependency)
+
+TESTING_SOP.md (467 lines) — PRAGMATIC TRUTH
+  • Empirically verified (2026-05-05 16:00 run)
+  • Honest about build issues (requires network)
+  • Maps CI gates to local tasks
+  • Not ideal-state SOP; real-state SOP (valuable because honest)
+
+AGENTS.md (238 lines) — USEFUL ROUTING, NOT TEACHING
+  • Problem→Document routing table (saves search time)
+  • Topic index, symbol reverse map, known gaps
+  • Strength: saves search cycles
+  • Weakness: doesn't teach; just points (no substitute for domain reading)
+
+================================================================================
+RECOMMENDATION
+================================================================================
+
+USE DIR1 IF: You need a quick reference of "what code exists where?"
+USE DIR2 IF: You need to understand why, make changes, debug, or onboard.
+
+FOR PRODUCTION SUPPORT: DIR2 is essential (metrics, alarms, playbooks).
+FOR ARCHITECTURAL REVIEW: DIR2 is essential (ADRs, invariants, alternatives).
+FOR ONBOARDING: Use DIR2's AGENTS.md → 10-vision → architectural-narrative
+               → problem-playbooks → testing-SOP. Complete knowledge path.
+
+DIR1 VALUE: Sanity check ("is everything documented?"), quick reference.
+DIR2 VALUE: Knowledge base for engineers, ops, managers, and AI agents.
+
+================================================================================
+CLOSING OBSERVATION
+================================================================================
+
+DIR1 reads like the output of a code-to-docs generator. It's complete,
+consistent, and utterly uninformed by human judgment.
+
+DIR2 reads like a team that shipped something real, documented it honestly
+(including what they DON'T know), and created runbooks for common problems.
+
+The difference between DIR1 and DIR2 is the difference between
+  "Here's what the code does" and
+  "Here's why we built it this way, what can go wrong, how to change it,
+   and what we still need to figure out."
+
+For actual engineering work, DIR2 is ~2× more valuable.
+
+================================================================================

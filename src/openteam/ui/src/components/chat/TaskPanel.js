@@ -76,17 +76,20 @@ export function TaskPanel({ task, onBack, graphState }) {
     || task?.autoSelectedNodeId
     || activeGraph?.nodes?.[0]?.id;
 
-  // For focus-context: find selected node across all graphs
+  // For focus-context: find selected node across all graphs.
+  // Backend emits node ids already fully qualified by NamespacedGraphReporter,
+  // and subGraphs are keyed by the fully-qualified parent_node_id — direct
+  // equality on n.id is correct. The prior split('/').pop() + double-prefix
+  // matching never matched and made every sub-graph node click render the
+  // "Click a node" placeholder.
   const selectedNode = useMemo(() => {
     if (!effectiveNodeId) return null;
     if (viewMode === 'focus-context') {
-      // Search root graph and sub-graphs
       const rootNode = task?.graph?.nodes?.find(n => n.id === effectiveNodeId);
       if (rootNode) return rootNode;
       if (task?.subGraphs) {
         for (const sg of Object.values(task.subGraphs)) {
-          const qid = effectiveNodeId.includes('/') ? effectiveNodeId.split('/').pop() : effectiveNodeId;
-          const found = sg?.nodes?.find(n => n.id === qid || `${Object.keys(task.subGraphs).find(k => sg === task.subGraphs[k])}/${n.id}` === effectiveNodeId);
+          const found = sg?.nodes?.find(n => n.id === effectiveNodeId);
           if (found) return found;
         }
       }
@@ -104,7 +107,10 @@ export function TaskPanel({ task, onBack, graphState }) {
   const isNodeStreaming = selectedNode?.status === 'running';
 
   // Container output content (§3.5.4)
-  const focusedContainerId = focusedPath.length > 0 ? focusedPath.join('/') : null;
+  // focusedPath stores fully-qualified ids (handleNodeClick pushes node._qualifiedId);
+  // the deepest entry IS the subGraphs key. Using .join('/') would double-prefix at
+  // depth >= 2 (e.g. ["planner","planner/propose"].join('/') === "planner/planner/propose").
+  const focusedContainerId = focusedPath.length > 0 ? focusedPath[focusedPath.length - 1] : null;
   const showContainerOutput = focusedContainerId && containerOutputView[focusedContainerId] === 'output';
   const containerOutputContent = useMemo(() => {
     if (!showContainerOutput || !focusedContainerId) return '';
@@ -169,6 +175,24 @@ export function TaskPanel({ task, onBack, graphState }) {
 
   // --- Navigation handlers ---
 
+  // v4 Phase 4.1 — find the clicked node across root + all sub-graphs so
+  // handleNodeClick can detect "this should be expandable but its sub-graph
+  // isn't loaded" via the backend-set is_container flag. Independent of
+  // viewMode: focus-context renders every depth at once, page-switch shows
+  // just the current level — in both cases the nodeId is fully qualified.
+  const findNodeById = useCallback((nodeId) => {
+    if (!nodeId) return null;
+    const rootHit = task?.graph?.nodes?.find(n => n.id === nodeId);
+    if (rootHit) return rootHit;
+    if (task?.subGraphs) {
+      for (const sub of Object.values(task.subGraphs)) {
+        const hit = sub?.nodes?.find(n => n.id === nodeId);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }, [task?.graph, task?.subGraphs]);
+
   const handleNodeClick = useCallback((nodeId) => {
     if (viewMode === 'focus-context') {
       const hasSubGraph = task?.subGraphs?.[nodeId];
@@ -186,6 +210,15 @@ export function TaskPanel({ task, onBack, graphState }) {
         });
         setUserSelectedNodeId(null);
       } else {
+        // v4 Phase 4.1 — if the clicked node is a container per the backend
+        // (is_container=true set by BTA / Dual / MFDual / LWI containers)
+        // but no sub-graph is locally known, the snapshot may have missed
+        // this branch (e.g. HMR-interleaved session_init). Fire a defensive
+        // replay so subsequent clicks can drill once the events hydrate.
+        const clickedNode = findNodeById(nodeId);
+        if (clickedNode?.is_container && graphState?.requestGraphReplay) {
+          graphState.requestGraphReplay(tid);
+        }
         setUserSelectedNodeId(nodeId === userSelectedNodeId ? null : nodeId);
         graphState?.setStickySelection(tid);
       }
@@ -195,11 +228,16 @@ export function TaskPanel({ task, onBack, graphState }) {
         graphState?.setGraphPath(tid, [...graphPath, nodeId]);
         setUserSelectedNodeId(null);
       } else {
+        // v4 Phase 4.1 — same defensive replay path in page-switch mode.
+        const clickedNode = findNodeById(nodeId);
+        if (clickedNode?.is_container && graphState?.requestGraphReplay) {
+          graphState.requestGraphReplay(tid);
+        }
         setUserSelectedNodeId(nodeId === userSelectedNodeId ? null : nodeId);
         graphState?.setStickySelection(tid);
       }
     }
-  }, [viewMode, task?.subGraphs, expandableNodeIds, graphState, tid, graphPath, userSelectedNodeId]);
+  }, [viewMode, task?.subGraphs, expandableNodeIds, graphState, tid, graphPath, userSelectedNodeId, findNodeById]);
 
   const handleFocusChange = useCallback((path) => {
     setFocusedPath(path);
@@ -336,7 +374,7 @@ export function TaskPanel({ task, onBack, graphState }) {
                 </Box>
               ) : (
                 <Box
-                  key={viewMode === 'focus-context' ? 'unified' : (graphPath.join('/') || 'root')}
+                  key={viewMode === 'focus-context' ? 'unified' : (graphPath[graphPath.length - 1] || 'root')}
                   sx={{
                     overflow: viewMode === 'focus-context' ? 'hidden' : 'auto',
                     p: 1.5, flex: 1, minHeight: 0,

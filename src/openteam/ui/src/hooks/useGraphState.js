@@ -16,7 +16,10 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 const MAX_STREAM_SIZE = 200_000;
 const TRIM_SIZE = 50_000;
 const STICKY_DURATION_MS = 5_000;
-const RACE_BUFFER_MAX_PER_PARENT = 200;
+// Raised from 200 (v4 Phase 5.4): a 30s WS reconnect on a 9-worker x 3-flow
+// run can easily produce > 200 statuses on one hot parent. Memory cost is
+// trivial (event objects are tiny); silent drop is the worse failure mode.
+const RACE_BUFFER_MAX_PER_PARENT = 1000;
 const MAX_TOTAL_STREAMS = 10_000_000;
 const CLEANUP_KEEP_SIZE = 2_000;
 
@@ -69,7 +72,14 @@ function applyStatusToTask(task, evt) {
     // Inner node — route to subGraphs
     const parentId = nodeId.substring(0, slashIdx);
     const subGraph = task.subGraphs?.[parentId];
-    if (!subGraph) return null; // signal: buffer this event
+    if (!subGraph) return null; // signal: buffer this event (whole sub-graph missing)
+    // Node-level race buffer: during BTA expansion the sub-graph exists with only
+    // [breakdown], but worker_* statuses can arrive before the full diamond
+    // re-emit. .map(updateNode) would silently no-op (returning the unchanged
+    // node) and the event would be lost forever. Returning null here signals
+    // handleNodeStatus to buffer the event; it replays when the sub-graph's
+    // node set grows (in handleGraphTopology's merge path).
+    if (!subGraph.nodes.some(n => n.id === nodeId)) return null;
     const nodes = subGraph.nodes.map(updateNode);
     const updatedSubGraphs = { ...task.subGraphs, [parentId]: { ...subGraph, nodes } };
     const update = { ...task, subGraphs: updatedSubGraphs };
@@ -79,12 +89,75 @@ function applyStatusToTask(task, evt) {
 
   // Root node
   if (!task.graph) return task;
+  if (!task.graph.nodes.some(n => n.id === nodeId)) return null; // buffer if missing
   const nodes = task.graph.nodes.map(updateNode);
   const update = { ...task, graph: { ...task.graph, nodes } };
   if (evt.status === 'running' && !task._stickyUntil) {
     update.autoSelectedNodeId = nodeId;
   }
   return update;
+}
+
+/**
+ * Merge an incoming topology snapshot into an existing one, node-by-node.
+ * Preserves accumulated runtime state (status/timestamps/outputPath/error)
+ * on nodes that already exist; adopts the incoming snapshot's structural
+ * fields (label, group, is_container, _viz_label) plus its edges + layout.
+ *
+ * This makes BTA's two-stage emit (initial [breakdown] -> full diamond) and
+ * Dual's consensus re-iteration non-destructive: any node_status events
+ * received between the two emits are preserved rather than wiped back to
+ * the snapshot's defaults.
+ */
+function mergeTopology(existing, incoming) {
+  if (!existing) {
+    return { nodes: incoming.nodes, edges: incoming.edges, layout: incoming.layout,
+             version: incoming.version || 0 };
+  }
+  const existingByKey = Object.fromEntries(existing.nodes.map(n => [n.id, n]));
+  const mergedNodes = incoming.nodes.map(n => {
+    const old = existingByKey[n.id];
+    if (!old) return n;
+    return {
+      ...n,
+      status: old.status || n.status,
+      label: old.label || n.label,
+      error: old.error || '',
+      startedAt: old.startedAt,
+      completedAt: old.completedAt,
+      outputPath: old.outputPath || n.outputPath || '',
+    };
+  });
+  return { nodes: mergedNodes, edges: incoming.edges,
+           layout: incoming.layout, version: incoming.version || 0 };
+}
+
+/**
+ * Append-only merge (v4 Phase 5.2 — reset:false on GraphTopologyEvent).
+ *
+ * Used by orchestrators that grow their graph incrementally (LWI adding a
+ * new round on each dynamic step). Adds nodes whose id is not yet present;
+ * does NOT touch any field on existing nodes (status, timestamps, label,
+ * outputPath). Appends new edges, deduped by (source, target). Layout +
+ * version are taken from the incoming snapshot.
+ */
+function appendTopology(existing, incoming) {
+  if (!existing) {
+    return { nodes: incoming.nodes, edges: incoming.edges, layout: incoming.layout,
+             version: incoming.version || 0 };
+  }
+  const existingIds = new Set(existing.nodes.map(n => n.id));
+  const addedNodes = incoming.nodes.filter(n => !existingIds.has(n.id));
+  const nodes = addedNodes.length ? [...existing.nodes, ...addedNodes] : existing.nodes;
+  const existingEdgeKeys = new Set(
+    (existing.edges || []).map(e => `${e.source}->${e.target}`)
+  );
+  const addedEdges = (incoming.edges || []).filter(
+    e => !existingEdgeKeys.has(`${e.source}->${e.target}`)
+  );
+  const edges = addedEdges.length ? [...(existing.edges || []), ...addedEdges] : existing.edges;
+  return { nodes, edges, layout: incoming.layout || existing.layout,
+           version: incoming.version || existing.version || 0 };
 }
 
 /**
@@ -98,6 +171,15 @@ function applyStreamToTask(task, evt) {
     content = content.slice(TRIM_SIZE);
   }
   nodeStreams[evt.node_id] = content;
+
+  // Phase 5.5 — honor is_final. Track which streams have been declared
+  // canonical so the detail panel can suppress its blinking cursor (and
+  // future code can avoid treating partial chunks as "live" once final
+  // has arrived). Backend sends is_final=true on the worker's terminal
+  // emit (BTA _make_worker_fn) and on coalesced 200ms flushes that the
+  // observer marks as final.
+  const nodeStreamsFinal = { ...(task.nodeStreamsFinal || {}) };
+  if (evt.is_final === true) nodeStreamsFinal[evt.node_id] = true;
 
   // Global cap: if total nodeStreams size exceeds limit, purge completed nodes
   let totalSize = 0;
@@ -117,7 +199,7 @@ function applyStreamToTask(task, evt) {
     }
   }
 
-  const updated = { ...task, nodeStreams };
+  const updated = { ...task, nodeStreams, nodeStreamsFinal };
 
   // Auto-correct: a node receiving stream data is clearly running.
   // If its status is still "pending" (the RUNNING event was lost due to
@@ -153,6 +235,12 @@ export function useGraphState(setTasks) {
   // Race buffer: status events that arrived before their sub-graph topology
   const raceBuffer = useRef({});
 
+  // First-root-seen guard: prevents every root topology re-emit from clearing
+  // user navigation. The intent of the reset is "this is a fresh task" — but
+  // a re-emit is NOT a fresh task. Reset only on first-emit-per-task and on
+  // explicit task_status: starting (cleared from useManagerChat).
+  const seenRoot = useRef({});
+
   const enqueueTaskUpdate = useCallback((updater) => {
     pendingUpdates.current.push(updater);
     if (!rafId.current) {
@@ -174,39 +262,93 @@ export function useGraphState(setTasks) {
   // --- Event Handlers ---
 
   const handleGraphTopology = useCallback((tid, evt) => {
+    // v4 Phase 5.2 — reset semantics. Default true = merge-preserving (Phase 2.1).
+    // false = append-only (LWI dynamic round add).
+    const isAppendOnly = evt.reset === false;
     if (!evt.parent_node_id) {
-      // Root topology: apply IMMEDIATELY (atomic with navigation reset)
-      // Preserve existing nodeStreams — breakdown stream arrives BEFORE topology
-      setTasks(prev => ({
-        ...prev,
-        [tid]: {
-          ...prev[tid],
-          graph: { nodes: evt.nodes, edges: evt.edges, layout: evt.layout, version: evt.version || 0 },
-          nodeStreams: prev[tid]?.nodeStreams || {},
-          subGraphs: prev[tid]?.subGraphs || {},
-        },
-      }));
-      setGraphPathByTid(prev => ({ ...prev, [tid]: [] }));
-      setSelectedLeafByTid(prev => ({ ...prev, [tid]: null }));
-      raceBuffer.current[tid] = {};
+      // Root topology: MERGE node-by-node (preserve statuses + timestamps for
+      // already-known nodes; add new ones). Apply IMMEDIATELY (non-RAF) so
+      // sub-graph events arriving in the same tick can resolve.
+      setTasks(prev => {
+        const task = prev[tid];
+        // Version ordering: ignore an out-of-order re-delivery (lower version)
+        // so concurrent nested re-emits don't clobber newer state.
+        if (task?.graph?.version != null && evt.version != null
+            && evt.version < task.graph.version) {
+          return prev;
+        }
+        const merger = isAppendOnly ? appendTopology : mergeTopology;
+        const newRoot = merger(task?.graph || null, {
+          nodes: evt.nodes, edges: evt.edges, layout: evt.layout,
+          version: evt.version || 0,
+        });
+        return {
+          ...prev,
+          [tid]: {
+            ...task,
+            graph: newRoot,
+            nodeStreams: task?.nodeStreams || {},
+            subGraphs: task?.subGraphs || {},
+          },
+        };
+      });
+      // Nav-reset guard: only reset graphPath/selection/raceBuffer on the
+      // FIRST root topology for this task. Re-emits are not fresh tasks.
+      // (Explicit "new task" signals via task_status:starting are cleared
+      // from useManagerChat through the resetTaskNavState helper below.)
+      if (!seenRoot.current[tid]) {
+        setGraphPathByTid(prev => ({ ...prev, [tid]: [] }));
+        setSelectedLeafByTid(prev => ({ ...prev, [tid]: null }));
+        raceBuffer.current[tid] = {};
+        seenRoot.current[tid] = true;
+      }
+      // Replay any buffered root-level status events (parentId === "")
+      const bufferedRoot = raceBuffer.current[tid]?.[''];
+      if (bufferedRoot?.length) {
+        for (const bufferedEvt of bufferedRoot) {
+          enqueueTaskUpdate(prev => {
+            const task = prev[tid];
+            const updated = applyStatusToTask(task, bufferedEvt);
+            return updated ? { ...prev, [tid]: updated } : prev;
+          });
+        }
+        delete raceBuffer.current[tid][''];
+      }
     } else {
-      // Sub-graph topology: store under parent node, preserve existing data
+      // Sub-graph topology: MERGE under parent node, preserve existing data.
+      // Replays race-buffered status events for this parent whenever the
+      // sub-graph's node set GROWS (the BTA two-stage emit case: initial
+      // [breakdown] + worker_* statuses arriving early -> full diamond emit
+      // adds workers -> replay buffered statuses to flip workers to running).
+      let shouldReplay = false;
       enqueueTaskUpdate(prev => {
         const task = prev[tid];
         if (!task?.graph) return prev;
-        const subGraphs = { ...(task.subGraphs || {}) };
-        subGraphs[evt.parent_node_id] = {
+        const existing = task.subGraphs?.[evt.parent_node_id];
+        // Version ordering on sub-graphs too: ignore stale re-deliveries.
+        if (existing?.version != null && evt.version != null
+            && evt.version < existing.version) {
+          return prev;
+        }
+        const merger = isAppendOnly ? appendTopology : mergeTopology;
+        const merged = merger(existing, {
           nodes: evt.nodes, edges: evt.edges, layout: evt.layout,
-        };
+          version: evt.version || 0,
+        });
+        // Did the node set grow? Then replay the buffer below.
+        const oldCount = existing?.nodes?.length || 0;
+        if (merged.nodes.length > oldCount) shouldReplay = true;
+        const subGraphs = { ...(task.subGraphs || {}), [evt.parent_node_id]: merged };
         return { ...prev, [tid]: { ...task, subGraphs } };
       });
-      // Replay any buffered status events for this parent
       const buffered = raceBuffer.current[tid]?.[evt.parent_node_id];
-      if (buffered?.length) {
+      if (buffered?.length && shouldReplay) {
         for (const bufferedEvt of buffered) {
           enqueueTaskUpdate(prev => {
             const task = prev[tid];
             const updated = applyStatusToTask(task, bufferedEvt);
+            // updated === null means STILL not found (node not yet in this
+            // sub-graph) — re-buffer so a later growth can replay.
             return updated ? { ...prev, [tid]: updated } : prev;
           });
         }
@@ -220,15 +362,30 @@ export function useGraphState(setTasks) {
       const task = prev[tid];
       const updated = applyStatusToTask(task, evt);
       if (updated === null) {
-        // Sub-graph not yet present — buffer for replay
-        // Same depth-safe parent key as applyStatusToTask: split on the LAST
-        // slash so the buffer key matches the sub-graph's parent_node_id used at
-        // replay time (handleGraphTopology), for nodes at any nesting depth.
+        // Sub-graph not yet present (or node missing from existing sub-graph,
+        // post Phase 2.2) — buffer for replay. Same depth-safe parent key as
+        // applyStatusToTask: split on the LAST slash so the buffer key matches
+        // the sub-graph's parent_node_id used at replay time
+        // (handleGraphTopology), for nodes at any nesting depth.
         const parentId = evt.node_id.substring(0, evt.node_id.lastIndexOf('/'));
         if (!raceBuffer.current[tid]) raceBuffer.current[tid] = {};
-        if (!raceBuffer.current[tid][parentId]) raceBuffer.current[tid][parentId] = [];
+        if (!raceBuffer.current[tid][parentId]) {
+          raceBuffer.current[tid][parentId] = [];
+          raceBuffer.current[tid][parentId]._overflowCount = 0;
+        }
         if (raceBuffer.current[tid][parentId].length < RACE_BUFFER_MAX_PER_PARENT) {
           raceBuffer.current[tid][parentId].push(evt);
+        } else {
+          // Phase 5.4 — make silent drops visible. With cap=1000 and a healthy
+          // emit/replay loop this should never fire; if it does, something
+          // upstream is genuinely broken (sub-graph topology never arriving,
+          // backend stuck emitting status without topology, etc).
+          raceBuffer.current[tid][parentId]._overflowCount++;
+          console.warn(
+            `[graph race-buffer] OVERFLOW parent='${parentId}' tid='${tid}' ` +
+            `(dropped: ${raceBuffer.current[tid][parentId]._overflowCount}; ` +
+            `node_id='${evt.node_id}', status='${evt.status}')`
+          );
         }
         return prev;
       }
@@ -250,6 +407,7 @@ export function useGraphState(setTasks) {
       if (!task?.graph?.nodes) return prev;
       const updated = { ...task, graph: { ...task.graph, nodes: [...task.graph.nodes] } };
       let corrected = 0;
+      // Reconcile root nodes.
       for (const node of updated.graph.nodes) {
         const serverStatus = data.nodes?.[node.id];
         if (serverStatus && node.status !== serverStatus) {
@@ -260,6 +418,38 @@ export function useGraphState(setTasks) {
           node.status = serverStatus;
           corrected++;
         }
+      }
+      // Recursive reconcile across all sub-graphs at any depth. Sub-graph
+      // nodes are stored under task.subGraphs[parent_node_id].nodes with
+      // fully-qualified ids matching data.nodes keys; without this loop,
+      // status events dropped during reconnect (or before a sub-graph
+      // topology arrived) would leave sub-graph nodes stuck on stale
+      // statuses forever.
+      if (updated.subGraphs) {
+        const newSubGraphs = { ...updated.subGraphs };
+        let anySubChanged = false;
+        for (const [parentId, sg] of Object.entries(updated.subGraphs)) {
+          if (!sg?.nodes) continue;
+          let subChanged = false;
+          const newNodes = sg.nodes.map(node => {
+            const serverStatus = data.nodes?.[node.id];
+            if (serverStatus && node.status !== serverStatus) {
+              console.warn(
+                `[graph_reconcile] Sub-graph gap: node '${node.id}' was '${node.status}' ` +
+                `on UI but server reports '${serverStatus}' — auto-correcting`
+              );
+              subChanged = true;
+              corrected++;
+              return { ...node, status: serverStatus };
+            }
+            return node;
+          });
+          if (subChanged) {
+            newSubGraphs[parentId] = { ...sg, nodes: newNodes };
+            anySubChanged = true;
+          }
+        }
+        if (anySubChanged) updated.subGraphs = newSubGraphs;
       }
 
       // Free memory: trim nodeStreams for completed graphs.
@@ -314,39 +504,52 @@ export function useGraphState(setTasks) {
 
   /**
    * Get derived graph state for a specific task.
+   *
+   * Path convention (unified, v4 Phase 2.4):
+   *   Both focus-context's `focusedPath` (in TaskPanel) and page-switch's
+   *   `graphPath` (here) store FULLY-QUALIFIED node ids. The deepest entry
+   *   IS the subGraphs key. `path.join('/')` would double-prefix at depth
+   *   >= 2 (e.g. ["planner","planner/propose"].join('/') === "planner/planner/propose"
+   *   which matches no subGraphs key). Use `path[path.length - 1]` instead.
+   *
+   *   `expandableNodeIds` must also store FULL keys, not local remainders,
+   *   so `TaskPanel.handleNodeClick`'s `expandableNodeIds.has(nodeId)` —
+   *   where `nodeId` is the fully-qualified clicked id — actually matches.
+   *   Previously this set held remainders ("propose") while clicks sent
+   *   fully-qualified ids ("planner/propose"), silently blocking page-switch
+   *   drill at depth >= 2.
    */
   const getDerivedFor = useCallback((tid, task) => {
     const graphPath = graphPathByTid[tid] || [];
     const selectedLeafId = selectedLeafByTid[tid] || null;
     const containerView = containerViewByTid[tid] || {};
 
-    // Current graph at the drill-down depth
+    // Current graph at the drill-down depth — the deepest fully-qualified id.
+    const deepestKey = graphPath.length > 0 ? graphPath[graphPath.length - 1] : '';
     let currentGraph;
     if (graphPath.length === 0) {
       currentGraph = task?.graph || null;
     } else {
-      const key = graphPath.join('/');
-      currentGraph = task?.subGraphs?.[key] || null;
+      currentGraph = task?.subGraphs?.[deepestKey] || null;
     }
 
-    // Which nodes at current level are expandable (have sub-graphs)
+    // Which nodes at current level are expandable (have sub-graphs). Store
+    // FULL keys in the set so `expandableNodeIds.has(fullyQualifiedNodeId)`
+    // matches the clicked id from GraphFlowView's node._qualifiedId.
     const expandableNodeIds = new Set();
     if (task?.subGraphs) {
-      const prefix = graphPath.length > 0 ? graphPath.join('/') + '/' : '';
+      const prefix = graphPath.length > 0 ? deepestKey + '/' : '';
       for (const key of Object.keys(task.subGraphs)) {
         if (key.startsWith(prefix)) {
           const remainder = key.substring(prefix.length);
-          if (!remainder.includes('/')) expandableNodeIds.add(remainder);
+          if (!remainder.includes('/')) expandableNodeIds.add(key);
         }
       }
     }
 
-    // Content key for the detail panel at any depth
-    const nodeStreamKey = (nodeId) => {
-      return graphPath.length > 0
-        ? graphPath.join('/') + '/' + nodeId
-        : nodeId;
-    };
+    // Content key for the detail panel — node ids are already fully qualified
+    // by NamespacedGraphReporter, so no path-derived prefix is needed.
+    const nodeStreamKey = (nodeId) => nodeId;
 
     const allComplete = isAllComplete(task?.graph, task?.subGraphs);
 
@@ -361,6 +564,16 @@ export function useGraphState(setTasks) {
     };
   }, [graphPathByTid, selectedLeafByTid, containerViewByTid]);
 
+  // Called from useManagerChat on task_status:starting so a re-start of the
+  // SAME task_id genuinely resets navigation (rather than relying on the
+  // first-root-seen guard which would persist across re-starts).
+  const resetTaskNavState = useCallback((tid) => {
+    setGraphPathByTid(prev => ({ ...prev, [tid]: [] }));
+    setSelectedLeafByTid(prev => ({ ...prev, [tid]: null }));
+    raceBuffer.current[tid] = {};
+    seenRoot.current[tid] = false;
+  }, []);
+
   return {
     handleGraphTopology,
     handleNodeStatus,
@@ -372,6 +585,7 @@ export function useGraphState(setTasks) {
     setContainerView,
     getDerivedFor,
     isAllComplete,
+    resetTaskNavState,
   };
 }
 

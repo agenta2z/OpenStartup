@@ -1,0 +1,233 @@
+{
+  "name": "opsgenie_manage",
+  "tool_type": "Action",
+  "category": "utility",
+  "description": "Manage Opsgenie alerts, incidents, on-call schedules, and escalation policies via the Opsgenie REST API v2. Supports alert lifecycle (create, get, list, acknowledge, close, snooze, add notes/tags), incident management (create, get, list, close, add responder, add timeline entry), on-call schedule queries, and escalation policy lookups.",
+  "parameters": [
+    {
+      "name": "action",
+      "type": "string",
+      "required": true,
+      "positional": true,
+      "description": "The operation to perform.",
+      "choices": [
+        "create_alert",
+        "get_alert",
+        "list_alerts",
+        "count_alerts",
+        "acknowledge_alert",
+        "close_alert",
+        "snooze_alert",
+        "unacknowledge_alert",
+        "add_note",
+        "add_tags",
+        "escalate_alert",
+        "assign_alert",
+        "update_priority",
+        "create_incident",
+        "get_incident",
+        "list_incidents",
+        "close_incident",
+        "resolve_incident",
+        "add_responder",
+        "add_timeline_entry",
+        "get_on_call",
+        "list_schedules",
+        "get_escalation_policy",
+        "list_escalation_policies"
+      ]
+    },
+    {
+      "name": "--alert_id",
+      "type": "string",
+      "description": "Alert identifier (ID, tinyId, or alias). Required for single-alert operations."
+    },
+    {
+      "name": "--identifier_type",
+      "type": "string",
+      "default": "id",
+      "description": "Type of alert identifier.",
+      "choices": [
+        "id",
+        "tiny",
+        "alias"
+      ]
+    },
+    {
+      "name": "--incident_id",
+      "type": "string",
+      "description": "Incident identifier. Required for single-incident operations."
+    },
+    {
+      "name": "--message",
+      "type": "string",
+      "description": "Alert message (max 130 chars). Required for create_alert."
+    },
+    {
+      "name": "--alias",
+      "type": "string",
+      "description": "Unique de-duplication key for alerts (max 512 chars)."
+    },
+    {
+      "name": "--description",
+      "type": "string",
+      "description": "Detailed description (max 15000 chars)."
+    },
+    {
+      "name": "--priority",
+      "type": "string",
+      "default": "P3",
+      "description": "Alert/incident priority.",
+      "choices": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ]
+    },
+    {
+      "name": "--responders",
+      "type": "string",
+      "description": "Comma-separated responder identifiers (team:TeamName, user:username, schedule:ScheduleName, escalation:EscName). Max 50."
+    },
+    {
+      "name": "--tags",
+      "type": "string",
+      "description": "Comma-separated tags (max 20 tags, each max 50 chars)."
+    },
+    {
+      "name": "--details",
+      "type": "string",
+      "description": "JSON string of key-value custom properties (max 8000 chars total)."
+    },
+    {
+      "name": "--entity",
+      "type": "string",
+      "description": "Related domain entity name (max 512 chars)."
+    },
+    {
+      "name": "--source",
+      "type": "string",
+      "description": "Alert source (max 100 chars). Defaults to \"ai-sre\"."
+    },
+    {
+      "name": "--note",
+      "type": "string",
+      "description": "Additional note text (max 25000 chars). Used with add_note and other actions."
+    },
+    {
+      "name": "--user",
+      "type": "string",
+      "description": "Display name of the request owner (max 100 chars)."
+    },
+    {
+      "name": "--assignee",
+      "type": "string",
+      "description": "User to assign the alert to. Used with assign_alert."
+    },
+    {
+      "name": "--snooze_until",
+      "type": "string",
+      "description": "ISO 8601 datetime for snooze end time. Required for snooze_alert."
+    },
+    {
+      "name": "--schedule_id",
+      "type": "string",
+      "description": "Schedule identifier. Required for get_on_call."
+    },
+    {
+      "name": "--escalation_id",
+      "type": "string",
+      "description": "Escalation policy identifier."
+    },
+    {
+      "name": "--query",
+      "type": "string",
+      "description": "Search query for list_alerts (Opsgenie query syntax). Example: \"status=open AND priority=P1\"."
+    },
+    {
+      "name": "--limit",
+      "type": "int",
+      "default": 20,
+      "description": "Max results to return for list operations (max 100)."
+    },
+    {
+      "name": "--offset",
+      "type": "int",
+      "default": 0,
+      "description": "Pagination offset for list operations."
+    },
+    {
+      "name": "--sort",
+      "type": "string",
+      "default": "createdAt",
+      "description": "Sort field for list operations.",
+      "choices": [
+        "createdAt",
+        "updatedAt",
+        "tinyId",
+        "alias",
+        "message",
+        "status",
+        "isSeen",
+        "acknowledged",
+        "owner",
+        "integration.name",
+        "report.ackTime",
+        "report.closeTime"
+      ]
+    },
+    {
+      "name": "--order",
+      "type": "string",
+      "default": "desc",
+      "description": "Sort order.",
+      "choices": [
+        "asc",
+        "desc"
+      ]
+    },
+    {
+      "name": "--region",
+      "type": "string",
+      "default": "us",
+      "description": "Opsgenie data residency region.",
+      "choices": [
+        "us",
+        "eu"
+      ]
+    },
+    {
+      "name": "--dry_run",
+      "type": "flag",
+      "description": "Validate the request without executing. Returns what would happen."
+    },
+    {
+      "name": "--service_name",
+      "type": "string",
+      "description": "Affected service name for incident creation."
+    },
+    {
+      "name": "--timeline_entry",
+      "type": "string",
+      "description": "Timeline entry text for add_timeline_entry."
+    }
+  ],
+  "returns": "JSON object with fields: {\"ok\": bool, \"request_id\": string, \"data\": object, \"message\": string}. For async write operations, data includes the requestId for status polling.",
+  "examples": [
+    "opsgenie_manage list_alerts --query \"status=open AND priority=P1\" --limit 10",
+    "opsgenie_manage get_alert --alert_id abc-123-def",
+    "opsgenie_manage get_alert --alert_id my-alert-alias --identifier_type alias",
+    "opsgenie_manage create_alert --message \"High CPU on web-server-01\" --priority P2 --responders \"team:SRE,user:jdoe\" --tags \"cpu,production\" --entity web-server-01",
+    "opsgenie_manage acknowledge_alert --alert_id abc-123 --note \"Investigating \u2014 AI SRE triage\"",
+    "opsgenie_manage close_alert --alert_id abc-123 --note \"Resolved: CPU normalized after pod restart\"",
+    "opsgenie_manage snooze_alert --alert_id abc-123 --snooze_until 2026-04-23T12:00:00Z --note \"Maintenance window\"",
+    "opsgenie_manage add_note --alert_id abc-123 --note \"Root cause: memory leak in v2.3.1\"",
+    "opsgenie_manage escalate_alert --alert_id abc-123 --escalation_id esc-policy-1 --note \"Escalating to L2\"",
+    "opsgenie_manage create_incident --message \"Service outage: payments-api\" --priority P1 --service_name payments-api --description \"Complete service unavailability\"",
+    "opsgenie_manage get_on_call --schedule_id sre-primary-rotation",
+    "opsgenie_manage list_schedules",
+    "opsgenie_manage count_alerts --query \"status=open\""
+  ]
+}

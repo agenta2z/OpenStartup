@@ -7,7 +7,9 @@ session_context (session_id, session_root, ...) via
 Otherwise falls back to today's behavior: ``task_id`` only + auxiliary env
 vars (working_dir / cloud_id / etc.).
 """
+
 from __future__ import annotations
+
 import logging
 import os
 import uuid
@@ -20,10 +22,10 @@ logger = logging.getLogger(__name__)
 # their own purposes (working dir resolution, Atlassian auth, etc.).
 _ENV_MAP = {
     "OPENTEAM_WORKING_DIR": "working_dir",
-    "OPENTEAM_SERVER_DIR":  "server_dir",
-    "OPENTEAM_CLOUD_ID":    "cloud_id",
-    "OPENTEAM_UCT_TOKEN":   "uct_token",
-    "OPENTEAM_EMAIL":       "email",
+    "OPENTEAM_SERVER_DIR": "server_dir",
+    "OPENTEAM_CLOUD_ID": "cloud_id",
+    "OPENTEAM_UCT_TOKEN": "uct_token",
+    "OPENTEAM_EMAIL": "email",
 }
 
 

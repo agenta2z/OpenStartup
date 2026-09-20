@@ -47,7 +47,11 @@ def call_slack_api(method: str, params: dict[str, Any] | None = None) -> dict[st
 
     input_json = json.dumps({"method": method, "params": params or {}})
 
-    logger.debug("Calling Slack API via TS bridge: %s(%s)", method, json.dumps(params or {})[:200])
+    logger.debug(
+        "Calling Slack API via TS bridge: %s(%s)",
+        method,
+        json.dumps(params or {})[:200],
+    )
 
     try:
         result = subprocess.run(
@@ -69,9 +73,13 @@ def call_slack_api(method: str, params: dict[str, Any] | None = None) -> dict[st
         stderr = result.stderr.strip()
         try:
             err = json.loads(stderr)
-            raise RuntimeError(f"Slack API error ({method}): {err.get('error', stderr)}")
+            raise RuntimeError(
+                f"Slack API error ({method}): {err.get('error', stderr)}"
+            )
         except json.JSONDecodeError:
-            raise RuntimeError(f"Slack bridge failed ({method}): {stderr or 'unknown error'}")
+            raise RuntimeError(
+                f"Slack bridge failed ({method}): {stderr or 'unknown error'}"
+            )
 
     # Parse stdout
     stdout = result.stdout.strip()
@@ -81,10 +89,14 @@ def call_slack_api(method: str, params: dict[str, Any] | None = None) -> dict[st
     try:
         data = json.loads(stdout)
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Slack bridge returned invalid JSON for {method}: {stdout[:200]}") from e
+        raise RuntimeError(
+            f"Slack bridge returned invalid JSON for {method}: {stdout[:200]}"
+        ) from e
 
     if not data.get("ok"):
-        raise RuntimeError(f"Slack API returned ok=false ({method}): {data.get('error', 'unknown')}")
+        raise RuntimeError(
+            f"Slack API returned ok=false ({method}): {data.get('error', 'unknown')}"
+        )
 
     return data
 
@@ -96,16 +108,37 @@ def call_slack_api(method: str, params: dict[str, Any] | None = None) -> dict[st
 # Maps tool_name → (slack_method, param_transformer)
 # The transformer reshapes tool params to Slack API params
 _TOOL_METHOD_MAP: dict[str, tuple[str, dict[str, str] | None]] = {
-    "slack_react": ("reactions.add", {"channel_id": "channel", "message_id": "timestamp", "emoji": "name"}),
-    "slack_remove_reaction": ("reactions.remove", {"channel_id": "channel", "message_id": "timestamp", "emoji": "name"}),
-    "slack_list_reactions": ("reactions.get", {"channel_id": "channel", "message_id": "timestamp"}),
+    "slack_react": (
+        "reactions.add",
+        {"channel_id": "channel", "message_id": "timestamp", "emoji": "name"},
+    ),
+    "slack_remove_reaction": (
+        "reactions.remove",
+        {"channel_id": "channel", "message_id": "timestamp", "emoji": "name"},
+    ),
+    "slack_list_reactions": (
+        "reactions.get",
+        {"channel_id": "channel", "message_id": "timestamp"},
+    ),
     "slack_remove_own_reactions": (None, None),  # Multi-step — handled specially
     "slack_send_message": ("chat.postMessage", None),  # Complex — handled specially
-    "slack_edit_message": ("chat.update", {"channel_id": "channel", "message_id": "ts", "content": "text"}),
-    "slack_delete_message": ("chat.delete", {"channel_id": "channel", "message_id": "ts"}),
+    "slack_edit_message": (
+        "chat.update",
+        {"channel_id": "channel", "message_id": "ts", "content": "text"},
+    ),
+    "slack_delete_message": (
+        "chat.delete",
+        {"channel_id": "channel", "message_id": "ts"},
+    ),
     "slack_read_messages": (None, None),  # Branch on thread_id — handled specially
-    "slack_pin_message": ("pins.add", {"channel_id": "channel", "message_id": "timestamp"}),
-    "slack_unpin_message": ("pins.remove", {"channel_id": "channel", "message_id": "timestamp"}),
+    "slack_pin_message": (
+        "pins.add",
+        {"channel_id": "channel", "message_id": "timestamp"},
+    ),
+    "slack_unpin_message": (
+        "pins.remove",
+        {"channel_id": "channel", "message_id": "timestamp"},
+    ),
     "slack_list_pins": ("pins.list", {"channel_id": "channel"}),
     "slack_member_info": ("users.info", {"user_id": "user"}),
     "slack_emoji_list": ("emoji.list", None),
@@ -117,7 +150,9 @@ def _normalize_emoji(raw: str) -> str:
     return raw.strip().strip(":")
 
 
-def _remap_params(tool_params: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
+def _remap_params(
+    tool_params: dict[str, Any], mapping: dict[str, str]
+) -> dict[str, Any]:
     """Remap tool parameter names to Slack API parameter names."""
     result = {}
     for tool_key, api_key in mapping.items():
@@ -168,7 +203,7 @@ def execute_slack_action(tool_name: str, tool_params: dict[str, Any]) -> dict[st
         emoji = data.get("emoji", {})
         limit = tool_params.get("limit")
         if limit and int(limit) > 0:
-            entries = sorted(emoji.items())[:int(limit)]
+            entries = sorted(emoji.items())[: int(limit)]
             emoji = dict(entries)
         return {"ok": True, "emoji": emoji}
 
@@ -208,14 +243,22 @@ def _read_messages(params: dict[str, Any]) -> dict[str, Any]:
     after = params.get("after")
 
     if thread_id:
-        api_params: dict[str, Any] = {"channel": channel_id, "ts": thread_id, "limit": limit}
+        api_params: dict[str, Any] = {
+            "channel": channel_id,
+            "ts": thread_id,
+            "limit": limit,
+        }
         if before:
             api_params["latest"] = before
         if after:
             api_params["oldest"] = after
         data = call_slack_api("conversations.replies", api_params)
         messages = [m for m in data.get("messages", []) if m.get("ts") != thread_id]
-        return {"ok": True, "messages": messages, "has_more": data.get("has_more", False)}
+        return {
+            "ok": True,
+            "messages": messages,
+            "has_more": data.get("has_more", False),
+        }
     else:
         api_params = {"channel": channel_id, "limit": limit}
         if before:
@@ -223,7 +266,11 @@ def _read_messages(params: dict[str, Any]) -> dict[str, Any]:
         if after:
             api_params["oldest"] = after
         data = call_slack_api("conversations.history", api_params)
-        return {"ok": True, "messages": data.get("messages", []), "has_more": data.get("has_more", False)}
+        return {
+            "ok": True,
+            "messages": data.get("messages", []),
+            "has_more": data.get("has_more", False),
+        }
 
 
 def _remove_own_reactions(params: dict[str, Any]) -> dict[str, Any]:
@@ -238,7 +285,10 @@ def _remove_own_reactions(params: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("Failed to resolve bot user ID")
 
     # Get current reactions
-    data = call_slack_api("reactions.get", {"channel": channel_id, "timestamp": message_id, "full": "true"})
+    data = call_slack_api(
+        "reactions.get",
+        {"channel": channel_id, "timestamp": message_id, "full": "true"},
+    )
     reactions = data.get("message", {}).get("reactions", [])
 
     removed = []
@@ -246,7 +296,10 @@ def _remove_own_reactions(params: dict[str, Any]) -> dict[str, Any]:
         name = reaction.get("name")
         users = reaction.get("users", [])
         if name and bot_user_id in users:
-            call_slack_api("reactions.remove", {"channel": channel_id, "timestamp": message_id, "name": name})
+            call_slack_api(
+                "reactions.remove",
+                {"channel": channel_id, "timestamp": message_id, "name": name},
+            )
             removed.append(name)
 
     return {"ok": True, "removed": removed}

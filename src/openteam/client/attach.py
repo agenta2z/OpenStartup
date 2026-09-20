@@ -4,6 +4,7 @@ Separate from ``supervisor.py`` so client consumers that only need discovery
 don't pay for the HTTP attach surface, and so the supervisor stays free of
 HTTP request/response handling.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -20,8 +21,8 @@ class AttachResult:
     """Response from ``POST /api/sessions/attach``."""
 
     session_id: str
-    session_root: str        # absolute path on the server's filesystem
-    created: bool            # True if freshly created, False if already existed
+    session_root: str  # absolute path on the server's filesystem
+    created: bool  # True if freshly created, False if already existed
 
 
 class AttachFailed(Exception):

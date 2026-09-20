@@ -1,0 +1,1 @@
+stdout=/tmp/twg/1777672597/run.Ro4taI/stdout.json

@@ -5,7 +5,7 @@
  * Manages connection to /ws/manager, token streaming, auto-reconnect.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   parseResponseTags,
   parseSessionContext,
@@ -16,6 +16,7 @@ import {
   stripToolsToInvoke,
 } from '../components/chat/ThinkingFold';
 import { useGraphState } from './useGraphState';
+import { fetchJson } from '../utils/api';
 
 const WS_RECONNECT_BASE_MS = 1000;
 const WS_RECONNECT_MAX_MS = 30000;
@@ -79,6 +80,11 @@ export function useManagerChat(sessionId) {
   const [tasks, setTasks] = useState({});
   const [activeTabType, setActiveTabType] = useState('session');
   const [activeTaskId, setActiveTaskId] = useState(null);
+  // Monotonic counter bumped on events that change the sidebar session list
+  // (connect / session_init / turn completion / task_status transitions). The
+  // view forwards it up so App can refetch('/sessions') and keep counts fresh —
+  // the list is otherwise fetched once on mount and goes stale after a restart.
+  const [sessionsRefreshTick, setSessionsRefreshTick] = useState(0);
 
   // Graph visualization state (sub-graphs, drill-down, batching)
   const graphState = useGraphState(setTasks);
@@ -105,6 +111,15 @@ export function useManagerChat(sessionId) {
   // so dev-tool cancels and Approve/Reject widget responses reach the right per-task queue
   // (see manager_websocket_routes.py Patch 3.4 / R9b).
   const currentTaskIdRef = useRef(null);
+  // Resume support: when resumeFromTurn() fires, it stashes the human turn's text
+  // here. The server truncates history at that turn and re-sends a session_init
+  // frame; the session_init handler then auto-replays this text as a fresh message
+  // (cleared after replay) so the turn re-runs from the chosen checkpoint.
+  const pendingResumeReplayRef = useRef(null);
+  // Stable ref to the latest sendMessage. handleServerMessage is useCallback([],…)
+  // — an empty-deps closure — so it can't read the current sendMessage directly
+  // without a stale-closure bug. The resume auto-replay goes through this ref.
+  const sendMessageRef = useRef(null);
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -135,6 +150,9 @@ export function useManagerChat(sessionId) {
     ws.onopen = () => {
       setConnectionStatus('connected');
       reconnectAttemptRef.current = 0;
+      // Refresh the sidebar session list on (re)connect — counts/rows may have
+      // changed (e.g. after a server restart) since it was fetched on mount.
+      setSessionsRefreshTick((n) => n + 1);
       // Send init with session_id so server can resume correct conversation
       ws.send(JSON.stringify({ type: 'init', session_id: sessionId }));
     };
@@ -207,6 +225,11 @@ export function useManagerChat(sessionId) {
         }
         if (status === 'starting') {
           const label = request || tool_name || 'Task';
+          // Clear any prior graph nav state for this task_id so a re-start
+          // genuinely resets (rather than inheriting the prior run's drill
+          // path / sticky selection / race buffer / first-root-seen flag).
+          // Phase 2.5 nav-reset guard.
+          if (graphState?.resetTaskNavState) graphState.resetTaskNavState(task_id);
           setTasks(prev => ({
             ...prev,
             [task_id]: {
@@ -228,6 +251,9 @@ export function useManagerChat(sessionId) {
             msg.role === 'task_ref' && msg.taskId === task_id ? { ...msg, status } : msg
           ));
         }
+        // A task transition (start or terminal) changes what the sidebar should
+        // show for this session — nudge App to refetch the session list.
+        setSessionsRefreshTick((n) => n + 1);
         break;
       }
 
@@ -254,7 +280,12 @@ export function useManagerChat(sessionId) {
 
       case 'task_completed': {
         const { task_id: cTaskId, tool_name: cToolName, result_summary, workspace, document_path } = data;
-        // Auto-advance: send a new WS message to trigger next conversation turn
+        // Auto-advance: send a new WS message to trigger next conversation turn.
+        // Wording deliberately TOOL-NEUTRAL (no `create_role`-flavored "Role
+        // Document" / "Phase 2") so the LLM doesn't pattern-match the example
+        // as inapplicable to whichever tool actually ran (e.g. understand_codebase,
+        // research_propose). The defensive viewPath fallback below in
+        // augmentedPendingInput is the belt; this is the suspenders.
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           const parts = [
             `[System notification: Task '${cToolName || cTaskId}' (${cTaskId}) completed successfully.`,
@@ -264,22 +295,20 @@ export function useManagerChat(sessionId) {
             `CRITICAL: Present 3-5 bullet points summarizing the key aspects of the document, then`,
             `you MUST respond with a "confirmation" conversation tool (NOT "clarification" or "free_text").`,
             document_path
-              ? `Set metadata.view to "${document_path}", metadata.view_label to "View Role Document",`
-                + ` metadata.yes_label to "✅ Approve & Proceed", metadata.no_label to "❌ Request Changes".`
-              : `Set metadata.yes_label to "✅ Approve & Proceed", metadata.no_label to "❌ Request Changes".`,
+              ? `Set view to "${document_path}", view_label to "View Documentation",`
+                + ` yes_label to "✅ Approve & Proceed", no_label to "❌ Request Changes".`
+              : `Set yes_label to "✅ Approve & Proceed", no_label to "❌ Request Changes".`,
             `Example ToolsToInvoke block:`,
             '```json ToolsToInvoke',
             JSON.stringify({
               type: 'conversation',
               name: 'confirmation',
               arguments: {
-                prompt: 'Review and approve the role document to proceed to Phase 2?',
-                metadata: {
-                  view: document_path || '',
-                  view_label: 'View Role Document',
-                  yes_label: '✅ Approve & Proceed',
-                  no_label: '❌ Request Changes',
-                },
+                prompt: 'Review the generated artifact to proceed to the next phase?',
+                view: document_path || undefined,
+                view_label: 'View Documentation',
+                yes_label: '✅ Approve & Proceed',
+                no_label: '❌ Request Changes',
               },
             }),
             '```]',
@@ -530,16 +559,19 @@ export function useManagerChat(sessionId) {
           streamingMetadataRef.current = {};
           currentRoundIdRef.current = null;
           currentRoundIndexRef.current = null;
+          // Turn finished — its message_count changed, so refresh the sidebar.
+          setSessionsRefreshTick((n) => n + 1);
         }
         break;
 
-      case 'session_init':
+      case 'session_init': {
         setPendingInput(null);
         pendingInputRef.current = null;
         submittedRef.current = false;
         setIsStreaming(false);
         setStreamingMessage(null);
-        setTasks({});
+        // Keep activeTabType='session' / activeTaskId=null on (re)load — do NOT
+        // auto-open a task tab even when persisted task_ref messages rebuild tabs.
         setActiveTabType('session');
         setActiveTaskId(null);
         // Reset per-round bubble lifecycle state for the (re)loaded session.
@@ -548,6 +580,10 @@ export function useManagerChat(sessionId) {
         currentRoundIdRef.current = null;
         currentRoundIndexRef.current = null;
         committedRoundIdsRef.current = new Set();
+        // Rebuild the tasks map from persisted task_ref messages as we map them
+        // (there is NO separate tasks payload — the task subtabs/panel rehydrate
+        // entirely from history). Replaces the old setTasks({}).
+        const tasksAcc = {};
         // Load existing messages from session history (r13 round-aware reload).
         if (data.messages) {
           let maxTurn = 0;
@@ -561,6 +597,48 @@ export function useManagerChat(sessionId) {
             // round identity carried onto reloaded bubbles (accept camel + snake)
             const roundIndex = msg.round_index != null ? msg.round_index
               : (msg.roundIndex != null ? msg.roundIndex : null);
+
+            // PRESERVE persisted task_ref messages BEFORE the generic role
+            // coercion, so they re-hydrate as TaskCards (not blank agent bubbles)
+            // AND repopulate the tasks map for the Sidebar subtabs / TaskPanel.
+            // Accept camel + snake field names (matches widget_response handling).
+            if (msg.role === 'task_ref') {
+              const taskId = msg.taskId != null ? msg.taskId : msg.task_id;
+              const toolName = msg.toolName || msg.tool_name || null;
+              const label = msg.label || toolName || 'Task';
+              const status = msg.status || 'completed';
+              const workspace = msg.workspace != null ? msg.workspace : null;
+              const documentPath = msg.documentPath != null ? msg.documentPath
+                : (msg.document_path != null ? msg.document_path : null);
+              // Mirror the live task_status:'starting' tasks[task_id] shape so
+              // Sidebar/TaskPanel render restored tabs identically.
+              if (taskId != null) {
+                tasksAcc[taskId] = {
+                  id: taskId,
+                  label,
+                  toolName,
+                  status,
+                  workspace,
+                  documentPath,
+                  streamContent: '',
+                  isStreaming: false,
+                  error: status === 'error' ? (msg.error || 'Task failed') : null,
+                };
+              }
+              // Mirror the live task_status:'starting' task_ref message shape so
+              // TaskCard renders this restored ref identically to a live one.
+              return {
+                id: msg.id || `task-ref-${taskId || i}`,
+                role: 'task_ref',
+                taskId,
+                label,
+                status,
+                timestamp: msg.timestamp,
+                turnNumber: persistedTurn,
+                roundIndex,
+                roundNumber: roundIndex,
+              };
+            }
 
             // PRESERVE persisted widget_response cards BEFORE the generic role
             // coercion, so they re-hydrate as cards (not blank agent bubbles).
@@ -624,7 +702,26 @@ export function useManagerChat(sessionId) {
           // (next user turn = maxTurn + 1). Welcome (turn 0) doesn't bump this.
           turnCountRef.current = maxTurn;
         }
+        // Rebuild the tasks map from the accumulated task_ref messages (replaces
+        // the old setTasks({})). Restored tabs render identically to live ones.
+        setTasks(tasksAcc);
+        // session_init (initial load, reconnect, or post-resume/restore re-send)
+        // can change the sidebar's session rows/counts — refresh the list.
+        setSessionsRefreshTick((n) => n + 1);
+        // Auto-replay after a post-resume session_init: resumeFromTurn() stashed
+        // the human turn's text; the server truncated history at that turn and
+        // re-sent this frame. Replay the text as a fresh message (via the stable
+        // ref to avoid a stale-closure bug) so the turn re-runs. Clear the ref
+        // first so a normal reload/reconnect session_init never replays.
+        if (pendingResumeReplayRef.current != null) {
+          const replayText = pendingResumeReplayRef.current;
+          pendingResumeReplayRef.current = null;
+          setTimeout(() => {
+            if (sendMessageRef.current) sendMessageRef.current(replayText);
+          }, 0);
+        }
         break;
+      }
 
       case 'heartbeat':
       case 'pong':
@@ -653,13 +750,58 @@ export function useManagerChat(sessionId) {
 
   const sendMessage = useCallback((text) => {
     if (!text.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    // Stable id shared by the optimistic bubble AND the persisted message (the
+    // server reuses message_id), so "resume from this turn" can target a turn
+    // sent in the current session without waiting for a session_init reload.
+    const messageId = `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     setMessages(prev => [...prev, {
-      id: `user-${Date.now()}`,
+      id: messageId,
       role: 'manager',
       content: text,
       timestamp: new Date().toISOString(),
     }]);
-    wsRef.current.send(JSON.stringify({ type: 'message', content: text }));
+    wsRef.current.send(JSON.stringify({ type: 'message', content: text, message_id: messageId }));
+  }, []);
+
+  // Keep sendMessageRef pointed at the latest sendMessage so the empty-deps
+  // handleServerMessage closure (resume auto-replay) calls the current one.
+  sendMessageRef.current = sendMessage;
+
+  // Resume the conversation from a chosen human turn. The server truncates
+  // history at message_id and re-sends a session_init frame; we stash the turn's
+  // text so the session_init handler can auto-replay it (re-running that turn).
+  // drop_tasks=true also discards any task subtabs/artifacts created after it.
+  const resumeFromTurn = useCallback((messageId, dropTasks, content) => {
+    if (!messageId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    pendingResumeReplayRef.current = content != null ? content : '';
+    wsRef.current.send(JSON.stringify({
+      type: 'resume_from_turn',
+      message_id: messageId,
+      drop_tasks: !!dropTasks,
+    }));
+  }, []);
+
+  // Fetch the list of restorable checkpoints for a session (newest first).
+  // fetchJson already unwraps a top-level {data:…} envelope, so the GET
+  // /sessions/{id}/checkpoints → {data:[…]} response comes back as the array
+  // directly; tolerate both the unwrapped array and a {data} object defensively.
+  const fetchCheckpoints = useCallback(async (sid) => {
+    if (!sid) return [];
+    try {
+      const result = await fetchJson(`/sessions/${sid}/checkpoints`);
+      if (Array.isArray(result)) return result;
+      return result?.data || [];
+    } catch (e) {
+      console.warn('Failed to fetch checkpoints:', e);
+      return [];
+    }
+  }, []);
+
+  // Restore a named checkpoint. The server rolls session state back and re-sends
+  // a session_init frame (truncated messages + rebuilt tasks); no replay here.
+  const restoreCheckpoint = useCallback((name) => {
+    if (!name || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'restore_checkpoint', checkpoint: name }));
   }, []);
 
   // Switch between session conversation and a task panel
@@ -751,6 +893,69 @@ export function useManagerChat(sessionId) {
     setIsStreaming(false);
   }, []);
 
+  // v4 Phase 4.1 — ask the server to re-emit the snapshot for a task (or
+  // every task in the session when ``taskId`` is omitted). Used by TaskPanel
+  // when the user drills into a node whose sub-graph isn't loaded yet —
+  // a defensive backup to the session_init replay, covering HMR / focus
+  // shifts that race the initial hydrate.
+  const requestGraphReplay = useCallback((taskId) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    const payload = { type: 'request_graph_replay' };
+    if (taskId) payload.task_id = taskId;
+    wsRef.current.send(JSON.stringify(payload));
+  }, []);
+
+  // Bundle requestGraphReplay onto the graphState reference so consumers
+  // (TaskPanel, NodeDetailPanel) only need a single prop. Memoized so a
+  // stable identity flows through React.memo / hook deps.
+  const graphStateWithReplay = useMemo(
+    () => graphState ? { ...graphState, requestGraphReplay } : graphState,
+    [graphState, requestGraphReplay],
+  );
+
+  // Defensive viewPath fallback: when the LLM emits a `confirmation` widget
+  // WITHOUT `metadata.view` (it sometimes drops the field even though the
+  // auto-advance instruction explicitly tells it to set it), augment the
+  // outgoing pendingInput with the document path from the most recent
+  // task-completed system notification still present in `messages`. This
+  // guarantees the "View Documentation" button appears whenever the chat
+  // history records a Generated document — independent of LLM compliance,
+  // and works retroactively across hot-reload because messages survives.
+  const augmentedPendingInput = useMemo(() => {
+    if (!pendingInput) return pendingInput;
+    const mode = pendingInput.inputMode;
+    if (!mode || typeof mode !== 'object') return pendingInput;
+    const meta = (mode.metadata && typeof mode.metadata === 'object') ? mode.metadata : {};
+    if (meta.view) return pendingInput;  // LLM already set it — no fallback needed
+    // Scan messages backwards for the most recent system-notification
+    // emitted by task_completed; extract `Generated document: <path>.`
+    let fallbackPath = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m && m.role === 'manager' && typeof m.content === 'string'
+          && m.content.startsWith('[System notification:')
+          && m.content.includes('Generated document:')) {
+        const match = m.content.match(/Generated document:\s*(\S+?)\.\s/);
+        if (match && match[1]) {
+          fallbackPath = match[1];
+          break;
+        }
+      }
+    }
+    if (!fallbackPath) return pendingInput;
+    return {
+      ...pendingInput,
+      inputMode: {
+        ...mode,
+        metadata: {
+          ...meta,
+          view: fallbackPath,
+          view_label: meta.view_label || 'View Documentation',
+        },
+      },
+    };
+  }, [pendingInput, messages]);
+
   // Connect on mount, reconnect if sessionId changes
   useEffect(() => {
     if (!sessionId) return;
@@ -770,16 +975,23 @@ export function useManagerChat(sessionId) {
     cancelRequest,
     clearMessages,
     fetchTurnData,
-    pendingInput,
+    pendingInput: augmentedPendingInput,
     sendPendingInputResponse,
     isConnected: connectionStatus === 'connected',
+    // Session resumability (resume from a human turn + checkpoint restore)
+    resumeFromTurn,
+    fetchCheckpoints,
+    restoreCheckpoint,
+    // Sidebar freshness — bumps on connect / session_init / turn end / task_status
+    sessionsRefreshTick,
     // Task subtab state
     tasks,
     activeTabType,
     activeTaskId,
     switchTab,
     // Graph visualization state (sub-graphs, drill-down, navigation)
-    graphState,
+    // Wrapped to include requestGraphReplay for on-demand snapshot hydrate.
+    graphState: graphStateWithReplay,
   };
 }
 

@@ -65,6 +65,20 @@ async def get_session(request: Request, session_id: str):
     return {"data": session}
 
 
+@router.get("/{session_id}/checkpoints")
+async def list_checkpoints(request: Request, session_id: str):
+    """List a session's checkpoints (newest first) for the resume/restore UI.
+
+    Each entry: ``{name, created_at, message_count}``. Returns an empty list in
+    mock mode (no session store) or when the session has no checkpoints yet.
+    """
+    svc = request.app.state.data_service
+    ss = getattr(svc, "session_store", None)
+    if ss is None or not hasattr(ss, "list_checkpoints"):
+        return {"data": []}
+    return {"data": ss.list_checkpoints(session_id)}
+
+
 @router.post("")
 @router.post("/")
 async def create_session(
@@ -79,7 +93,8 @@ async def create_session(
 
 @router.post("/attach", response_model=AttachSessionResponse)
 async def attach_session(
-    request: Request, body: AttachSessionRequest,
+    request: Request,
+    body: AttachSessionRequest,
 ) -> AttachSessionResponse:
     """Attach to or create a session by external_id (v6 unified frontend protocol).
 
@@ -142,6 +157,14 @@ async def delete_session(request: Request, session_id: str):
     conv_svc = getattr(request.app.state, "conversation_service", None)
     if conv_svc and hasattr(conv_svc, "evict_session_inferencer"):
         conv_svc.evict_session_inferencer(session_id)
+    # Drop this session's durable task-graph snapshots (in-memory map + the
+    # <session_dir>/task_graphs/ dir). delete_session already rmtree'd the whole
+    # session dir above, so the disk cleanup is redundant-but-safe (a no-op when
+    # the dir is already gone); the in-memory drop frees the entry immediately
+    # rather than leaving it until the terminal-TTL prune.
+    snap_store = getattr(request.app.state, "task_graph_snapshots", None)
+    if snap_store is not None and hasattr(snap_store, "drop_session"):
+        snap_store.drop_session(session_id)
     return {"data": {"deleted": True}}
 
 
@@ -173,11 +196,13 @@ async def get_turn_data(
     # Return graceful empty payload instead of 404 so the UI can show a friendly
     # "no prompt data" message rather than a console error.
     if data is None:
-        return {"data": {
-            "rendered_prompt": "",
-            "template_source": "",
-            "note": f"No prompt data for turn {turn_number} (likely a welcome or non-LLM turn)",
-        }}
+        return {
+            "data": {
+                "rendered_prompt": "",
+                "template_source": "",
+                "note": f"No prompt data for turn {turn_number} (likely a welcome or non-LLM turn)",
+            }
+        }
     return {"data": data}
 
 

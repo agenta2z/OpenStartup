@@ -1,17 +1,60 @@
 """File viewer and directory browser endpoints for the FileViewer drawer.
 
 Security: Only serves files/directories that resolve to within the server's
-runtime directory.  Uses pathlib.resolve() to prevent path traversal attacks.
+runtime directory OR the configured working directory.  Uses pathlib.resolve()
+to prevent path traversal attacks.
 """
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import PlainTextResponse, FileResponse, JSONResponse
 from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 
 router = APIRouter()
 
 _MAX_BROWSE_DEPTH = 5
 _MAX_BROWSE_ENTRIES = 500
+
+
+def _allowed_bases(request: Request) -> list[Path]:
+    """Collect allowed root directories for file serving.
+
+    Mirrors RankEvolve's dual-base pattern: runtime dir (task outputs,
+    session artifacts) + working dir (generated docs in project trees).
+    """
+    bases: list[Path] = []
+
+    data_service = getattr(request.app.state, "data_service", None)
+    if data_service is not None:
+        session_store = getattr(data_service, "_session_store", None)
+        if session_store is not None:
+            runtime_root = getattr(session_store, "runtime_root", None)
+            if runtime_root:
+                bases.append(Path(runtime_root).resolve())
+
+    conv_svc = getattr(request.app.state, "conversation_service", None)
+    if conv_svc is not None:
+        working_dir = getattr(conv_svc, "_working_dir", None)
+        if working_dir:
+            bases.append(Path(working_dir).resolve())
+
+    return bases
+
+
+def _check_access(path: Path, bases: list[Path], label: str = "file") -> None:
+    """Raise 403 if *path* is not under any allowed base."""
+    if bases:
+        if not any(path.is_relative_to(b) for b in bases):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied — {label} is outside allowed directories",
+            )
+    else:
+        if "_runtime" not in str(path):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied — only runtime {label}s can be viewed",
+            )
 
 
 @router.get("/view/{file_path:path}")
@@ -20,20 +63,16 @@ async def view_file(request: Request, file_path: str):
 
     Security model:
     - Path must be absolute
-    - Path must resolve to within _runtime/ directory (prevent traversal)
-    - Serves .md as plain text (rendered by client), .html as HTML
+    - Path must resolve to within runtime dir or working dir
+    - Serves .html/.htm as HTML, everything else as plain text
     """
-    # Browser/proxy normalization can collapse `//` in URLs.
-    # `/api/view//Users/foo.md` may arrive as `/api/view/Users/foo.md`,
-    # making file_path = "Users/foo.md" (no leading slash → not absolute).
-    # Reconstruct the absolute path by re-prepending the leading slash on Unix.
-    # On Windows, absolute paths start with a drive letter (e.g., "C:/...") so this is a no-op.
-    if not file_path.startswith("/") and not (len(file_path) >= 2 and file_path[1] == ":"):
+    if not file_path.startswith("/") and not (
+        len(file_path) >= 2 and file_path[1] == ":"
+    ):
         file_path = "/" + file_path
 
     path = Path(file_path).resolve()
 
-    # Must be absolute (resolve() always returns absolute, but guard original)
     if not Path(file_path).is_absolute():
         raise HTTPException(status_code=400, detail="Path must be absolute")
 
@@ -43,37 +82,9 @@ async def view_file(request: Request, file_path: str):
     if not path.is_file():
         raise HTTPException(status_code=400, detail=f"Not a file: {file_path}")
 
-    # Security: only serve files under _runtime/ to prevent arbitrary filesystem access.
-    # Use resolved path to defeat ../ traversal attacks.
-    # Find the runtime root from app state if available, else fall back to marker check.
-    runtime_dir = None
-    data_service = getattr(request.app.state, "data_service", None)
-    if data_service is not None:
-        session_store = getattr(data_service, "_session_store", None)
-        if session_store is not None:
-            # SessionStore exposes the runtime root via the `runtime_root` property
-            # (NOT runtime_dir — that attribute does not exist).
-            runtime_dir = getattr(session_store, "runtime_root", None)
+    _check_access(path, _allowed_bases(request), "file")
 
-    if runtime_dir is not None:
-        # Strict check: resolved path must be under the actual runtime directory
-        try:
-            path.relative_to(Path(runtime_dir).resolve())
-        except ValueError:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied — file is outside the runtime directory"
-            )
-    else:
-        # Fallback: require "_runtime" marker in resolved path string
-        if "_runtime" not in str(path):
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied — only runtime files can be viewed"
-            )
-
-    # Serve content
-    if path.suffix in ('.html', '.htm'):
+    if path.suffix in (".html", ".htm"):
         return FileResponse(str(path), media_type="text/html")
 
     try:
@@ -96,7 +107,9 @@ def _build_tree(directory: Path, depth: int = 0, counter: list | None = None):
 
     entries = []
     try:
-        children = sorted(directory.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+        children = sorted(
+            directory.iterdir(), key=lambda p: (p.is_file(), p.name.lower())
+        )
     except PermissionError:
         return []
 
@@ -108,20 +121,24 @@ def _build_tree(directory: Path, depth: int = 0, counter: list | None = None):
             break
 
         if child.is_symlink():
-            continue  # skip symlinks — prevent traversal outside runtime dir
+            continue
         elif child.is_dir():
-            entries.append({
-                "name": child.name,
-                "type": "directory",
-                "children": _build_tree(child, depth + 1, counter),
-            })
+            entries.append(
+                {
+                    "name": child.name,
+                    "type": "directory",
+                    "children": _build_tree(child, depth + 1, counter),
+                }
+            )
         elif child.is_file():
-            entries.append({
-                "name": child.name,
-                "type": "file",
-                "path": str(child),
-                "size": child.stat().st_size,
-            })
+            entries.append(
+                {
+                    "name": child.name,
+                    "type": "file",
+                    "path": str(child),
+                    "size": child.stat().st_size,
+                }
+            )
     return entries
 
 
@@ -142,27 +159,7 @@ async def browse_directory(request: Request, dir_path: str):
     if not path.is_dir():
         raise HTTPException(status_code=400, detail=f"Not a directory: {dir_path}")
 
-    runtime_dir = None
-    data_service = getattr(request.app.state, "data_service", None)
-    if data_service is not None:
-        session_store = getattr(data_service, "_session_store", None)
-        if session_store is not None:
-            runtime_dir = getattr(session_store, "runtime_root", None)
-
-    if runtime_dir is not None:
-        try:
-            path.relative_to(Path(runtime_dir).resolve())
-        except ValueError:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied — directory is outside the runtime directory"
-            )
-    else:
-        if "_runtime" not in str(path):
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied — only runtime directories can be browsed"
-            )
+    _check_access(path, _allowed_bases(request), "directory")
 
     entries = _build_tree(path)
     return JSONResponse({"path": str(path), "entries": entries})

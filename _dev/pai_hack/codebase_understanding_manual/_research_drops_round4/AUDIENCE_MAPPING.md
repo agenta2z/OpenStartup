@@ -1,0 +1,228 @@
+# AUDIENCE-FIRST READING GUIDE
+
+
+## NewContributor
+
+**14 chapters** | **START WITH (top 3)**:
+
+1. **Architectural narrative — a walking tour of PAI** (`overviews/02-architectural-narrative.rst`)
+2. **Business & Technical Goals, Metrics, and Optimization Priorities (FY26)** (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+3. **Contributor Velocity, Debt & Reproducible Analytics** (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+
+**Other chapters**:
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Request Context, MDC, and Coroutine Propagation (`architecture/cross-cutting/03-request-context-and-mdc.rst`)
+- Request Lifecycle (`architecture/02-request-lifecycle.rst`)
+- Vision & Long-Horizon Strategy (FY26 → FY28) (`architecture/cross-cutting/10-vision-and-strategy.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``interceptor`` — HTTP interceptor chain (`modules/platform/interceptor.rst`)
+- ``requestcontext`` — Request-scoped values & MDC API (`modules/platform/requestcontext.rst`)
+- ``sqs`` — StreamHub event consumer + middleware (`modules/platform/sqs.rst`)
+
+## Architect
+
+**40 chapters** | **START WITH (top 3)**:
+
+1. **AI Gateway Service** (`modules/stratus/ai-gateway.rst`)
+2. **AI Gateway and Stratus** (`architecture/cross-cutting/07-ai-gateway-and-stratus.rst`)
+3. **Architectural Decision Records — Extracted from History** (`architecture/cross-cutting/14-architectural-decisions.rst`)
+
+**Other chapters**:
+- Architectural narrative — a walking tour of PAI (`overviews/02-architectural-narrative.rst`)
+- Architecture Overview (`architecture/01-architecture-overview.rst`)
+- Async Tasks and SQS (`architecture/cross-cutting/06-async-tasks-and-sqs.rst`)
+- Auth, SLAuth, Tenant Identity (`architecture/cross-cutting/08-auth-and-tenant.rst`)
+- Business & Technical Goals, Metrics, and Optimization Priorities (FY26) (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+- Contributor Velocity, Debt & Reproducible Analytics (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Deployment and Configuration (`architecture/cross-cutting/09-deployment-and-config.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Feature Flags (Statsig) (`architecture/cross-cutting/04-feature-flags.rst`)
+- Full History Catalog — All Commits & PRs (chronological) (`architecture/cross-cutting/13-full-history-catalog.rst`)
+- Glossary (`architecture/00-glossary.rst`)
+- MCP Integration Service (`modules/stratus/mcp-integration.rst`)
+- Metrics, SLOs & Alarms — Source-of-Truth Catalog (`architecture/cross-cutting/11-metrics-catalog.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Multi-axis matrix — packages × size × purpose (`overviews/01-multi-axis-matrix.rst`)
+- Nudge Throttle API (`modules/nudge/nudge-throttle.rst`)
+- Observability — Metrics, Logging, Tracing (`architecture/cross-cutting/05-observability-and-metrics.rst`)
+- Optimization Playbook — Which Lever Moves Which Metric (`architecture/cross-cutting/12-optimization-playbook.rst`)
+- Platform Layer: ``config/`` — Spring Configuration & Worker Profiling (`modules/platform/config.rst`)
+- Request Context, MDC, and Coroutine Propagation (`architecture/cross-cutting/03-request-context-and-mdc.rst`)
+- Request Lifecycle (`architecture/02-request-lifecycle.rst`)
+- Vision & Long-Horizon Strategy (FY26 → FY28) (`architecture/cross-cutting/10-vision-and-strategy.rst`)
+- ``client`` — HTTP client commons + IdGatekeeper (`modules/platform/client.rst`)
+- ``context`` — Tenant / Product / Experience domain models (`modules/platform/context.rst`)
+- ``feature/greeting`` — Example / template feature (`modules/features/greeting.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``featuregate`` — Statsig feature flag wrapper (`modules/platform/featuregate.rst`)
+- ``interceptor`` — HTTP interceptor chain (`modules/platform/interceptor.rst`)
+- ``logging`` — LaasLogger (SLF4J + MDC wrapper) (`modules/platform/logging.rst`)
+- ``requestcontext`` — Request-scoped values & MDC API (`modules/platform/requestcontext.rst`)
+- ``service/metric`` — Micrometer-based metrics API (`modules/platform/service-metric.rst`)
+- ``sqs`` — StreamHub event consumer + middleware (`modules/platform/sqs.rst`)
+- ``stratus`` — AI Gateway client integration (`modules/platform/stratus.rst`)
+- ``task`` — Async-task envelope framework (`modules/platform/task.rst`)
+- ``utility`` — Threading, user, tenant helpers (`modules/platform/utility.rst`)
+
+## OnCall
+
+**30 chapters** | **START WITH (top 3)**:
+
+1. **AI Gateway Service** (`modules/stratus/ai-gateway.rst`)
+2. **Architectural Decision Records — Extracted from History** (`architecture/cross-cutting/14-architectural-decisions.rst`)
+3. **Architectural narrative — a walking tour of PAI** (`overviews/02-architectural-narrative.rst`)
+
+**Other chapters**:
+- Architecture Overview (`architecture/01-architecture-overview.rst`)
+- Async Tasks and SQS (`architecture/cross-cutting/06-async-tasks-and-sqs.rst`)
+- Business & Technical Goals, Metrics, and Optimization Priorities (FY26) (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+- Contributor Velocity, Debt & Reproducible Analytics (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Deployment and Configuration (`architecture/cross-cutting/09-deployment-and-config.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Full History Catalog — All Commits & PRs (chronological) (`architecture/cross-cutting/13-full-history-catalog.rst`)
+- Glossary (`architecture/00-glossary.rst`)
+- MCP Integration Service (`modules/stratus/mcp-integration.rst`)
+- Metrics, SLOs & Alarms — Source-of-Truth Catalog (`architecture/cross-cutting/11-metrics-catalog.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Nudge Throttle API (`modules/nudge/nudge-throttle.rst`)
+- Optimization Playbook — Which Lever Moves Which Metric (`architecture/cross-cutting/12-optimization-playbook.rst`)
+- Request Context, MDC, and Coroutine Propagation (`architecture/cross-cutting/03-request-context-and-mdc.rst`)
+- Request Lifecycle (`architecture/02-request-lifecycle.rst`)
+- Rovo Insights — REST API (`modules/rovo-insights/rovo-insights-api.rst`)
+- ``feature/greeting`` — Example / template feature (`modules/features/greeting.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``featuregate`` — Statsig feature flag wrapper (`modules/platform/featuregate.rst`)
+- ``interceptor`` — HTTP interceptor chain (`modules/platform/interceptor.rst`)
+- ``logging`` — LaasLogger (SLF4J + MDC wrapper) (`modules/platform/logging.rst`)
+- ``requestcontext`` — Request-scoped values & MDC API (`modules/platform/requestcontext.rst`)
+- ``service/metric`` — Micrometer-based metrics API (`modules/platform/service-metric.rst`)
+- ``task`` — Async-task envelope framework (`modules/platform/task.rst`)
+- ``utility`` — Threading, user, tenant helpers (`modules/platform/utility.rst`)
+
+## SRE
+
+**25 chapters** | **START WITH (top 3)**:
+
+1. **Architectural Decision Records — Extracted from History** (`architecture/cross-cutting/14-architectural-decisions.rst`)
+2. **Architectural narrative — a walking tour of PAI** (`overviews/02-architectural-narrative.rst`)
+3. **Architecture Overview** (`architecture/01-architecture-overview.rst`)
+
+**Other chapters**:
+- Business & Technical Goals, Metrics, and Optimization Priorities (FY26) (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+- Contributor Velocity, Debt & Reproducible Analytics (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Deployment and Configuration (`architecture/cross-cutting/09-deployment-and-config.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Full History Catalog — All Commits & PRs (chronological) (`architecture/cross-cutting/13-full-history-catalog.rst`)
+- Glossary (`architecture/00-glossary.rst`)
+- MCP Integration Service (`modules/stratus/mcp-integration.rst`)
+- Metrics, SLOs & Alarms — Source-of-Truth Catalog (`architecture/cross-cutting/11-metrics-catalog.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Multi-axis matrix — packages × size × purpose (`overviews/01-multi-axis-matrix.rst`)
+- Observability — Metrics, Logging, Tracing (`architecture/cross-cutting/05-observability-and-metrics.rst`)
+- Optimization Playbook — Which Lever Moves Which Metric (`architecture/cross-cutting/12-optimization-playbook.rst`)
+- Platform Layer: ``config/`` — Spring Configuration & Worker Profiling (`modules/platform/config.rst`)
+- Vision & Long-Horizon Strategy (FY26 → FY28) (`architecture/cross-cutting/10-vision-and-strategy.rst`)
+- ``feature/greeting`` — Example / template feature (`modules/features/greeting.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``featuregate`` — Statsig feature flag wrapper (`modules/platform/featuregate.rst`)
+- ``sqs`` — StreamHub event consumer + middleware (`modules/platform/sqs.rst`)
+- ``task`` — Async-task envelope framework (`modules/platform/task.rst`)
+- ``utility`` — Threading, user, tenant helpers (`modules/platform/utility.rst`)
+
+## BusinessStakeholder
+
+**33 chapters** | **START WITH (top 3)**:
+
+1. **AI Gateway Service** (`modules/stratus/ai-gateway.rst`)
+2. **AI Gateway and Stratus** (`architecture/cross-cutting/07-ai-gateway-and-stratus.rst`)
+3. **Architectural Decision Records — Extracted from History** (`architecture/cross-cutting/14-architectural-decisions.rst`)
+
+**Other chapters**:
+- Architectural narrative — a walking tour of PAI (`overviews/02-architectural-narrative.rst`)
+- Architecture Overview (`architecture/01-architecture-overview.rst`)
+- Async Tasks and SQS (`architecture/cross-cutting/06-async-tasks-and-sqs.rst`)
+- Business & Technical Goals, Metrics, and Optimization Priorities (FY26) (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+- Contributor Velocity, Debt & Reproducible Analytics (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Deployment and Configuration (`architecture/cross-cutting/09-deployment-and-config.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Full History Catalog — All Commits & PRs (chronological) (`architecture/cross-cutting/13-full-history-catalog.rst`)
+- Glossary (`architecture/00-glossary.rst`)
+- Metrics, SLOs & Alarms — Source-of-Truth Catalog (`architecture/cross-cutting/11-metrics-catalog.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Multi-axis matrix — packages × size × purpose (`overviews/01-multi-axis-matrix.rst`)
+- Nudge Throttle API (`modules/nudge/nudge-throttle.rst`)
+- Observability — Metrics, Logging, Tracing (`architecture/cross-cutting/05-observability-and-metrics.rst`)
+- Optimization Playbook — Which Lever Moves Which Metric (`architecture/cross-cutting/12-optimization-playbook.rst`)
+- Platform Layer: ``config/`` — Spring Configuration & Worker Profiling (`modules/platform/config.rst`)
+- Request Context, MDC, and Coroutine Propagation (`architecture/cross-cutting/03-request-context-and-mdc.rst`)
+- Request Lifecycle (`architecture/02-request-lifecycle.rst`)
+- Vision & Long-Horizon Strategy (FY26 → FY28) (`architecture/cross-cutting/10-vision-and-strategy.rst`)
+- ``context`` — Tenant / Product / Experience domain models (`modules/platform/context.rst`)
+- ``feature/greeting`` — Example / template feature (`modules/features/greeting.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``featuregate`` — Statsig feature flag wrapper (`modules/platform/featuregate.rst`)
+- ``logging`` — LaasLogger (SLF4J + MDC wrapper) (`modules/platform/logging.rst`)
+- ``service/metric`` — Micrometer-based metrics API (`modules/platform/service-metric.rst`)
+- ``sqs`` — StreamHub event consumer + middleware (`modules/platform/sqs.rst`)
+- ``task`` — Async-task envelope framework (`modules/platform/task.rst`)
+- ``utility`` — Threading, user, tenant helpers (`modules/platform/utility.rst`)
+
+## AIAgent
+
+**42 chapters** | **START WITH (top 3)**:
+
+1. **AI Gateway Service** (`modules/stratus/ai-gateway.rst`)
+2. **AI Gateway and Stratus** (`architecture/cross-cutting/07-ai-gateway-and-stratus.rst`)
+3. **Architectural Decision Records — Extracted from History** (`architecture/cross-cutting/14-architectural-decisions.rst`)
+
+**Other chapters**:
+- Architectural narrative — a walking tour of PAI (`overviews/02-architectural-narrative.rst`)
+- Architecture Overview (`architecture/01-architecture-overview.rst`)
+- Async Tasks and SQS (`architecture/cross-cutting/06-async-tasks-and-sqs.rst`)
+- Auth, SLAuth, Tenant Identity (`architecture/cross-cutting/08-auth-and-tenant.rst`)
+- Business & Technical Goals, Metrics, and Optimization Priorities (FY26) (`architecture/cross-cutting/01-business-and-technical-goals.rst`)
+- Contributor Velocity, Debt & Reproducible Analytics (`architecture/cross-cutting/15-velocity-and-debt.rst`)
+- Criticality dashboard — blast radius + on-call runbook (`overviews/03-criticality-dashboard.rst`)
+- Deployment and Configuration (`architecture/cross-cutting/09-deployment-and-config.rst`)
+- Development History — How the codebase reached its current state (`architecture/cross-cutting/02-development-history.rst`)
+- Feature Flags (Statsig) (`architecture/cross-cutting/04-feature-flags.rst`)
+- Full History Catalog — All Commits & PRs (chronological) (`architecture/cross-cutting/13-full-history-catalog.rst`)
+- Glossary (`architecture/00-glossary.rst`)
+- MCP Integration Service (`modules/stratus/mcp-integration.rst`)
+- Metrics, SLOs & Alarms — Source-of-Truth Catalog (`architecture/cross-cutting/11-metrics-catalog.rst`)
+- Module Catalog (`architecture/03-module-catalog.rst`)
+- Multi-axis matrix — packages × size × purpose (`overviews/01-multi-axis-matrix.rst`)
+- Nudge Throttle API (`modules/nudge/nudge-throttle.rst`)
+- Observability — Metrics, Logging, Tracing (`architecture/cross-cutting/05-observability-and-metrics.rst`)
+- Optimization Playbook — Which Lever Moves Which Metric (`architecture/cross-cutting/12-optimization-playbook.rst`)
+- Platform Layer: ``config/`` — Spring Configuration & Worker Profiling (`modules/platform/config.rst`)
+- Request Context, MDC, and Coroutine Propagation (`architecture/cross-cutting/03-request-context-and-mdc.rst`)
+- Request Lifecycle (`architecture/02-request-lifecycle.rst`)
+- Rovo Insights — Generation Pipeline (`modules/rovo-insights/rovo-insights-generation.rst`)
+- Rovo Insights — REST API (`modules/rovo-insights/rovo-insights-api.rst`)
+- Vision & Long-Horizon Strategy (FY26 → FY28) (`architecture/cross-cutting/10-vision-and-strategy.rst`)
+- ``client`` — HTTP client commons + IdGatekeeper (`modules/platform/client.rst`)
+- ``context`` — Tenant / Product / Experience domain models (`modules/platform/context.rst`)
+- ``feature/greeting`` — Example / template feature (`modules/features/greeting.rst`)
+- ``feature/nudge`` — Throttle decisions for proactive nudges (`modules/features/nudge.rst`)
+- ``feature/rovoinsights`` — Async insight generation (`modules/features/rovo-insights.rst`)
+- ``featuregate`` — Statsig feature flag wrapper (`modules/platform/featuregate.rst`)
+- ``interceptor`` — HTTP interceptor chain (`modules/platform/interceptor.rst`)
+- ``logging`` — LaasLogger (SLF4J + MDC wrapper) (`modules/platform/logging.rst`)
+- ``requestcontext`` — Request-scoped values & MDC API (`modules/platform/requestcontext.rst`)
+- ``service/metric`` — Micrometer-based metrics API (`modules/platform/service-metric.rst`)
+- ``sqs`` — StreamHub event consumer + middleware (`modules/platform/sqs.rst`)
+- ``stratus`` — AI Gateway client integration (`modules/platform/stratus.rst`)
+- ``task`` — Async-task envelope framework (`modules/platform/task.rst`)
+- ``utility`` — Threading, user, tenant helpers (`modules/platform/utility.rst`)

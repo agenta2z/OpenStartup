@@ -59,14 +59,16 @@ async def list_backends(request: Request) -> dict:
     backends_payload = []
     for name in sorted(descriptors):
         desc = descriptors[name]
-        backends_payload.append({
-            "name": name,
-            "display_name": desc.display_name,
-            "description": desc.description,
-            "available": desc.is_available(),
-            "status_message": desc.status_message(),
-            "default_model": desc.default_model,
-        })
+        backends_payload.append(
+            {
+                "name": name,
+                "display_name": desc.display_name,
+                "description": desc.description,
+                "available": desc.is_available(),
+                "status_message": desc.status_message(),
+                "default_model": desc.default_model,
+            }
+        )
 
     return {
         "default_backend": default_backend,
@@ -101,6 +103,7 @@ async def set_session_backend(
         updated = svc.set_session_backend(session_id, choice.backend, choice.model)
     except KeyError as e:
         from openteam.server.backends import get_registry
+
         available = sorted(get_registry().list_backends())
         raise HTTPException(
             status_code=400,

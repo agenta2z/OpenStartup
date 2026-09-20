@@ -11,6 +11,7 @@ The discovery directory is a Jupyter-style per-server JSON registry under
 Atomic writes use ``tempfile.mkstemp + os.replace`` (POSIX-atomic rename).
 Readers never see torn JSON.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -107,14 +108,15 @@ class ServerHandle:
     asserts this field set is unchanged across releases without an explicit
     SCHEMA_VERSION bump.
     """
+
     server_id: str
     pid: int
     host: str
     port: int
-    runtime_root: str          # absolute path on the server's filesystem
-    server_dir_name: str       # basename (movable across runtime_root reorgs)
-    started_at: str            # ISO 8601 UTC with milliseconds
-    version: str               # OpenTeam package version
+    runtime_root: str  # absolute path on the server's filesystem
+    server_dir_name: str  # basename (movable across runtime_root reorgs)
+    started_at: str  # ISO 8601 UTC with milliseconds
+    version: str  # OpenTeam package version
     schema_version: int = SCHEMA_VERSION
     service: str = SERVICE_NAME
     # ``process_command`` (sys.argv at register time) supports a future
@@ -178,10 +180,13 @@ def discover_servers(
                 continue
             # Filter to known fields so unknown fields from newer schemas
             # don't trip ``__init__`` with unexpected kwargs.
-            handle = ServerHandle(**{
-                k: v for k, v in data.items()
-                if k in ServerHandle.__dataclass_fields__
-            })
+            handle = ServerHandle(
+                **{
+                    k: v
+                    for k, v in data.items()
+                    if k in ServerHandle.__dataclass_fields__
+                }
+            )
         except (json.JSONDecodeError, TypeError, ValueError, OSError):
             _logger.warning("[discovery] corrupt registry file: %s", f)
             if reap_stale:
@@ -195,7 +200,10 @@ def discover_servers(
                     f.unlink()
             continue
 
-        if runtime_root and Path(handle.runtime_root).resolve() != Path(runtime_root).resolve():
+        if (
+            runtime_root
+            and Path(handle.runtime_root).resolve() != Path(runtime_root).resolve()
+        ):
             continue
         if host and handle.host != host:
             continue

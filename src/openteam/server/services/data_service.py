@@ -29,7 +29,8 @@ def _primary_agent_from_messages(messages: list[dict[str, Any]]) -> dict[str, An
         if agent_id is not None or agent_name is not None:
             return {
                 "id": agent_id,
-                "name": agent_name or (str(agent_id) if agent_id is not None else "Assistant"),
+                "name": agent_name
+                or (str(agent_id) if agent_id is not None else "Assistant"),
             }
     return {"id": None, "name": "New conversation"}
 
@@ -42,17 +43,23 @@ class DataService(ABC):
     def get_teams(self) -> list[dict]: ...
 
     @abstractmethod
-    def get_team(self, team_id: str, *, resolve: list[str] | None = None) -> dict | None: ...
+    def get_team(
+        self, team_id: str, *, resolve: list[str] | None = None
+    ) -> dict | None: ...
 
     # ── Projects ─────────────────────────────────────────────────
     @abstractmethod
-    def get_projects(self, *, status: str | None = None, team_id: str | None = None) -> list[dict]: ...
+    def get_projects(
+        self, *, status: str | None = None, team_id: str | None = None
+    ) -> list[dict]: ...
 
     @abstractmethod
     def get_project(self, project_id: str) -> dict | None: ...
 
     @abstractmethod
-    def get_sprint(self, project_id: str, sprint_number: int | None = None) -> dict | None: ...
+    def get_sprint(
+        self, project_id: str, sprint_number: int | None = None
+    ) -> dict | None: ...
 
     # ── Tasks ────────────────────────────────────────────────────
     @abstractmethod
@@ -190,7 +197,9 @@ class MockDataService(DataService):
         self._project_idx: dict[str, dict] = {p["id"]: p for p in self._projects}
         self._task_idx: dict[str, dict] = {t["id"]: t for t in self._tasks}
         self._employee_idx: dict[str, dict] = {e["id"]: e for e in self._employees}
-        self._conversation_idx: dict[str, dict] = {c["id"]: c for c in self._conversations}
+        self._conversation_idx: dict[str, dict] = {
+            c["id"]: c for c in self._conversations
+        }
         self._sprint_idx: dict[tuple[str, int], dict] = {}
         for s in self._sprints:
             self._sprint_idx[(s["project_id"], s["number"])] = s
@@ -202,8 +211,12 @@ class MockDataService(DataService):
 
         logger.info(
             "MockDataService loaded: %d teams, %d projects, %d tasks, %d employees, %d conversations, %d sprints, %d orgs",
-            len(self._teams), len(self._projects), len(self._tasks),
-            len(self._employees), len(self._conversations), len(self._sprints),
+            len(self._teams),
+            len(self._projects),
+            len(self._tasks),
+            len(self._employees),
+            len(self._conversations),
+            len(self._sprints),
             len(self._organizations),
         )
 
@@ -230,7 +243,9 @@ class MockDataService(DataService):
     def get_teams(self) -> list[dict]:
         return self._teams
 
-    def get_team(self, team_id: str, *, resolve: list[str] | None = None) -> dict | None:
+    def get_team(
+        self, team_id: str, *, resolve: list[str] | None = None
+    ) -> dict | None:
         team = self._team_idx.get(team_id)
         if not team:
             return None
@@ -244,7 +259,12 @@ class MockDataService(DataService):
             ]
         if "projects" in resolve:
             result["projects"] = [
-                {"id": p["id"], "name": p["name"], "status": p["status"], "progress_percent": p["progress_percent"]}
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "status": p["status"],
+                    "progress_percent": p["progress_percent"],
+                }
                 for pid in team.get("project_ids", [])
                 if (p := self._project_idx.get(pid))
             ]
@@ -252,7 +272,9 @@ class MockDataService(DataService):
 
     # ── Projects ─────────────────────────────────────────────────
 
-    def get_projects(self, *, status: str | None = None, team_id: str | None = None) -> list[dict]:
+    def get_projects(
+        self, *, status: str | None = None, team_id: str | None = None
+    ) -> list[dict]:
         result = self._projects
         if status:
             result = [p for p in result if p.get("status") == status]
@@ -283,7 +305,9 @@ class MockDataService(DataService):
             ],
         }
 
-    def get_sprint(self, project_id: str, sprint_number: int | None = None) -> dict | None:
+    def get_sprint(
+        self, project_id: str, sprint_number: int | None = None
+    ) -> dict | None:
         if sprint_number:
             return self._sprint_idx.get((project_id, sprint_number))
         # Return current sprint (highest number for this project)
@@ -320,9 +344,9 @@ class MockDataService(DataService):
             return None
         return {
             **raw,
-            "project": {
-                "id": p["id"], "name": p["name"]
-            } if (p := self._project_idx.get(raw.get("project_id", ""))) else None,
+            "project": {"id": p["id"], "name": p["name"]}
+            if (p := self._project_idx.get(raw.get("project_id", "")))
+            else None,
             "assignees": [
                 self.resolve_employee_summary(eid)
                 for eid in raw.get("assignee_ids", [])
@@ -347,7 +371,9 @@ class MockDataService(DataService):
     ) -> list[dict]:
         result = self._employees
         if org_id:
-            member_ids = {m["employee_id"] for m in self._org_memberships if m["org_id"] == org_id}
+            member_ids = {
+                m["employee_id"] for m in self._org_memberships if m["org_id"] == org_id
+            }
             result = [e for e in result if e["id"] in member_ids]
         if type_filter:
             result = [e for e in result if e.get("type") == type_filter]
@@ -370,7 +396,9 @@ class MockDataService(DataService):
                 current_task = {
                     "id": t["id"],
                     "title": t["title"],
-                    "project": {"id": proj["id"], "name": proj["name"]} if proj else None,
+                    "project": {"id": proj["id"], "name": proj["name"]}
+                    if proj
+                    else None,
                     "progress_percent": t.get("progress_percent", 0),
                     "due_date": t.get("due_date"),
                 }
@@ -395,7 +423,9 @@ class MockDataService(DataService):
     ) -> list[dict]:
         result = self._conversations
         if participant_id:
-            result = [c for c in result if participant_id in c.get("participant_ids", [])]
+            result = [
+                c for c in result if participant_id in c.get("participant_ids", [])
+            ]
         if project_id:
             result = [c for c in result if c.get("project_id") == project_id]
         # Return summaries (without full message lists)
@@ -480,9 +510,16 @@ class MockDataService(DataService):
             "humans": human_count,
             "tasks_by_status": tasks_by_status,
             "active_blockers": blockers,
-            "overall_velocity": sum(t.get("stats", {}).get("sprint_velocity", 0) for t in self._teams),
+            "overall_velocity": sum(
+                t.get("stats", {}).get("sprint_velocity", 0) for t in self._teams
+            ),
             "projects_summary": [
-                {"id": p["id"], "name": p["name"], "status": p["status"], "progress_percent": p["progress_percent"]}
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "status": p["status"],
+                    "progress_percent": p["progress_percent"],
+                }
                 for p in self._projects
             ],
             "active_conversations": len(self._conversations),
@@ -511,18 +548,18 @@ class MockDataService(DataService):
         if not org:
             return None
         # Build tree from memberships
-        members = [
-            m for m in self._org_memberships if m["org_id"] == org_id
-        ]
+        members = [m for m in self._org_memberships if m["org_id"] == org_id]
         nodes = []
         for m in members:
             emp = self.resolve_employee_summary(m["employee_id"])
             if emp:
-                nodes.append({
-                    **emp,
-                    "reports_to": m.get("reports_to"),
-                    "org_role": m.get("org_role", "member"),
-                })
+                nodes.append(
+                    {
+                        **emp,
+                        "reports_to": m.get("reports_to"),
+                        "org_role": m.get("org_role", "member"),
+                    }
+                )
         return {
             "org_id": org_id,
             "org_name": org["name"],

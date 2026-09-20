@@ -1,0 +1,189 @@
+# SPDX-FileCopyrightText: Atlassian
+# SPDX-License-Identifier: Apache-2.0
+#
+# fix-cassandra-gossip-config-job.yaml
+#
+# Closes: helmfile_enhancement_plan/02_FINDINGS_CATALOG.md HF-54 (CRITICAL)
+# Mirrors: patch-prometheus-config-job.yaml (same pattern: SA + Role + RB + ConfigMap + Job)
+# Wired into: helmfile.yaml postsync hook block (lines 432-438) - already references this filename.
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fix-cassandra-gossip-sa
+  namespace: temporal
+  labels:
+    app.kubernetes.io/name: fix-cassandra-gossip
+    app.kubernetes.io/component: postsync-job
+    helmfile-enhancement-plan/closes: HF-54
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: hook-succeeded,before-hook-creation
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fix-cassandra-gossip-role
+  namespace: temporal
+  labels:
+    app.kubernetes.io/name: fix-cassandra-gossip
+    helmfile-enhancement-plan/closes: HF-54
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fix-cassandra-gossip-rb
+  namespace: temporal
+  labels:
+    app.kubernetes.io/name: fix-cassandra-gossip
+    helmfile-enhancement-plan/closes: HF-54
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: fix-cassandra-gossip-role
+subjects:
+  - kind: ServiceAccount
+    name: fix-cassandra-gossip-sa
+    namespace: temporal
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fix-cassandra-gossip-script
+  namespace: temporal
+  labels:
+    app.kubernetes.io/name: fix-cassandra-gossip
+    helmfile-enhancement-plan/closes: HF-54
+data:
+  patch.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    NAMESPACE="${NAMESPACE:-temporal}"
+    STS_NAME="${STS_NAME:-cassandra}"
+    REPLICAS="${REPLICAS:-3}"
+
+    echo "[fix-cassandra-gossip] target: ${NAMESPACE}/${STS_NAME} (${REPLICAS} replicas)"
+
+    SEEDS=""
+    for i in $(seq 0 $((REPLICAS-1))); do
+      [[ -n "$SEEDS" ]] && SEEDS="${SEEDS},"
+      SEEDS="${SEEDS}${STS_NAME}-${i}.${STS_NAME}-headless.${NAMESPACE}.svc.cluster.local"
+    done
+    echo "[fix-cassandra-gossip] seeds: ${SEEDS}"
+
+    kubectl set env -n "${NAMESPACE}" "statefulset/${STS_NAME}" \
+      CASSANDRA_SEEDS="${SEEDS}" \
+      MAX_HEAP_SIZE="4G" \
+      HEAP_NEWSIZE="800M" \
+      JVM_EXTRA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled" \
+      JMX_PORT="7199" \
+      LOCAL_JMX="no"
+    echo "[fix-cassandra-gossip] env vars patched"
+
+    for i in $(seq 0 $((REPLICAS-1))); do
+      pod="${STS_NAME}-${i}"
+      echo "[fix-cassandra-gossip] restarting ${pod}"
+      kubectl delete pod -n "${NAMESPACE}" "${pod}" --wait=false || true
+      for attempt in $(seq 1 60); do
+        ready=$(kubectl get pod -n "${NAMESPACE}" "${pod}" -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo false)
+        if [[ "${ready}" == "true" ]]; then
+          echo "[fix-cassandra-gossip] ${pod} ready after ${attempt}*5s"
+          break
+        fi
+        sleep 5
+      done
+    done
+
+    echo "[fix-cassandra-gossip] DONE"
+    kubectl get pod -n "${NAMESPACE}" -l "app.kubernetes.io/name=cassandra" -o wide
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fix-cassandra-gossip-config
+  namespace: temporal
+  labels:
+    app.kubernetes.io/name: fix-cassandra-gossip
+    app.kubernetes.io/component: postsync-job
+    helmfile-enhancement-plan/closes: HF-54
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: hook-succeeded,before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fix-cassandra-gossip
+        app.kubernetes.io/component: postsync-job
+    spec:
+      restartPolicy: Never
+      serviceAccountName: fix-cassandra-gossip-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kubectl
+          image: bitnami/kubectl:1.32.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "/scripts/patch.sh"]
+          env:
+            - name: NAMESPACE
+              value: "temporal"
+            - name: STS_NAME
+              value: "cassandra"
+            - name: REPLICAS
+              value: "3"
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+            - name: tmp
+              mountPath: /tmp
+            - name: home
+              mountPath: /home/kubectl
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: script
+          configMap:
+            name: fix-cassandra-gossip-script
+            defaultMode: 0755
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}

@@ -1,0 +1,46 @@
+From: helmfile-enhancement-plan
+Subject: [PATCH] PR-T-08 — Replace KEDA TCP test with gRPC health-check probe
+
+Closes G8 (KEDA test is TCP-only).
+Branch: fix/keda-test-actual-grpc
+
+The current job uses `nc -zv ... 7233` which only verifies a TCP socket
+opens — exactly the failure mode that DOES still happen even when
+KEDA's gRPC scaler is broken (HF-10). This patch swaps the image to
+fullstorydev/grpcurl and asserts the response includes
+"status": "SERVING".
+
+Critical: pin the image (no :latest); tied to PR-T-12 ban.
+
+---
+ atlassian_packages/gcp_kitt/helmfile/test-keda-temporal-connectivity-job.yaml | 14 ++++++--
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/atlassian_packages/gcp_kitt/helmfile/test-keda-temporal-connectivity-job.yaml b/atlassian_packages/gcp_kitt/helmfile/test-keda-temporal-connectivity-job.yaml
+--- a/atlassian_packages/gcp_kitt/helmfile/test-keda-temporal-connectivity-job.yaml
++++ b/atlassian_packages/gcp_kitt/helmfile/test-keda-temporal-connectivity-job.yaml
+@@ -16,12 +16,20 @@ spec:
+       restartPolicy: Never
+       containers:
+         - name: probe
+-          image: curlimages/curl:latest
++          image: fullstorydev/grpcurl:v1.9.1-alpine
+           command:
+             - /bin/sh
+             - -c
+             - |
+-              nc -zv temporal-frontend.temporal.svc.cluster.local 7233
++              set -euo pipefail
++              echo "[1/3] DNS lookup..."
++              nslookup temporal-frontend.temporal.svc.cluster.local
++              echo "[2/3] gRPC health check..."
++              OUT=$(grpcurl -plaintext -connect-timeout 5 -max-time 10 \
++                temporal-frontend.temporal.svc.cluster.local:7233 \
++                grpc.health.v1.Health/Check)
++              echo "${OUT}"
++              echo "[3/3] Asserting SERVING..."
++              echo "${OUT}" | grep -q '"status": "SERVING"' \
++                || { echo "FAIL: gRPC health is NOT SERVING (HF-10 / G8)"; exit 1; }
++              echo "OK"
+       backoffLimit: 1
+       activeDeadlineSeconds: 60
