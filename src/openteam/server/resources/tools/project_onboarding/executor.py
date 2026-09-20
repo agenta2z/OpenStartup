@@ -58,8 +58,6 @@ def _scan_role_setup_artifacts(role_setup_path: str) -> dict[str, Any]:
     skills_dir = root / "skills"
     if not skills_dir.exists():
         skills_dir = root / "outputs" / "skills"
-    if not skills_dir.exists():
-        skills_dir = root / "outputs" / "final_deliverables" / "skills"
     if skills_dir.exists():
         result["existing_skills"] = sorted(
             d.name for d in skills_dir.iterdir() if d.is_dir()
@@ -69,8 +67,6 @@ def _scan_role_setup_artifacts(role_setup_path: str) -> dict[str, Any]:
     tools_dir = root / "tools"
     if not tools_dir.exists():
         tools_dir = root / "outputs" / "tools"
-    if not tools_dir.exists():
-        tools_dir = root / "outputs" / "final_deliverables" / "tools"
     if tools_dir.exists():
         result["existing_tools"] = sorted(
             d.name for d in tools_dir.iterdir() if d.is_dir()
@@ -121,29 +117,25 @@ async def execute(
     session_context keys used:
         cloud_id, uct_token, email, working_dir, interactive, task_id
     """
+    import agent_foundation.common.configs.registered_targets  # noqa: F401
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
         ToolExecutionResult,
     )
-    import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
-
     from openteam.server.resources.tools.role_setup.executor import (
         format_available_tools_and_skills,
     )
+    from rich_python_utils.config_utils import instantiate, load_config
 
     project_document_path = arguments.get("project_document_path", "")
     role_setup_path = arguments.get("role_setup_path", "")
     artifacts_path = arguments.get("artifacts_path", "")
     max_facets = int(arguments.get("max_facets", 8))
-    max_inner_facets = int(
-        arguments.get("max_inner_facets", 5)
-    )
+    max_inner_facets = int(arguments.get("max_inner_facets", 5))
 
     # Allocate workspace via shared allocator (closes security bug: slash-path
     # previously set working_dir to src/openteam/server/ → outputs in source tree).
-    from agent_foundation.common.workspace.allocator import (
-        allocate_tool_workspace,
-    )
+    from agent_foundation.common.workspace.allocator import allocate_tool_workspace
+
     _sr = (session_context or {}).get("session_root", "")
     if _sr:
         _tasks_base = Path(_sr) / "tasks"
@@ -168,11 +160,14 @@ async def execute(
 
     try:
         from agent_foundation.ui.graph_reporter_factory import make_graph_reporter
+
         task_id = session_context.get("task_id", "")
         inferencer.graph_reporter = make_graph_reporter(session_context, task_id)
         if inferencer.graph_reporter is not None:
-            _logger.info("[project_onboarding] graph_reporter attached: %s",
-                         type(inferencer.graph_reporter).__name__)
+            _logger.info(
+                "[project_onboarding] graph_reporter attached: %s",
+                type(inferencer.graph_reporter).__name__,
+            )
     except Exception as exc:
         _logger.warning("[project_onboarding] graph_reporter attach failed: %s", exc)
 
@@ -183,14 +178,10 @@ async def execute(
         else ""
     )
     project_name = (
-        project_doc_text.split("\n")[0].strip("# ").strip()
-        if project_doc_text
-        else ""
+        project_doc_text.split("\n")[0].strip("# ").strip() if project_doc_text else ""
     )
     project_doc_path = (
-        str(Path(project_document_path).resolve())
-        if project_document_path
-        else ""
+        str(Path(project_document_path).resolve()) if project_document_path else ""
     )
 
     # Scan role_setup artifacts (optional — provides pre-onboarding context)
@@ -247,9 +238,7 @@ async def execute(
             context_updates["tools_dir"] = str(tools_dir)
         if knowledge_dir.exists():
             context_updates["knowledge_dir"] = str(knowledge_dir)
-        association_path = (
-            Path(working_dir) / "outputs" / "role_tool_association.json"
-        )
+        association_path = Path(working_dir) / "outputs" / "role_tool_association.json"
         if association_path.exists():
             context_updates["role_tool_association_path"] = str(association_path)
 

@@ -18,4 +18,4 @@ The list intentionally lives next to the per-package documentation so the
 declaration tracks the docs, not the build configuration.
 """
 
-MOCK_IMPORTS: list[str] = ['langchain', 'openai', 'anthropic', 'atlassian', 'github']
+MOCK_IMPORTS: list[str] = ["langchain", "openai", "anthropic", "atlassian", "github"]

@@ -30,6 +30,7 @@ Mode discipline (Invariant I9 + I15):
     ``attach_or_create_session`` directly via the filesystem. No race
     because there's only one writer (us).
 """
+
 from __future__ import annotations
 
 import json
@@ -103,11 +104,7 @@ def build_frontend_session_context(
         composed_external_id = raw_session_id
     else:
         # Bare id: compose with frontend_id (kwarg wins over env over default).
-        fid = (
-            frontend_id
-            or os.environ.get("OPENTEAM_FRONTEND_ID")
-            or "rovodev"
-        )
+        fid = frontend_id or os.environ.get("OPENTEAM_FRONTEND_ID") or "rovodev"
         composed_external_id = f"{fid}-{raw_session_id}"
         # Validate the composed id; if it still fails, fall back to Path A
         # rather than crashing the subprocess.
@@ -117,7 +114,8 @@ def build_frontend_session_context(
             logger.warning(
                 "[frontend_context] composed external_id %r failed validation (%s); "
                 "falling back to Path A",
-                composed_external_id, e,
+                composed_external_id,
+                e,
             )
             return {}
 

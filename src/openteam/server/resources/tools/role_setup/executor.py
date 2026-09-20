@@ -42,25 +42,24 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from attr import attrib, attrs
-from jinja2 import Template
-
+from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
+    RovoDevCliInferencer,
+)
 from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
     BreakdownThenAggregateInferencer,
 )
 from agent_foundation.common.inferencers.inferencer_base import InferencerBase
-from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
-    RovoDevCliInferencer,
-)
 from agent_foundation.common.response_parsers import extract_delimited
-from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
+from attr import attrib, attrs
+from jinja2 import Template
 
 # Reuse from create_role — shared infrastructure
 from openteam.server.resources.tools.create_role.executor import (
-    parse_breakdown_response,
     _build_template_manager,
     _make_rovochat,
+    parse_breakdown_response,
 )
+from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
 
 _logger = logging.getLogger(__name__)
 
@@ -71,6 +70,7 @@ _PROMPT_TEMPLATES_ROOT = (
 
 # AgentFoundation fallback templates root (for multi-root TemplateManager).
 import agent_foundation.resources as _af_res
+
 _AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
 
 # Application-level resources directories (tools & skills moved from framework)
@@ -83,9 +83,7 @@ _APP_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills"
 # ---------------------------------------------------------------------------
 
 
-def _load_variable_file(
-    space: str, var_name: str, variant: str = "default"
-) -> str:
+def _load_variable_file(space: str, var_name: str, variant: str = "default") -> str:
     """Read a ``_variables/`` template file by variant name.
 
     E.g., _load_variable_file("task_breakdown", "task_preamble", "role_setup")
@@ -189,7 +187,9 @@ def format_available_tools_and_skills(
         path = Path(tools_file)
         if path.is_file():
             return path.read_text(encoding="utf-8")
-        _logger.warning("Tools file not found: %s — falling back to registries", tools_file)
+        _logger.warning(
+            "Tools file not found: %s — falling back to registries", tools_file
+        )
 
     sections = []
 
@@ -205,6 +205,7 @@ def format_available_tools_and_skills(
     if tools:
         # Group tools by parent directory to avoid repeating paths
         from collections import defaultdict
+
         groups: dict[str, list[str]] = defaultdict(list)
         for name, td in sorted(tools.items()):
             if td.source_path:
@@ -230,6 +231,7 @@ def format_available_tools_and_skills(
 
     if skills:
         from collections import defaultdict
+
         groups: dict[str, list[str]] = defaultdict(list)
         for name, si in sorted(skills.items()):
             if si.file_path:
@@ -290,7 +292,9 @@ def build_breakdown_only(
 
     # Pre-render the breakdown preamble (it has {{ role_name }}, etc.)
     outer_breakdown_preamble = _render_variable_file(
-        "task_breakdown", "task_preamble", "role_setup",
+        "task_breakdown",
+        "task_preamble",
+        "role_setup",
         role_name=role_name,
         role_doc_path=role_doc_path,
         available_tools_skills=available_tools_text,
@@ -342,7 +346,9 @@ def build_breakdown_only(
 
     _logger.info(
         "Breakdown-only built (via BTA): role=%s (%d chars), tools=%d chars",
-        role_name, len(role_doc_text), len(available_tools_text),
+        role_name,
+        len(role_doc_text),
+        len(available_tools_text),
     )
 
     return bta, inference_input
@@ -377,13 +383,9 @@ def parse_inner_breakdown_response(
 
     response_text = extract_delimited(str(raw_output))
 
-    json_match = re.search(
-        r"```json[^\n{]*(\{[\s\S]*\})\s*```", response_text
-    )
+    json_match = re.search(r"```json[^\n{]*(\{[\s\S]*\})\s*```", response_text)
     if not json_match:
-        json_match = re.search(
-            r'\{[\s\S]*"subtasks"[\s\S]*\}', response_text
-        )
+        json_match = re.search(r'\{[\s\S]*"subtasks"[\s\S]*\}', response_text)
         if json_match:
             json_str = json_match.group(0)
         else:
@@ -421,7 +423,9 @@ def parse_inner_breakdown_response(
         if "priority" in worker_query_fields and priority:
             parts.append(f"**Priority**: {priority}")
         if "subtask_dependencies" in worker_query_fields and deps:
-            parts.append(f"**Dependencies**: subtasks {', '.join(str(d) for d in deps)}")
+            parts.append(
+                f"**Dependencies**: subtasks {', '.join(str(d) for d in deps)}"
+            )
         if "todos" in worker_query_fields and todos:
             todo_lines = "\n".join(f"- {t}" for t in todos)
             parts.append(f"**Todos**:\n{todo_lines}")
@@ -434,19 +438,25 @@ def parse_inner_breakdown_response(
                 query_args["todos"] = todos
             if desc:
                 query_args["description"] = desc
-            queries.append({
-                "query": query_text.strip(),
-                "args": query_args,
-            })
+            queries.append(
+                {
+                    "query": query_text.strip(),
+                    "args": query_args,
+                }
+            )
 
     if not queries:
         return parse_numbered_list(response_text)
 
     research_count = sum(1 for q in queries if "research" in q["args"]["task_preamble"])
-    investigation_count = sum(1 for q in queries if "investigation" in q["args"]["task_preamble"])
+    investigation_count = sum(
+        1 for q in queries if "investigation" in q["args"]["task_preamble"]
+    )
     _logger.info(
         "Parsed %d inner subtasks: %d research, %d investigation",
-        len(queries), research_count, investigation_count,
+        len(queries),
+        research_count,
+        investigation_count,
     )
     return queries
 
@@ -481,9 +491,7 @@ def _build_inner_bta(
     """
     if templates_root is None:
         templates_root = _PROMPT_TEMPLATES_ROOT
-    _logger.info(
-        "Building inner BTA (worker %d) for: %.80s...", index, sub_query
-    )
+    _logger.info("Building inner BTA (worker %d) for: %.80s...", index, sub_query)
 
     # Inner breakdown
     inner_rovo_kwargs = dict(rovo_kwargs)
@@ -510,17 +518,32 @@ def _build_inner_bta(
     def _make_worker(sub_query: str, index: int, preamble_name: str, use_rovodev: bool):
         """Create a worker inferencer with the right preamble and engine."""
         preamble_path = (
-            templates_root / "deep_research" / "main" / "_variables"
-            / "task_preamble" / f"{preamble_name}.jinja2"
+            templates_root
+            / "deep_research"
+            / "main"
+            / "_variables"
+            / "task_preamble"
+            / f"{preamble_name}.jinja2"
         )
         if preamble_path.exists():
-            worker_preamble = Template(preamble_path.read_text(encoding="utf-8")).render(role_name=role_name, role_doc_path=role_doc_path, available_tools_skills=available_tools_text)
+            worker_preamble = Template(
+                preamble_path.read_text(encoding="utf-8")
+            ).render(
+                role_name=role_name,
+                role_doc_path=role_doc_path,
+                available_tools_skills=available_tools_text,
+            )
         else:
             _logger.warning("Preamble %s not found, using default", preamble_name)
             worker_preamble = inner_research_preamble
 
         if use_rovodev:
-            _logger.info("  Inner worker %d (INVESTIGATION/%s): %.60s...", index, preamble_name, sub_query)
+            _logger.info(
+                "  Inner worker %d (INVESTIGATION/%s): %.60s...",
+                index,
+                preamble_name,
+                sub_query,
+            )
             rovodev_worker_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
             if workspace_root:
                 rovodev_worker_kwargs["target_path"] = workspace_root
@@ -530,7 +553,12 @@ def _build_inner_bta(
                 rovodev_worker_kwargs["logger"] = inferencer_logger
             worker_inf = RovoDevCliInferencer(**rovodev_worker_kwargs)
         else:
-            _logger.info("  Inner worker %d (RESEARCH/%s): %.60s...", index, preamble_name, sub_query)
+            _logger.info(
+                "  Inner worker %d (RESEARCH/%s): %.60s...",
+                index,
+                preamble_name,
+                sub_query,
+            )
             worker_inf = _make_rovochat(**inner_rovo_kwargs)
             worker_inf.debug_mode = True
             if inferencer_logger is not None:
@@ -546,10 +574,14 @@ def _build_inner_bta(
         return worker_inf
 
     def research_worker_factory(sub_query: str, index: int):
-        return _make_worker(sub_query, index, "skill_tool_creation_research", use_rovodev=False)
+        return _make_worker(
+            sub_query, index, "skill_tool_creation_research", use_rovodev=False
+        )
 
     def investigation_worker_factory(sub_query: str, index: int):
-        return _make_worker(sub_query, index, "skill_tool_creation_investigation", use_rovodev=True)
+        return _make_worker(
+            sub_query, index, "skill_tool_creation_investigation", use_rovodev=True
+        )
 
     inner_worker_factory = {
         "skill_tool_creation_research": {
@@ -611,15 +643,14 @@ def _build_inner_bta(
         output_path=f"skill_tool_spec_worker_{index}.md",
     )
     if workspace_root:
-        # Use a full InferencerWorkspace (not bare workspace_root) so that
-        # use_final_deliverables_folder=True is honoured — deliverables (skills/,
-        # tools/) go to outputs/final_deliverables/ instead of outputs/ directly.
+        # Use a full InferencerWorkspace (not bare workspace_root) so deliverables
+        # (skills/, tools/) are surfaced under outputs/ directly.
         from agent_foundation.common.inferencers.inferencer_workspace import (
             InferencerWorkspace,
         )
+
         bta_kwargs["workspace"] = InferencerWorkspace(
             root=workspace_root,
-            use_final_deliverables_folder=True,
         )
     if inferencer_logger is not None:
         bta_kwargs["logger"] = inferencer_logger
@@ -666,13 +697,17 @@ def build_role_setup_inferencer(
 
     # Pre-render outer breakdown preamble (has {{ role_name }}, etc.)
     outer_breakdown_preamble = _render_variable_file(
-        "task_breakdown", "task_preamble", "role_setup",
+        "task_breakdown",
+        "task_preamble",
+        "role_setup",
         role_name=role_name,
         role_doc_path=role_doc_path,
         available_tools_skills=available_tools_text,
     )
     templates_root_resolved = (
-        Path(templates_dir).resolve() if templates_dir else _PROMPT_TEMPLATES_ROOT.resolve()
+        Path(templates_dir).resolve()
+        if templates_dir
+        else _PROMPT_TEMPLATES_ROOT.resolve()
     )
     outer_synthesis_instructions = _aggregation_instructions_from_path(
         templates_root_resolved,
@@ -848,20 +883,32 @@ def build_subtask_breakdown_only(
     _raw_file = Path(breakdown_file).read_text(encoding="utf-8")
     try:
         _parsed = _json.loads(_raw_file)
-        breakdown_text = _parsed.get("raw_output", _raw_file) if isinstance(_parsed, dict) else _raw_file
+        breakdown_text = (
+            _parsed.get("raw_output", _raw_file)
+            if isinstance(_parsed, dict)
+            else _raw_file
+        )
     except _json.JSONDecodeError:
         breakdown_text = _raw_file
 
     # Extract JSON from <Response> tags or raw text
     subtasks = []
-    response_match = _re.search(r"<Response>(.*?)</Response>", breakdown_text, _re.DOTALL)
+    response_match = _re.search(
+        r"<Response>(.*?)</Response>", breakdown_text, _re.DOTALL
+    )
     search_text = response_match.group(1) if response_match else breakdown_text
     json_match = _re.search(r"```json.*?\n(.*?)```", search_text, _re.DOTALL)
     if not json_match:
-        json_match = _re.search(r'\{[^{}]*"subtasks"\s*:\s*\[.*?\]\s*[^{}]*\}', search_text, _re.DOTALL)
+        json_match = _re.search(
+            r'\{[^{}]*"subtasks"\s*:\s*\[.*?\]\s*[^{}]*\}', search_text, _re.DOTALL
+        )
     if json_match:
         try:
-            data = _json.loads(json_match.group(1) if "```" in json_match.group(0) else json_match.group(0))
+            data = _json.loads(
+                json_match.group(1)
+                if "```" in json_match.group(0)
+                else json_match.group(0)
+            )
             subtasks = data.get("subtasks", data.get("decomposed_subtasks", []))
         except _json.JSONDecodeError as e:
             _logger.warning("Failed to parse breakdown JSON: %s", e)
@@ -888,19 +935,26 @@ def build_subtask_breakdown_only(
 
     _logger.info(
         "Building inner BTA breakdown-only for subtask %d: task_preamble=%s, desc=%.80s...",
-        subtask_index, task_preamble_name, subtask_desc,
+        subtask_index,
+        task_preamble_name,
+        subtask_desc,
     )
 
     # 2. Read the task_preamble template content
     templates_root = Path(templates_dir) if templates_dir else _PROMPT_TEMPLATES_ROOT
     preamble_path = (
-        templates_root / "task_breakdown" / "main" / "_variables"
-        / "task_preamble" / f"{task_preamble_name}.jinja2"
+        templates_root
+        / "task_breakdown"
+        / "main"
+        / "_variables"
+        / "task_preamble"
+        / f"{task_preamble_name}.jinja2"
     )
     if not preamble_path.exists():
         _logger.warning(
             "Task preamble %s not found at %s, falling back to create_role",
-            task_preamble_name, preamble_path,
+            task_preamble_name,
+            preamble_path,
         )
         preamble_path = preamble_path.parent / "create_role.jinja2"
 
@@ -938,7 +992,9 @@ def build_subtask_breakdown_only(
         rovo_kwargs=rovo_kwargs,
         inner_breakdown_preamble=inner_breakdown_preamble,
         inner_research_preamble=_render_variable_file(
-            "deep_research", "task_preamble", "create_role",
+            "deep_research",
+            "task_preamble",
+            "create_role",
             role_name=role_name,
             role_doc_path=str(Path(role_document_path).resolve()),
             available_tools_skills=available_tools_text,
@@ -964,7 +1020,9 @@ def build_subtask_breakdown_only(
 
     _logger.info(
         "Subtask breakdown-only built: subtask=%d, preamble=%s, desc=%d chars",
-        subtask_index, task_preamble_name, len(subtask_desc),
+        subtask_index,
+        task_preamble_name,
+        len(subtask_desc),
     )
 
     return inner_bta, subtask_desc
@@ -1006,9 +1064,13 @@ def build_inner_research_only(
     sub_queries = parse_inner_breakdown_response(inner_text)
 
     if not sub_queries:
-        raise ValueError(f"No subtasks found in inner breakdown file: {inner_breakdown_file}")
+        raise ValueError(
+            f"No subtasks found in inner breakdown file: {inner_breakdown_file}"
+        )
 
-    _logger.info("Parsed %d inner sub_queries from %s", len(sub_queries), inner_breakdown_file)
+    _logger.info(
+        "Parsed %d inner sub_queries from %s", len(sub_queries), inner_breakdown_file
+    )
 
     # 2. Context variables for preamble rendering
     role_doc_text = Path(role_document_path).read_text(encoding="utf-8")
@@ -1030,18 +1092,29 @@ def build_inner_research_only(
 
     # 4. Build worker factories (same as _build_inner_bta)
     rovo_kwargs = dict(
-        cloud_id=cloud_id, uct_token=uct_token, email=email,
-        api_token=api_token, base_url=base_url, agent_named_id=agent_named_id,
+        cloud_id=cloud_id,
+        uct_token=uct_token,
+        email=email,
+        api_token=api_token,
+        base_url=base_url,
+        agent_named_id=agent_named_id,
     )
 
     def _make_worker(sub_query, index, preamble_name, use_rovodev):
         preamble_path = (
-            templates_root / "deep_research" / "main" / "_variables"
-            / "task_preamble" / f"{preamble_name}.jinja2"
+            templates_root
+            / "deep_research"
+            / "main"
+            / "_variables"
+            / "task_preamble"
+            / f"{preamble_name}.jinja2"
         )
         if preamble_path.exists():
-            worker_preamble = Template(preamble_path.read_text(encoding="utf-8")).render(
-                role_name=role_name, role_doc_path=role_doc_path_resolved,
+            worker_preamble = Template(
+                preamble_path.read_text(encoding="utf-8")
+            ).render(
+                role_name=role_name,
+                role_doc_path=role_doc_path_resolved,
                 available_tools_skills=available_tools_text,
             )
         else:
@@ -1049,7 +1122,12 @@ def build_inner_research_only(
             worker_preamble = ""
 
         if use_rovodev:
-            _logger.info("  Worker %d (INVESTIGATION/%s): %.60s...", index, preamble_name, sub_query)
+            _logger.info(
+                "  Worker %d (INVESTIGATION/%s): %.60s...",
+                index,
+                preamble_name,
+                sub_query,
+            )
             rovodev_worker_kwargs: dict[str, Any] = dict(yolo=True, debug_mode=True)
             if workspace_root:
                 rovodev_worker_kwargs["target_path"] = workspace_root
@@ -1057,7 +1135,9 @@ def build_inner_research_only(
                 rovodev_worker_kwargs["cache_folder"] = streaming_cache_dir
             worker_inf = RovoDevCliInferencer(**rovodev_worker_kwargs)
         else:
-            _logger.info("  Worker %d (RESEARCH/%s): %.60s...", index, preamble_name, sub_query)
+            _logger.info(
+                "  Worker %d (RESEARCH/%s): %.60s...", index, preamble_name, sub_query
+            )
             worker_inf = _make_rovochat(**rovo_kwargs)
 
         if inferencer_logger is not None:
@@ -1081,8 +1161,14 @@ def build_inner_research_only(
         return _make_worker(sub_query, index, "skill_tool_creation_investigation", True)
 
     worker_factory = {
-        "skill_tool_creation_research": {"factory": research_factory, "expand_todos": True},
-        "skill_tool_creation_investigation": {"factory": investigation_factory, "expand_todos": False},
+        "skill_tool_creation_research": {
+            "factory": research_factory,
+            "expand_todos": True,
+        },
+        "skill_tool_creation_investigation": {
+            "factory": investigation_factory,
+            "expand_todos": False,
+        },
         "_default": {"factory": research_factory, "expand_todos": True},
     }
 
@@ -1119,7 +1205,8 @@ def build_inner_research_only(
 
     _logger.info(
         "Inner research-only built: %d sub_queries, workspace=%s",
-        len(sub_queries), workspace_root,
+        len(sub_queries),
+        workspace_root,
     )
 
     return bta, sub_queries
@@ -1128,6 +1215,7 @@ def build_inner_research_only(
 # ---------------------------------------------------------------------------
 # Generic executor entry point — called by ToolDispatcher
 # ---------------------------------------------------------------------------
+
 
 async def execute(
     arguments: dict,
@@ -1157,14 +1245,13 @@ async def execute(
         ToolExecutionResult,
     )
     from agent_foundation.resources.tools.task.executor import (
-        _run_topology, _resolve_workspace,
+        _resolve_workspace,
+        _run_topology,
     )
 
     role_document_path = arguments.get("role_document_path", "")
     max_facets = int(arguments.get("max_facets", 8))
-    max_inner_facets = int(
-        arguments.get("max_inner_facets", 5)
-    )
+    max_inner_facets = int(arguments.get("max_inner_facets", 5))
 
     # Resolve missing/wrong paths. The LLM may pass a relative path, a wrong
     # filename, or a fabricated absolute path. Search the session workspace for
@@ -1175,11 +1262,19 @@ async def execute(
             for candidate in Path(session_root).rglob("role_document.md"):
                 if candidate.is_file():
                     role_document_path = str(candidate)
-                    _logger.info("Resolved role_document_path to: %s", role_document_path)
+                    _logger.info(
+                        "Resolved role_document_path to: %s", role_document_path
+                    )
                     break
 
-    role_doc_text = Path(role_document_path).read_text(encoding="utf-8") if role_document_path else ""
-    role_name = role_doc_text.split("\n")[0].strip("# ").strip() if role_doc_text else ""
+    role_doc_text = (
+        Path(role_document_path).read_text(encoding="utf-8")
+        if role_document_path
+        else ""
+    )
+    role_name = (
+        role_doc_text.split("\n")[0].strip("# ").strip() if role_doc_text else ""
+    )
     role_doc_abs = str(Path(role_document_path).resolve()) if role_document_path else ""
     available_tools_text = format_available_tools_and_skills(
         extra_tool_dirs=[_APP_TOOLS_DIR], extra_skill_dirs=[_APP_SKILLS_DIR]
@@ -1189,9 +1284,8 @@ async def execute(
     templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
     # Pre-allocate workspace via shared allocator (closes literal-task_id collision bug).
-    from agent_foundation.common.workspace.allocator import (
-        allocate_tool_workspace,
-    )
+    from agent_foundation.common.workspace.allocator import allocate_tool_workspace
+
     _sr = (session_context or {}).get("session_root", "")
     if _sr:
         _tasks_base = Path(_sr) / "tasks"
@@ -1213,7 +1307,10 @@ async def execute(
         # single-string override here would clobber the two-root list.
         # The inner BTA's _template_manager also needs both roots — patch it
         # to match the centralized default.
-        "worker_factory.skill_tool_creation._template_manager.templates": [str(templates_path), str(_AF_TEMPLATES_ROOT)],
+        "worker_factory.skill_tool_creation._template_manager.templates": [
+            str(templates_path),
+            str(_AF_TEMPLATES_ROOT),
+        ],
         # role_setup.yaml has a top-level `workspace:` (InferencerWorkspace) block;
         # set its `root` field. BTA:348-349 docs confirm `workspace` (object)
         # takes precedence over `workspace_root` (convenience shorthand).

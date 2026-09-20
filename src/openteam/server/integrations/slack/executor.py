@@ -29,9 +29,7 @@ from openteam.server.integrations.slack.ts_bridge import execute_slack_action
 logger = logging.getLogger(__name__)
 
 # Dispatch map: tool_name -> async operation function
-_SLACK_DISPATCH: dict[
-    str, Callable[..., Coroutine[Any, Any, dict[str, Any]]]
-] = {
+_SLACK_DISPATCH: dict[str, Callable[..., Coroutine[Any, Any, dict[str, Any]]]] = {
     "slack_search_messages": search_messages,
     "slack_search_files": search_files,
     "slack_get_thread": get_thread,
@@ -44,21 +42,23 @@ _SLACK_DISPATCH: dict[
 }
 
 # Action tools — dispatched via TS bridge (calls @slack/web-api via subprocess)
-_SLACK_ACTION_TOOLS = frozenset({
-    "slack_react",
-    "slack_remove_reaction",
-    "slack_list_reactions",
-    "slack_remove_own_reactions",
-    "slack_send_message",
-    "slack_edit_message",
-    "slack_delete_message",
-    "slack_read_messages",
-    "slack_pin_message",
-    "slack_unpin_message",
-    "slack_list_pins",
-    "slack_member_info",
-    "slack_emoji_list",
-})
+_SLACK_ACTION_TOOLS = frozenset(
+    {
+        "slack_react",
+        "slack_remove_reaction",
+        "slack_list_reactions",
+        "slack_remove_own_reactions",
+        "slack_send_message",
+        "slack_edit_message",
+        "slack_delete_message",
+        "slack_read_messages",
+        "slack_pin_message",
+        "slack_unpin_message",
+        "slack_list_pins",
+        "slack_member_info",
+        "slack_emoji_list",
+    }
+)
 
 
 def is_slack_tool(tool_name: str) -> bool:
@@ -81,7 +81,9 @@ async def execute_slack_tool(
     handler = _SLACK_DISPATCH.get(tool_name)
     if not handler:
         return ToolExecutionResult(
-            result=json.dumps({"ok": False, "error": f"Unknown Slack tool: {tool_name}"})
+            result=json.dumps(
+                {"ok": False, "error": f"Unknown Slack tool: {tool_name}"}
+            )
         )
 
     try:
@@ -89,6 +91,4 @@ async def execute_slack_tool(
         return ToolExecutionResult(result=json.dumps(result, default=str))
     except Exception as e:
         logger.error("Slack tool %s failed: %s", tool_name, e)
-        return ToolExecutionResult(
-            result=json.dumps({"ok": False, "error": str(e)})
-        )
+        return ToolExecutionResult(result=json.dumps({"ok": False, "error": str(e)}))

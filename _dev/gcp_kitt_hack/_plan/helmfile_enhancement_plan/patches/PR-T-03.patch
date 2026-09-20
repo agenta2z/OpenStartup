@@ -1,0 +1,36 @@
+From: helmfile-enhancement-plan
+Subject: [PATCH] PR-T-03 — Coverage gate (>=40% on dte/) + report upload
+
+Closes G3 (no coverage report).
+Branch: ci/dte-coverage-gate
+Depends-on: PR-T-01, PR-T-02
+
+Adds an explicit `coverage` and `coverage-report` Make target and pins
+the L2 CI step's threshold at 40% (calibrated to whatever the first run
+emits; raise to 60% after a quarter).
+
+---
+ atlassian_packages/gcp_kitt/helmfile/dte/Makefile | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/atlassian_packages/gcp_kitt/helmfile/dte/Makefile b/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
+--- a/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
++++ b/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
+@@ -50,3 +50,16 @@ test-verbose: ## Run tests with verbose output
+ 	@echo "Running tests with verbose output..."
+ 	go test -race -v ./...
+
++.PHONY: coverage
++coverage: ## Run tests and emit coverage profile + summary line
++	@echo "Running tests with coverage..."
++	go test -race -coverprofile=coverage.out -covermode=atomic ./...
++	@go tool cover -func=coverage.out | tail -1
++
++.PHONY: coverage-report
++coverage-report: coverage ## Emit a human-readable HTML report at coverage.html
++	go tool cover -html=coverage.out -o coverage.html
++	@echo "Open dte/coverage.html in your browser."
++
++.PHONY: coverage-gate
++coverage-gate: coverage ## CI-suitable: exit non-zero if coverage drops below 40%
++	@go tool cover -func=coverage.out | awk '/total:/ { gsub("%",""); if ($$3+0 < 40.0) { print "FAIL: coverage "$$3"% < 40%"; exit 1 } else { print "OK: coverage "$$3"% >= 40%" } }'

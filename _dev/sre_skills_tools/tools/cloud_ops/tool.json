@@ -1,0 +1,26 @@
+{
+  "name": "cloud_ops",
+  "tool_type": "Action",
+  "category": "utility",
+  "description": "Execute AWS cloud operations via the AWS CLI for infrastructure monitoring, health checks, and supervised remediation. Covers EC2 instance management, RDS database monitoring, ELB/ALB target health, CloudWatch metrics and alarms, and SQS queue depth monitoring. All read-only Describe/Get/List operations are safe for autonomous execution. State-changing operations (start, stop, reboot, terminate) require confirmation via the infrastructure_ops skill guardrails.",
+  "parameters": [
+    {
+      "name": "command",
+      "type": "string",
+      "required": true,
+      "positional": true,
+      "description": "AWS CLI command arguments. Examples: 'ec2 describe-instances --filters Name=tag:Name,Values=app-server', 'rds describe-db-instances --db-instance-identifier my-db', 'elbv2 describe-target-health --target-group-arn <arn>', 'cloudwatch describe-alarms --state-value ALARM', 'sqs get-queue-attributes --queue-url <url> --attribute-names ApproximateNumberOfMessages'. Do NOT include the 'aws' prefix — it is added automatically."
+    }
+  ],
+  "usage_guidance": "Use for ALL AWS cloud infrastructure operations. Before executing, consult the infrastructure_ops skill for routing and guardrail checks.\n\n**Read-only commands** (autonomous — no confirmation needed):\n  ec2 describe-instances, ec2 describe-instance-status, rds describe-db-instances,\n  rds describe-db-clusters, elbv2 describe-target-health, elbv2 describe-load-balancers,\n  cloudwatch describe-alarms, cloudwatch get-metric-data, cloudwatch list-metrics,\n  sqs get-queue-attributes, sqs list-queues, autoscaling describe-auto-scaling-groups\n\n**Low-risk mutations** (log and confirm via skill):\n  ec2 start-instances, ec2 reboot-instances, autoscaling set-desired-capacity\n\n**High-risk mutations** (require human approval):\n  ec2 stop-instances, ec2 terminate-instances, rds stop-db-instance,\n  rds delete-db-instance, rds reboot-db-instance\n\n**Blocked operations** (never execute — escalate to human):\n  iam *, route53 *, organizations *, kms delete-key, s3 rb\n\nAlways use --output json for structured output. Use --region to specify the target region explicitly.",
+  "returns": "Command output from AWS CLI in JSON format (when --output json is used). Error output includes AWS error codes, messages, and request IDs.",
+  "examples": [
+    "cloud_ops ec2 describe-instances --filters Name=instance-state-name,Values=running --output json",
+    "cloud_ops ec2 describe-instance-status --instance-ids i-049e392678be260e3 --output json",
+    "cloud_ops rds describe-db-instances --db-instance-identifier my-database --output json",
+    "cloud_ops elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123456789:targetgroup/my-tg/abc123",
+    "cloud_ops cloudwatch describe-alarms --state-value ALARM --output json",
+    "cloud_ops cloudwatch get-metric-data --metric-data-queries file://query.json --start-time 2026-04-23T00:00:00Z --end-time 2026-04-23T12:00:00Z",
+    "cloud_ops sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/123456789/my-queue --attribute-names ApproximateNumberOfMessages ApproximateNumberOfMessagesNotVisible"
+  ]
+}

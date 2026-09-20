@@ -1,0 +1,34 @@
+From: helmfile-enhancement-plan
+Subject: [PATCH] PR-T-02 — Fix dte/Makefile:test glob to actually run all 70 tests
+
+Closes G2 (test glob misses distributed-worker/).
+Branch: chore/dte-makefile-fix-test-glob
+
+The current targets reference ./cmd/... which does not exist; the result
+is that go test silently runs only the 6 tests under pkg/logger and ignores
+the 64 tests under distributed-worker/. This patch:
+  - replaces the bogus glob with ./...
+  - adds -race
+  - generates a coverage profile
+  - removes the `|| echo` that swallows failures.
+
+---
+ atlassian_packages/gcp_kitt/helmfile/dte/Makefile | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/atlassian_packages/gcp_kitt/helmfile/dte/Makefile b/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
+--- a/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
++++ b/atlassian_packages/gcp_kitt/helmfile/dte/Makefile
+@@ -41,12 +41,12 @@ build: ## Build the binary
+ .PHONY: test
+ test: ## Run tests
+ 	@echo "Running tests..."
+-	go test ./pkg/... ./cmd/... || echo "No tests found or tests failed"
++	go test -race -coverprofile=coverage.out ./...
++	@go tool cover -func=coverage.out | tail -1
+
+ .PHONY: test-verbose
+ test-verbose: ## Run tests with verbose output
+ 	@echo "Running tests with verbose output..."
+-	go test -v ./pkg/... ./cmd/...
++	go test -race -v ./...

@@ -12,6 +12,7 @@ Fork-bomb safety: the spawned server inherits ``OPENTEAM_AUTO_LAUNCH=0``
 (Invariant I17), so if its own startup code ever imports the connector it
 will not recurse.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,11 +26,7 @@ import time
 from pathlib import Path
 from typing import Optional, Union
 
-from openteam.client.discovery import (
-    DISCOVERY_DIR,
-    ServerHandle,
-    find_server,
-)
+from openteam.client.discovery import DISCOVERY_DIR, find_server, ServerHandle
 
 _logger = logging.getLogger(__name__)
 
@@ -170,13 +167,17 @@ def auto_launch_server(
         else:
             cmd = [sys.executable, "-m", "openteam.server.run_server"]
         cmd += [
-            "--host", host,
-            "--port", str(actual_port),
-            "--runtime-root", str(runtime_root),
+            "--host",
+            host,
+            "--port",
+            str(actual_port),
+            "--runtime-root",
+            str(runtime_root),
             # --real-sessions is preserved for backward compatibility with
             # call sites that haven't migrated to --runtime-root yet; the
             # server treats either as equivalent (I21).
-            "--real-sessions", str(runtime_root),
+            "--real-sessions",
+            str(runtime_root),
         ]
         if extra_argv:
             cmd += list(extra_argv)
@@ -187,7 +188,7 @@ def auto_launch_server(
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,   # detach from caller's process group
+            start_new_session=True,  # detach from caller's process group
         )
 
         deadline = time.monotonic() + wait_timeout_s
@@ -217,10 +218,13 @@ def auto_launch_server(
 def _find_executable(name: str) -> Optional[str]:
     """Locate an executable on PATH. Used by auto_launch to find ``openteam-server``."""
     import shutil
+
     return shutil.which(name)
 
 
-def _pick_free_port(host: str, *, candidates: Union[range, list[int]] = range(8000, 8011)) -> int:
+def _pick_free_port(
+    host: str, *, candidates: Union[range, list[int]] = range(8000, 8011)
+) -> int:
     """Probe ``candidates`` until one binds successfully. Raise if all are taken.
 
     The probe binds momentarily then closes; the port is then available for

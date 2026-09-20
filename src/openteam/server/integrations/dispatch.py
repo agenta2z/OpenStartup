@@ -27,10 +27,7 @@ from openteam.server.integrations.slack.executor import (
     execute_slack_tool,
     is_slack_tool,
 )
-from openteam.server.integrations.twg.executor import (
-    execute_twg,
-    is_twg_tool,
-)
+from openteam.server.integrations.twg.executor import execute_twg, is_twg_tool
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +50,7 @@ class IntegrationToolExecutor:
             return await execute_slack_tool(tool_name, arguments)
         if is_twg_tool(tool_name):
             return await execute_twg(tool_name, arguments)
-        return ToolExecutionResult(
-            result=f"Unknown integration tool: {tool_name}"
-        )
+        return ToolExecutionResult(result=f"Unknown integration tool: {tool_name}")
 
 
 def build_integration_executor() -> IntegrationToolExecutor:

@@ -57,7 +57,13 @@ async def get_collaboration_config(request: Request, employee_id: str):
     svc = request.app.state.data_service
     config = svc.get_collaboration_config(employee_id)
     if not config:
-        return {"data": {"employee_id": employee_id, "default_cross_org": "request", "rules": []}}
+        return {
+            "data": {
+                "employee_id": employee_id,
+                "default_cross_org": "request",
+                "rules": [],
+            }
+        }
     return {"data": config}
 
 
@@ -79,12 +85,20 @@ async def get_employee_acl(request: Request, employee_id: str):
         if org_membership:
             org_acl = svc.get_org_default_acl(org_membership["org_id"])
             if org_acl:
-                return {"data": {
-                    "employee_id": employee_id,
-                    "inherited_from_org": True,
-                    "entries": org_acl.get("entries", []),
-                }}
-        return {"data": {"employee_id": employee_id, "inherited_from_org": True, "entries": []}}
+                return {
+                    "data": {
+                        "employee_id": employee_id,
+                        "inherited_from_org": True,
+                        "entries": org_acl.get("entries", []),
+                    }
+                }
+        return {
+            "data": {
+                "employee_id": employee_id,
+                "inherited_from_org": True,
+                "entries": [],
+            }
+        }
     return {"data": acl}
 
 

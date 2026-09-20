@@ -19,13 +19,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
-
 from agent_foundation.common.workspace.path_completion import (
     complete_path,
     PathContainmentError,
     PrefixNotADirectory,
 )
+from fastapi import APIRouter, HTTPException, Query, Request
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +75,58 @@ async def path_complete(
     try:
         return complete_path(prefix, partial, dirs_only=dirs_only, limit=limit)
     except PrefixNotADirectory:
-        raise HTTPException(status_code=404, detail=f"Prefix directory not found: {prefix}")
+        raise HTTPException(
+            status_code=404, detail=f"Prefix directory not found: {prefix}"
+        )
     except PathContainmentError:
         raise HTTPException(status_code=403, detail="Path traversal blocked")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid path")
+
+
+@router.get("/file")
+async def get_workspace_file(
+    request: Request,
+    workspace: str = Query(..., description="Absolute workspace directory path"),
+    path: str = Query(..., description="Relative path within the workspace"),
+) -> dict[str, Any]:
+    """Read a single file under a workspace directory as UTF-8 text.
+
+    Backs ``QueueProgressView``'s ``LazyWorkspaceMarkdown`` accordions
+    (summary.md, outputs/round0_plan.md, outputs/round0_implementation.md).
+
+    Security: reuses the same allowed-root containment guard as
+    ``/path-complete``. Two enforcement layers:
+      (1) ``workspace`` must resolve within the allowed root.
+      (2) ``workspace + path`` must resolve within ``workspace`` (blocks
+          ``../`` traversal out of the intended workspace subtree).
+
+    Only ``/tree``, ``/outputs``, ``/results`` remain unmounted (YAGNI —
+    no live component consumer today; add when one lands).
+    """
+    root = _allowed_root(request)
+    try:
+        abs_ws = Path(workspace).resolve()
+        abs_ws.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="workspace outside allowed root")
+    except OSError:
+        raise HTTPException(status_code=400, detail="Invalid workspace path")
+
+    try:
+        target = (abs_ws / path).resolve()
+        target.relative_to(abs_ws)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="path escapes workspace")
+    except OSError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail=f"{path} not found")
+
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Read failed: {exc}") from exc
+
+    return {"content": content}

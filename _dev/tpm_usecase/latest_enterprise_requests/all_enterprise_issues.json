@@ -1,0 +1,645 @@
+{
+  "total": 80,
+  "issues": [
+    {
+      "key": "ENT-3860",
+      "summary": "Atlassian MCP server should support connecting to multiple sites simultaneously",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3860",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3859",
+      "summary": "Confluence space_permission_mapping table in Data Lake missing editor/commenter permission granularity",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3859",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3858",
+      "summary": "JSM \u2013 Deployment Gating \u2013 Pass GitHub actor/deployer email into change request ticket",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3858",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3857",
+      "summary": "Native capability to move work items between CSM and JSM spaces",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3857",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3856",
+      "summary": "Ability to configure MCP server permissions per site (extending org-level controls shipped in ENT-3684)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3856",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3855",
+      "summary": "Enable Mobile App Management (MAM) policy targeting for subsets of external users",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3855",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3852",
+      "summary": "For AppLink WebSocket tunnels, enable perimeter DLP-compatible connectivity",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3852",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3851",
+      "summary": "Prevention of ingestion of new sensitive data in Jira and Confluence",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3851",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3848",
+      "summary": "Restrict Org Admin from Self-Granting Product Access (Information Access Restriction)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3848",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3845",
+      "summary": "Prevent the duplication of custom fields",
+      "status": "Not Currently Prioritized",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3845",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3844",
+      "summary": "Create Rovo usage trend dashboard track user-level Rovo engagement",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3844",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3850",
+      "summary": "SharePoint connector in sandbox site incorrectly requiring admin consent.",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3850",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3839",
+      "summary": "Allow JSM Operations Global Admins to Manage Stakeholders and Stakeholder Groups",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3839",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3837",
+      "summary": "DESC (Digital Economy Security Council) Certification \u2014 UAE",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3837",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3834",
+      "summary": "App-Level Access Control for users/groups",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3834",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3833",
+      "summary": "D32 - NATO Cybersecurity Directive Accreditation (AC/322-D(2021)0032-REV1)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3833",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3832",
+      "summary": "Allow-list / whitelistng model for SharePoint/OneDrive Rovo connector using sites.selected",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3832",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3824",
+      "summary": "Platform-native lifecycle governance for large-scale multi-site enterprises (PwC expansion blocker)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3824",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3830",
+      "summary": "Accurate Jira agent behavior and changelog queries",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3830",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3823",
+      "summary": "Label Driven Policies",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3823",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3822",
+      "summary": "Loom - Uncontrolled usage prevention",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3822",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3821",
+      "summary": "Loom - Managed-only access",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3821",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3820",
+      "summary": "Loom - Public link restriction",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3820",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3819",
+      "summary": "Loom - Policy inheritance and enforcement",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3819",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3818",
+      "summary": "Loom - Support Global Organization Policies",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3818",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3817",
+      "summary": "Loom - Approved domain sharing",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3817",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3816",
+      "summary": "Implement Shadow IT controls in JPD",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3816",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3815",
+      "summary": "Implement Shadow IT controls in Atlassian Guard",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3815",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3814",
+      "summary": "Implement Shadow IT controls in Loom",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3814",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3813",
+      "summary": "Support OAuth API Requests in Jira Align",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3813",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3811",
+      "summary": "Be able to set up privacy between entities",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3811",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3810",
+      "summary": "SSO/OTP Multiple Policies",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3810",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3809",
+      "summary": "Rovo | Policy to block MCP access for external users",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3809",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3807",
+      "summary": "Agent automation throttling with minimal visibility/workarounds",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3807",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3790",
+      "summary": "[Outside US-only] AWS Failover between regions (MRDR - Multi-region Disaster Recovery)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3790",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3783",
+      "summary": "Provide an Assets Data Manager Adapter for AWS Cloud ",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3783",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3747",
+      "summary": "Simplify direct messaging (DM) with custom Rovo Agents in Slack",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3747",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3746",
+      "summary": "Allow Slack admins to restrict which Atlassian cloud sites can connect",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3746",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3745",
+      "summary": "Allow REST API calls via Atlassian custom domains",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3745",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3743",
+      "summary": "Supporting huge ADF size of confluence page to enable user's page usecase from DC",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3743",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3742",
+      "summary": "Increase Data Manager Attribute Character Limit past 250",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3742",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3740",
+      "summary": "HIPPA compliance in AGC",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3740",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3739",
+      "summary": "Atlassian\u2011hosted LLMs with EU Data Residency",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3739",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3738",
+      "summary": "Regulated customers need public APIs to capture all Confluence Databases activity for compliance auditing",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3738",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3737",
+      "summary": "Regulated customers need comment edit history or granular comment edit/delete permissions in Confluence Cloud",
+      "status": "Closed",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3737",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3736",
+      "summary": "Regulated customers need public APIs to capture all Confluence Whiteboard activity for compliance auditing",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3736",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3735",
+      "summary": "Regulated customers need group-based access control to restrict Confluence Whiteboards for specific users (e.g. Active Directory groups)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3735",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3734",
+      "summary": "Intune MAM-aware IP Allowlist Bypass",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3734",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3731",
+      "summary": "Atlassian Analytics and Atlassian Data Lake data residency in Switzerland",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3731",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3728",
+      "summary": "Mobile App admin settings at the site level: Ability to block Jira/Confluence mobile app access per site",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3728",
+      "search_type": "governance",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3838",
+      "summary": "Granular control over 2-way comment sync between Slack and JSM when Rovo Agent creates a request via \"Raise a request\" tool",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3838",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3829",
+      "summary": "Confluence Cloud editor does not support side-by-side image placement \u2014 significant pain point for game development teams migrating to Cloud",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3829",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3812",
+      "summary": "Be able to scale to Accenture's demand using sites",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3812",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3808",
+      "summary": "Support individual and team capacity-based planning in Plans, aligned to JAC requests JRACLOUD-90363 and JRACLOUD-88144",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3808",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3789",
+      "summary": "Separate Sandbox from target instance to allow continuous testing during site resets and reduce risk",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3789",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3732",
+      "summary": "Ability to have an efficient group membership retrieval in Directory API v2 for Organization wide group membership",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3732",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3724",
+      "summary": "Make backup and restore available to standard license customer",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3724",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3722",
+      "summary": "LLM model version control",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3722",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3711",
+      "summary": "Increase projects and team limits of Plans (Advanced Roadmap)",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3711",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3710",
+      "summary": "Ingest shared calendars - Google Calendar connector",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3710",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3709",
+      "summary": "Ability to restrict API token creation for Bitbucket",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3709",
+      "search_type": "license",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3862",
+      "summary": "[AMAT] Rovo Trend Dashboard (to track usages)",
+      "status": "Closed",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3862",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3847",
+      "summary": "Rovo Enablement Issues ",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3847",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3835",
+      "summary": "Allow file upload via Rovo MCP server into Confluence and Jira",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3835",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3828",
+      "summary": "Confluence Cloud | Korean characters split into consonants/vowels when using Ctrl+F in page edit mode",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3828",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3798",
+      "summary": "Ticket creation from Rovo (agent and chat) does not support attachments",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3798",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3788",
+      "summary": "Increase BRIE for Confluence database scale beyond 32 GB to support P100 customers (up to 3.2 TB)",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3788",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3718",
+      "summary": "AGC | JSM Assets Reporting Feature",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3718",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3712",
+      "summary": "Rovo ServiceNow connector (ITSM + Knowledge) \u2013 lighthouse requirement",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3712",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3706",
+      "summary": "Sprawl management tools for Agent Admins",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3706",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3703",
+      "summary": "Snowflake [Rovo Connector]",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3703",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3696",
+      "summary": " Ability to Identify Content/Work Authored or Edited by Rovo Agents",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3696",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3831",
+      "summary": "ROVO: Metrics must be made available to monitor agent usage e.g. number of shares, invokes and usage patterns.",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3831",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3803",
+      "summary": "ROVO: Ability to have more granular function to monitor agent activities",
+      "status": "Roadmap (Internal Only)",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3803",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3800",
+      "summary": "ROVO: Provide mechanisms for users to regularly attest to the performance and design of their agents.",
+      "status": "Shipped",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3800",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3676",
+      "summary": "Enable automated export or external sharing of Rovo usage and analytics data for third-party reporting",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3676",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3671",
+      "summary": "ACN - Italian Cybersecurity Agency qualification",
+      "status": "Public Roadmap",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3671",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3661",
+      "summary": "Rovo does not automatically execute a second approved action when two interdependent actions are requested in a single prompt",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3661",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3659",
+      "summary": "Increase Result Limits on Rovo Agents in Confluence",
+      "status": "Actively Investigating",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3659",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    },
+    {
+      "key": "ENT-3655",
+      "summary": "Support chart and visualization output in Rovo agents",
+      "status": "Pending Review",
+      "url": "https://hello.jira.atlassian.cloud/browse/ENT-3655",
+      "search_type": "data_analytics",
+      "created": "N/A"
+    }
+  ]
+}

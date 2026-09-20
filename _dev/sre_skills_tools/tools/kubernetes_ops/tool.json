@@ -1,0 +1,27 @@
+{
+  "name": "kubernetes_ops",
+  "tool_type": "Action",
+  "category": "utility",
+  "description": "Execute Kubernetes operations via kubectl for cluster management, workload inspection, debugging, and remediation. Supports read-only queries (get, describe, logs, top, events), rollout management (rollout status, rollout restart, rollout undo), and supervised mutations (scale, apply, delete). All mutation operations require confirmation via the infrastructure_ops skill guardrails. Use `-o json` or `-o yaml` for structured output when parsing is needed.",
+  "parameters": [
+    {
+      "name": "command",
+      "type": "string",
+      "required": true,
+      "positional": true,
+      "description": "kubectl command arguments. Examples: 'get pods -n production -o wide', 'describe deployment my-app -n staging', 'logs pod/my-app-xyz -n production --tail=100 --previous', 'top nodes', 'rollout status deployment/my-app -n production', 'get events -n production --sort-by=.lastTimestamp'. Do NOT include the 'kubectl' prefix — it is added automatically."
+    }
+  ],
+  "usage_guidance": "Use for ALL Kubernetes cluster operations. Before executing, consult the infrastructure_ops skill for routing and guardrail checks.\n\n**Read-only commands** (autonomous — no confirmation needed):\n  get, describe, logs, top, explain, api-resources, api-versions, cluster-info, config view, version, diff, events\n\n**Low-risk mutations** (log and confirm via skill):\n  scale, rollout restart, rollout undo, cordon, uncordon, label, annotate\n\n**High-risk mutations** (require human approval):\n  apply, patch, create, replace, set\n\n**Blocked operations** (never execute — escalate to human):\n  delete namespace, delete --all, drain, taint\n\nAlways specify namespace explicitly with -n <namespace> for namespaced resources. Prefer -o json for structured output when results will be parsed programmatically.",
+  "returns": "Command output from kubectl. Text by default; structured JSON with -o json flag; YAML with -o yaml flag. Error output includes kubectl error messages and exit codes.",
+  "examples": [
+    "kubernetes_ops get pods -n production -o wide",
+    "kubernetes_ops describe deployment my-app -n staging",
+    "kubernetes_ops logs pod/my-app-xyz -n production --tail=100 --previous",
+    "kubernetes_ops top nodes",
+    "kubernetes_ops get events -n production --sort-by=.lastTimestamp",
+    "kubernetes_ops rollout status deployment/my-app -n production",
+    "kubernetes_ops get hpa -n production",
+    "kubernetes_ops scale deployment/my-app --replicas=5 -n production"
+  ]
+}

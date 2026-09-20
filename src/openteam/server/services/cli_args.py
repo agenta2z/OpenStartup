@@ -27,7 +27,9 @@ from typing import Any
 _REPEATABLE_KEYS = {"override"}
 
 
-def parse_cli_args(args_str: str, bool_flags: "set[str]" = frozenset()) -> dict[str, Any]:
+def parse_cli_args(
+    args_str: str, bool_flags: "set[str]" = frozenset()
+) -> dict[str, Any]:
     """Parse ``--key value`` pairs + bare ``--flag`` + positional ``request``.
 
     Rules:
@@ -48,7 +50,11 @@ def parse_cli_args(args_str: str, bool_flags: "set[str]" = frozenset()) -> dict[
     while i < len(parts):
         if parts[i].startswith("--"):
             key = parts[i].lstrip("-").replace("-", "_")
-            if key in bool_flags or i + 1 >= len(parts) or parts[i + 1].startswith("--"):
+            if (
+                key in bool_flags
+                or i + 1 >= len(parts)
+                or parts[i + 1].startswith("--")
+            ):
                 result[key] = True
                 consumed.add(i)
                 i += 1

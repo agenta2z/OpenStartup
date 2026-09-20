@@ -18,4 +18,12 @@ The list intentionally lives next to the per-package documentation so the
 declaration tracks the docs, not the build configuration.
 """
 
-MOCK_IMPORTS: list[str] = ['mcp', 'mcp.server', 'mcp.types', 'atlassian', 'httpx', 'anyio', 'starlette']
+MOCK_IMPORTS: list[str] = [
+    "mcp",
+    "mcp.server",
+    "mcp.types",
+    "atlassian",
+    "httpx",
+    "anyio",
+    "starlette",
+]

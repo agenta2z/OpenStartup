@@ -15,6 +15,7 @@ Usage from a tool's cli.py::
         return run_cli(_TOOL_JSON, execute, argv=argv,
                        mutually_exclusive_groups=[{"--plan", "--execute", "--full", "--confirm"}])
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +42,9 @@ def build_parser(
     p = argparse.ArgumentParser(
         prog=spec.get("name", "tool"),
         description=spec.get("description", ""),
-        epilog="Examples:\n  " + "\n  ".join(spec.get("examples", [])) if spec.get("examples") else None,
+        epilog="Examples:\n  " + "\n  ".join(spec.get("examples", []))
+        if spec.get("examples")
+        else None,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -99,7 +102,9 @@ def run_cli(
     mutually_exclusive_groups: Optional[list[set[str]]] = None,
 ) -> int:
     """Build parser, parse args, run the executor, print results."""
-    parser = build_parser(tool_json_path, mutually_exclusive_groups=mutually_exclusive_groups)
+    parser = build_parser(
+        tool_json_path, mutually_exclusive_groups=mutually_exclusive_groups
+    )
     ns = parser.parse_args(argv)
 
     arguments: dict[str, Any] = {}
@@ -122,6 +127,7 @@ def run_cli(
     # (Path A fallback) when no frontend context is present — today's CLI
     # behavior preserved.
     from openteam.server.services.frontend_context import build_frontend_session_context
+
     try:
         session_context: dict[str, Any] = build_frontend_session_context()
     except RuntimeError as e:
@@ -149,6 +155,10 @@ def run_cli(
         ctx = {}
 
     for key, value in sorted(ctx.items()):
-        if (key.endswith("_path") or key.endswith("_dir")) and isinstance(value, str) and value:
+        if (
+            (key.endswith("_path") or key.endswith("_dir"))
+            and isinstance(value, str)
+            and value
+        ):
             print(f"[{key}] {value}", file=sys.stderr)
     return 0

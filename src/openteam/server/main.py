@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
@@ -22,22 +21,43 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-
-from openteam.server.routes.health_routes import router as health_router
-from openteam.server.routes.team_routes import router as team_router
-from openteam.server.routes.project_routes import router as project_router
-from openteam.server.routes.task_routes import router as task_router
-from openteam.server.routes.task_topology_routes import router as task_topology_router
-from openteam.server.routes.employee_routes import router as employee_router
+from openteam.server.routes.autopilot_state_routes import (
+    router as autopilot_state_router,
+)
+from openteam.server.routes.combo_overrides_routes import (
+    router as combo_overrides_router,
+)
 from openteam.server.routes.conversation_routes import router as conversation_router
 from openteam.server.routes.dashboard_routes import router as dashboard_router
+from openteam.server.routes.dashboards_routes import router as dashboards_router
+from openteam.server.routes.employee_routes import router as employee_router
+from openteam.server.routes.experiment_hub_routes import router as experiment_hub_router
+from openteam.server.routes.health_routes import router as health_router
+from openteam.server.routes.hypothesis_implementations_routes import (
+    router as hypothesis_implementations_router,
+)
 from openteam.server.routes.intelligence_routes import router as intelligence_router
-from openteam.server.routes.session_routes import router as session_router
-from openteam.server.routes.role_skill_routes import router as role_skill_router
+from openteam.server.routes.learnings_routes import router as learnings_router
 from openteam.server.routes.manager_websocket_routes import router as manager_ws_router
-from openteam.server.routes.org_routes import router as org_router, employee_org_router
 from openteam.server.routes.meta_routes import router as meta_router
+from openteam.server.routes.org_routes import employee_org_router, router as org_router
+from openteam.server.routes.project_routes import router as project_router
+from openteam.server.routes.proposal_overrides_routes import (
+    router as proposal_overrides_router,
+)
+from openteam.server.routes.role_skill_routes import router as role_skill_router
+from openteam.server.routes.session_routes import router as session_router
+from openteam.server.routes.submission_templates_routes import (
+    router as submission_templates_router,
+)
+from openteam.server.routes.task_routes import router as task_router
+from openteam.server.routes.task_topology_routes import router as task_topology_router
+from openteam.server.routes.team_routes import router as team_router
 from openteam.server.routes.workspace_routes import router as workspace_router
+from openteam.server.services.dashboard_runtime import (
+    ConnectionRegistry,
+    HubRunSupervisor,
+)
 from openteam.server.services.data_service import MockDataService
 from openteam.server.services.intelligence_service import MockIntelligenceService
 
@@ -79,22 +99,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     if mode == "mock":
         if real_sessions_dir:
-            from openteam.server.services.session_store import SessionStore
+            from openteam.server.services.conversation_service import (
+                ConversationService,
+            )
             from openteam.server.services.data_service import RealSessionDataService
-            from openteam.server.services.conversation_service import ConversationService
+            from openteam.server.services.session_store import SessionStore
 
             resume_server = getattr(app.state, "resume_server", None)
-            session_store = SessionStore(
-                real_sessions_dir, resume_server=resume_server
-            )
+            session_store = SessionStore(real_sessions_dir, resume_server=resume_server)
 
             # Persist all logs to server workspace for post-mortem analysis.
             # Each server run gets its own server.log alongside session/turn/task data.
             _log_file = session_store.server_dir / "server.log"
             _file_handler = logging.FileHandler(str(_log_file), encoding="utf-8")
-            _file_handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ))
+            _file_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+            )
             _file_handler.setLevel(logging.DEBUG)
             logging.getLogger().addHandler(_file_handler)
             app.state._log_file_handler = _file_handler  # for cleanup on shutdown
@@ -109,8 +131,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             # do NOT block server startup — discovery is a convenience for
             # clients, not a hard dependency.
             try:
-                from openteam.server import _register as _registry
-                from openteam.server import __version__ as _server_version  # may not exist
+                from openteam.server import (  # may not exist
+                    __version__ as _server_version,
+                    _register as _registry,
+                )
             except ImportError:
                 _server_version = "unknown"  # type: ignore[assignment]
                 from openteam.server import _register as _registry
@@ -128,7 +152,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 app.state.discovery_handle = _handle
                 logger.info(
                     "Registered in discovery registry: %s (sid=%s)",
-                    _handle.registry_file, _handle.server_id,
+                    _handle.registry_file,
+                    _handle.server_id,
                 )
             except _registry.ConflictError as _e:
                 # Another live server owns the same (runtime_root, host, port).
@@ -150,9 +175,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 or getattr(app.state, "llm_backend", None)
                 or "mock"
             )
-            llm_model = (
-                os.environ.get("OPENTEAM_LLM_MODEL")
-                or getattr(app.state, "llm_model", None)
+            llm_model = os.environ.get("OPENTEAM_LLM_MODEL") or getattr(
+                app.state, "llm_model", None
             )
             templates_dir = Path(__file__).parent / "resources" / "prompt_templates"
             working_dir = os.environ.get(
@@ -192,6 +216,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     app.state.data_service = data_svc
     app.state.intelligence_service = intel_svc
+
+    # v4 Phase 4.1 — per-(session_id, task_id) graph state mirror; replayed on
+    # session_init + request_graph_replay so browser refresh / WS reconnect
+    # doesn't drop the entire live sub-graph + node-status surface (V5).
+    from openteam.server.services.task_graph_snapshot import TaskGraphSnapshotStore
+
+    # Fix 2: give the store the SessionStore handle so terminal task graphs are
+    # DURABLY persisted to <session_dir>/task_graphs/ and can be reloaded /
+    # reconstructed after the 600s TTL or a server restart. None on the mock path
+    # (no persistence) — the store degrades to in-memory only, as before.
+    app.state.task_graph_snapshots = TaskGraphSnapshotStore(
+        session_store=getattr(data_svc, "session_store", None)
+    )
+
+    # Dashboard out-of-turn runtime (#12/#20): connection registry (session →
+    # live WS send-callbacks, so REST-triggered hub actions can push
+    # dashboard_event/dashboard_status to every open tab) + hub run supervisor
+    # (tracked, cancellable background runs that fire outside an agentic turn).
+    app.state.connection_registry = ConnectionRegistry()
+    app.state.hub_run_supervisor = HubRunSupervisor()
 
     logger.info("OpenStartup API started in %s mode", mode)
     yield
@@ -243,10 +287,54 @@ app.include_router(task_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(task_topology_router, prefix="/api/task", tags=["task"])
 app.include_router(employee_org_router, prefix="/api/employees", tags=["employee-org"])
 app.include_router(employee_router, prefix="/api/employees", tags=["employees"])
-app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(
+    conversation_router, prefix="/api/conversations", tags=["conversations"]
+)
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(intelligence_router, prefix="/api/intelligence", tags=["intelligence"])
+app.include_router(
+    intelligence_router, prefix="/api/intelligence", tags=["intelligence"]
+)
 app.include_router(session_router, prefix="/api/sessions", tags=["sessions"])
+# Experiment Hub REST surface backing the FE useHubApiClient (path params in the
+# prefix: /api/sessions/{session_id}/hubs/{hub_id}/...).
+app.include_router(
+    experiment_hub_router,
+    prefix="/api/sessions/{session_id}/hubs/{hub_id}",
+    tags=["experiment-hub"],
+)
+# Session-scoped dashboard subtab lifecycle (list/close); its routes already
+# include the /{session_id}/dashboards path, so it mounts under /api/sessions.
+app.include_router(dashboards_router, prefix="/api/sessions", tags=["dashboards"])
+# G14/G15/G16 REST surface (proposal_overrides, combo_overrides, learnings) —
+# thin adapters over the AF experiment_hub services, called by the FE hooks
+# useProposalOverrides / useComboOverrides + AccumulatedLearningsDrawer.
+# All three route trees embed the ``{session_id}`` path parameter after the
+# ``/api/sessions`` prefix (see each router's @router.get paths).
+app.include_router(
+    proposal_overrides_router, prefix="/api/sessions", tags=["proposal-overrides"]
+)
+app.include_router(
+    combo_overrides_router, prefix="/api/sessions", tags=["combo-overrides"]
+)
+app.include_router(learnings_router, prefix="/api/sessions", tags=["learnings"])
+# G17 hypothesis_implementations REST surface — mounted under /api/hubs (matches
+# the FE hook's URL shape ``GET /api/hubs/{multi_task_id}/hypothesis_implementations``).
+app.include_router(
+    hypothesis_implementations_router,
+    prefix="/api/hubs",
+    tags=["hypothesis-implementations"],
+)
+# G19 submission-templates REST — global (no session/hub prefix); backs the
+# Setup Wizard "From Library" dropdown via ``useSubmissionTemplates``.
+app.include_router(
+    submission_templates_router, prefix="/api", tags=["submission-templates"]
+)
+# G22 autopilot_state — best-effort mirror of client-side autopilot state
+# (per-session). Backs ``useAutopilot``'s write-through POST once G6 mounts
+# the hook in the Selection footer; benign when the hook isn't yet mounted.
+app.include_router(
+    autopilot_state_router, prefix="/api/sessions", tags=["autopilot-state"]
+)
 app.include_router(role_skill_router, prefix="/api/role-skills", tags=["role-skills"])
 app.include_router(manager_ws_router, prefix="/ws", tags=["websocket"])
 app.include_router(org_router, prefix="/api/orgs", tags=["organizations"])
@@ -254,6 +342,7 @@ app.include_router(meta_router, prefix="/api", tags=["meta"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 
 from openteam.server.routes.view_routes import router as view_router
+
 app.include_router(view_router, prefix="/api", tags=["file-viewer"])
 
 

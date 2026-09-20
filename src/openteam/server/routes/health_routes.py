@@ -23,7 +23,7 @@ async def health_check(request: Request):
         server_name = getattr(svc.session_store, "server_name", "")
     return {
         "status": "ok",
-        "service": SERVICE_MARKER,   # I11 — clients assert this matches "openteam"
+        "service": SERVICE_MARKER,  # I11 — clients assert this matches "openteam"
         "mode": mode,
         "real_sessions": has_real_sessions,
         "version": "0.1.0",
@@ -41,8 +41,13 @@ async def get_config(request: Request):
             "mode": mode,
             "real_sessions": has_real_sessions,
             "features": [
-                "teams", "projects", "tasks", "employees",
-                "conversations", "sprints", "intelligence",
+                "teams",
+                "projects",
+                "tasks",
+                "employees",
+                "conversations",
+                "sprints",
+                "intelligence",
             ],
         }
     }

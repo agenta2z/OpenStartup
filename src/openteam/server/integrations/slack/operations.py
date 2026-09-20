@@ -24,11 +24,14 @@ async def search_messages(
     if not query:
         raise ValueError("query parameter is required")
 
-    result = await slack_api_call("search.messages", {
-        "query": query,
-        "count": count,
-        "sort_dir": sort_dir,
-    })
+    result = await slack_api_call(
+        "search.messages",
+        {
+            "query": query,
+            "count": count,
+            "sort_dir": sort_dir,
+        },
+    )
     return {
         "ok": True,
         "total": result.get("messages", {}).get("paging", {}).get("total", 0),
@@ -46,10 +49,13 @@ async def search_files(
     if not query:
         raise ValueError("query parameter is required")
 
-    result = await slack_api_call("search.files", {
-        "query": query,
-        "count": count,
-    })
+    result = await slack_api_call(
+        "search.files",
+        {
+            "query": query,
+            "count": count,
+        },
+    )
     return {
         "ok": True,
         "total": result.get("files", {}).get("paging", {}).get("total", 0),
@@ -68,11 +74,14 @@ async def get_thread(
     if not channel or not ts:
         raise ValueError("channel and ts parameters are required")
 
-    result = await slack_api_call("conversations.replies", {
-        "channel": channel,
-        "ts": ts,
-        "limit": limit,
-    })
+    result = await slack_api_call(
+        "conversations.replies",
+        {
+            "channel": channel,
+            "ts": ts,
+            "limit": limit,
+        },
+    )
     return {
         "ok": True,
         "channel": result.get("channel"),
@@ -107,9 +116,7 @@ async def list_channels(
         page_count += 1
 
         if paginate_all:
-            cursor = (
-                result.get("response_metadata", {}).get("next_cursor") or None
-            )
+            cursor = result.get("response_metadata", {}).get("next_cursor") or None
         else:
             cursor = None
 
@@ -171,10 +178,13 @@ async def find_dm_channel(
     if not user_id:
         raise ValueError("user_id parameter is required")
 
-    result = await slack_api_call("conversations.list", {
-        "types": "im",
-        "limit": 1000,
-    })
+    result = await slack_api_call(
+        "conversations.list",
+        {
+            "types": "im",
+            "limit": 1000,
+        },
+    )
     channels = result.get("channels", [])
 
     found = None
@@ -257,12 +267,15 @@ async def get_channel_history(
         raise ValueError("channel or channel_name parameter is required")
 
     query = f"in:#{search_channel}"
-    search_result = await slack_api_call("search.messages", {
-        "query": query,
-        "count": min(limit, 100),
-        "sort": "timestamp",
-        "sort_dir": "desc",
-    })
+    search_result = await slack_api_call(
+        "search.messages",
+        {
+            "query": query,
+            "count": min(limit, 100),
+            "sort": "timestamp",
+            "sort_dir": "desc",
+        },
+    )
 
     matches = search_result.get("messages", {}).get("matches", [])
 

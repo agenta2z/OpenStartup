@@ -10,6 +10,7 @@ This eliminates the bug surface where a CLI flag could disagree with code
 that reads the env var directly (same pattern Jupyter uses for
 ``--notebook-dir``).
 """
+
 from __future__ import annotations
 
 import enum
@@ -29,9 +30,9 @@ class RuntimeRoot(str, enum.Enum):
     :attr:`AUTO`.
     """
 
-    AUTO = "auto"               # Use find_runtime_root() 4-tier resolution.
-    REPO_ROOT = "repo-root"     # Force walk-up to a src/ ancestor; fail loud.
-    USER_HOME = "user-home"     # ~/.openteam/_runtime (pip-install default).
+    AUTO = "auto"  # Use find_runtime_root() 4-tier resolution.
+    REPO_ROOT = "repo-root"  # Force walk-up to a src/ ancestor; fail loud.
+    USER_HOME = "user-home"  # ~/.openteam/_runtime (pip-install default).
 
 
 def resolve_runtime_root(spec: Union[RuntimeRoot, str, None]) -> Path:

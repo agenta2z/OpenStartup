@@ -10,6 +10,7 @@ Callsites (all explicit):
   - conftest.py                   (root)
   - openteam.server.run_server    (replaces inline block)
 """
+
 from __future__ import annotations
 
 import os
@@ -33,11 +34,12 @@ def _find_siblings_root() -> Path | None:
 
     here = Path(__file__).resolve()
     openteam_src = here.parent.parent  # .../OpenStartup/src
-    cursor = openteam_src.parent       # .../OpenStartup
+    cursor = openteam_src.parent  # .../OpenStartup
     for _ in range(5):
         cursor = cursor.parent
-        if (cursor / "AgentFoundation" / "src").is_dir() and \
-           (cursor / "RichPythonUtils" / "src").is_dir():
+        if (cursor / "AgentFoundation" / "src").is_dir() and (
+            cursor / "RichPythonUtils" / "src"
+        ).is_dir():
             return cursor
     return None
 
@@ -51,6 +53,7 @@ def ensure_siblings_on_path(*, strict: bool = False) -> list[Path]:
     Use strict=True in production entry points (e.g. openteam-mcp).
     """
     import logging
+
     _logger = logging.getLogger(__name__)
 
     here = Path(__file__).resolve()

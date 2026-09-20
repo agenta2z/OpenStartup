@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class EmployeeType(str, Enum):
     ai = "ai"
     human = "human"
@@ -64,6 +65,7 @@ class Severity(str, Enum):
 # Summary models (lightweight references embedded in other models)
 # ---------------------------------------------------------------------------
 
+
 class EmployeeSummary(BaseModel):
     id: str
     name: str
@@ -84,6 +86,7 @@ class TaskSummary(BaseModel):
 # ---------------------------------------------------------------------------
 # Core models
 # ---------------------------------------------------------------------------
+
 
 class Employee(BaseModel):
     id: str
@@ -184,6 +187,7 @@ class Sprint(BaseModel):
 # Conversation models
 # ---------------------------------------------------------------------------
 
+
 class Message(BaseModel):
     id: str
     sender_id: str
@@ -207,6 +211,7 @@ class Conversation(BaseModel):
 # ---------------------------------------------------------------------------
 # Intelligence models
 # ---------------------------------------------------------------------------
+
 
 class SuggestedAction(BaseModel):
     id: str
@@ -271,6 +276,7 @@ class WorkloadBalance(BaseModel):
 # ---------------------------------------------------------------------------
 # Organization & Permissions models
 # ---------------------------------------------------------------------------
+
 
 class CollaborationScope(str, Enum):
     full = "full"

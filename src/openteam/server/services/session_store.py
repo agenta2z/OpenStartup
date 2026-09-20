@@ -30,12 +30,13 @@ import json
 import logging
 import os
 import re
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+from openteam.server.services.json_io import primary_val_from_args, write_json_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +51,16 @@ logger = logging.getLogger(__name__)
 # The whitelist is immutable except via the CI preflight
 # `test_frontend_prefix_whitelist_immutable.py`; any addition requires explicit
 # review.
-_VALID_FRONTEND_PREFIXES: frozenset[str] = frozenset({
-    "rovodev",   # RovoDev TUI (v6 primary user)
-    "webui",     # React WebUI (POST-1 migration target)
-    "mcp",       # MCP wrapper (POST-4)
-    "session",   # Legacy server-minted ids (backward compat)
-    "slack",     # Reserved for future Slack bot
-    "vscode",    # Reserved for future VS Code extension
-})
+_VALID_FRONTEND_PREFIXES: frozenset[str] = frozenset(
+    {
+        "rovodev",  # RovoDev TUI (v6 primary user)
+        "webui",  # React WebUI (POST-1 migration target)
+        "mcp",  # MCP wrapper (POST-4)
+        "session",  # Legacy server-minted ids (backward compat)
+        "slack",  # Reserved for future Slack bot
+        "vscode",  # Reserved for future VS Code extension
+    }
+)
 
 _EXTERNAL_ID_REMAINDER_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
 
@@ -108,9 +111,13 @@ class SessionStore:
 
         Args:
             runtime_root: Root directory for runtime data (e.g., <project>/_runtime)
-            resume_server: Server directory name to resume from (e.g., "server_20260406_083000_a1b2c3d4").
-                          If None, resumes from the latest server automatically.
-                          If "new", always creates a fresh server.
+            resume_server: Which server directory to use.
+                          - "latest": resume the most recent server.
+                          - "<name>": resume that specific server (e.g.
+                            "server_20260406_083000_a1b2c3d4").
+                          - None or "new": always create a fresh server.
+                          (run_server.py defaults --real-sessions to "latest";
+                          None here still means create-new.)
         """
         self._runtime_root = Path(runtime_root)
         self._servers_dir = self._runtime_root / "servers"
@@ -152,7 +159,11 @@ class SessionStore:
         if not has_sessions:
             self._create_default_session()
 
-        logger.info("SessionStore initialized: %s (server: %s)", self._dir, self._server_dir.name)
+        logger.info(
+            "SessionStore initialized: %s (server: %s)",
+            self._dir,
+            self._server_dir.name,
+        )
 
     # ── Public API ───────────────────────────────────────────────────
 
@@ -175,7 +186,9 @@ class SessionStore:
         # Fallback: scan all session files + directories
         sessions = self._scan_sessions()
         # Sort by updated_at descending (newest first)
-        sessions.sort(key=lambda s: s.get("updated_at") or s.get("created_at") or "", reverse=True)
+        sessions.sort(
+            key=lambda s: s.get("updated_at") or s.get("created_at") or "", reverse=True
+        )
         return sessions
 
     def get_session(self, session_id: str) -> dict[str, Any] | None:
@@ -209,7 +222,9 @@ class SessionStore:
             self._backfill_workflow_context(session)
             return session
         except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Failed to read session_state.json for %s: %s", session_id, e)
+            logger.warning(
+                "Failed to read session_state.json for %s: %s", session_id, e
+            )
             return None
 
     def create_session(
@@ -288,7 +303,12 @@ class SessionStore:
         session_dir.mkdir(parents=True, exist_ok=True)
         self._atomic_write(session_dir / "session_state.json", session)
         self._update_index()
-        logger.info("Created session: %s (%s) in %s", session_id, title or "Orchestrator Session", session_dir.name)
+        logger.info(
+            "Created session: %s (%s) in %s",
+            session_id,
+            title or "Orchestrator Session",
+            session_dir.name,
+        )
         return session
 
     def attach_or_create_session(
@@ -351,7 +371,8 @@ class SessionStore:
         ):
             logger.debug(
                 "append_message: skipping duplicate message id %s for session %s",
-                new_id, session_id,
+                new_id,
+                session_id,
             )
             return session
 
@@ -417,7 +438,12 @@ class SessionStore:
             turn_dir = turn_dir / f"round_{round:03d}"
         turn_dir.mkdir(parents=True, exist_ok=True)
 
-        _TEXT_KEYS = {"rendered_prompt", "template_source", "inference_response", "user_input"}
+        _TEXT_KEYS = {
+            "rendered_prompt",
+            "template_source",
+            "inference_response",
+            "user_input",
+        }
         _JSON_KEYS = {"template_feed", "template_config", "api_payload"}
         other_meta: dict[str, Any] = {}
 
@@ -445,7 +471,9 @@ class SessionStore:
             if old_flat.is_file():
                 old_flat.unlink()
 
-        logger.debug("Saved turn %d data for session %s → %s", turn_number, session_id, turn_dir)
+        logger.debug(
+            "Saved turn %d data for session %s → %s", turn_number, session_id, turn_dir
+        )
 
     def get_turn_data(
         self, session_id: str, turn_number: int, round: int | None = None
@@ -480,7 +508,10 @@ class SessionStore:
         # Try new layout: <session_dir>/turn_NNN/turn.json (RankEvolve style)
         for combined in (
             session_dir / f"turn_{turn_number:03d}" / "turn.json",
-            session_dir / "turns" / f"turn_{turn_number:03d}" / "turn.json",  # legacy nested
+            session_dir
+            / "turns"
+            / f"turn_{turn_number:03d}"
+            / "turn.json",  # legacy nested
         ):
             if combined.is_file():
                 try:
@@ -535,13 +566,16 @@ class SessionStore:
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(
                     "update_turn_root_summary: failed to read existing %s: %s",
-                    root_file, e,
+                    root_file,
+                    e,
                 )
         merged.update(summary)
         self._atomic_write(root_file, merged)
         logger.debug(
             "Updated turn %d root summary for session %s → %s",
-            turn_number, session_id, root_file,
+            turn_number,
+            session_id,
+            root_file,
         )
 
     def find_session_dir(self, session_id: str) -> Path | None:
@@ -579,6 +613,1064 @@ class SessionStore:
         tasks_dir = session_dir / "tasks"
         tasks_dir.mkdir(parents=True, exist_ok=True)
         return tasks_dir
+
+    # ── Dashboard (hub) state: subtab sidecars + active pointer ──────
+
+    def get_session_hubs_dir(self, session_id: str) -> Path:
+        """Return ``<session_dir>/hubs/``, creating it if absent.
+
+        Single source of truth for where per-session Dashboard (hub) state
+        sidecars live (mirror of :meth:`get_session_tasks_dir`)."""
+        session_dir = self.get_session_dir(session_id)
+        hubs_dir = session_dir / "hubs"
+        hubs_dir.mkdir(parents=True, exist_ok=True)
+        return hubs_dir
+
+    def save_dashboard_state(
+        self, session_id: str, dashboard_state: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Persist the session's dashboard pointer (e.g. ``active_hub_id``).
+
+        Stored as a top-level ``dashboard_state`` field on the session so a
+        resume can re-activate the right subtab (mirror of ``sop_state``)."""
+        return self.update_session(session_id, {"dashboard_state": dashboard_state})
+
+    def load_dashboard_state(self, session_id: str) -> dict[str, Any]:
+        """Return the session's persisted ``dashboard_state`` (or ``{}``)."""
+        session = self.get_session(session_id)
+        if session is None:
+            return {}
+        return dict(session.get("dashboard_state", {}) or {})
+
+    def reconcile_dashboard_ref_statuses(self, session_id: str) -> None:
+        """Repair stale ``dashboard_ref`` statuses from disk on resume.
+
+        Mirror of :meth:`reconcile_task_ref_statuses`: a hub whose state sidecar
+        is gone is marked ``closed`` so the UI does not offer a dead subtab.
+        (Local in-flight runs are marked interrupted by the hub controller's own
+        reconcile, #18 — this only heals the subtab marker.)"""
+        session = self.get_session(session_id)
+        if session is None:
+            return
+        changed = False
+        for m in session.get("messages", []):
+            if m.get("role") != "dashboard_ref":
+                continue
+            hub_id = m.get("hubId")
+            if not hub_id:
+                continue
+            state_path = (
+                self.get_session_dir(session_id) / "hubs" / hub_id / "hub_state.json"
+            )
+            if not state_path.is_file() and m.get("status") != "closed":
+                m["status"] = "closed"
+                changed = True
+        if changed:
+            session["updated_at"] = _iso_now()
+            self._persist_session(session_id, session)
+            self._update_index()
+
+    def reconcile_hub_queues(self, session_id: str) -> int:
+        """On resume, heal a hub's task queue from disk (#18): mark phantom
+        ``running`` entries (whose local subprocess was orphaned by a server
+        restart) as interrupted so the queue runner doesn't wedge forever.
+        Delegates to ``experiment_hub.hub_state``; best-effort, returns the count
+        of entries healed. No-op when the experiment_hub backend is unavailable
+        or the session has no active hub / queue."""
+        session = self.get_session(session_id)
+        if session is None:
+            return 0
+        wc_dict = session.get("workflow_context") or {}
+        if not wc_dict.get("active_multi_task_id") and not wc_dict.get("task_queue"):
+            return 0
+        try:
+            from agent_foundation.experiment_hub import hub_state
+            from agent_foundation.server.workflow_context import WorkflowContext
+        except Exception:
+            return 0
+        session_dir = self.get_session_dir(session_id)
+        try:
+            wc = WorkflowContext.from_dict(wc_dict)
+            healed = hub_state.reconcile_task_queue_with_disk(wc, session_dir / "tasks")
+        except Exception as exc:
+            logger.warning("reconcile_hub_queues failed for %s: %s", session_id, exc)
+            return 0
+        if healed:
+            self.update_workflow_context(session_id, wc.to_dict())
+            logger.info(
+                "reconcile_hub_queues: healed %d phantom-running entr%s for %s",
+                healed,
+                "y" if healed == 1 else "ies",
+                session_id,
+            )
+        # Heal stuck submission rows too (submitted/running whose training-run
+        # workspace has actually finished — the launcher subprocess was orphaned
+        # on restart, #18). Idempotent + cheap on the happy path.
+        mid = wc_dict.get("active_multi_task_id")
+        if mid:
+            try:
+                from agent_foundation.experiment_hub.submissions_service import (
+                    load_hub_submissions,
+                    reconcile_stuck_submissions,
+                )
+
+                subs = load_hub_submissions(session_dir, str(mid))
+                reconcile_stuck_submissions(session_dir, str(mid), subs)
+            except Exception as exc:
+                logger.warning(
+                    "reconcile_hub_queues: submission heal failed for %s: %s",
+                    session_id,
+                    exc,
+                )
+        return healed
+
+    # ── Resumability: turn linkage + message patching ───────────────
+
+    def next_turn_number(self, session_id: str) -> int:
+        """Return the turn number the NEXT turn will receive (1-based).
+
+        Mirrors ``ConversationService.run_conversation_turn``'s ``user_turn``:
+        count existing ``turn_NNN/`` dirs (+1). Used by the WS route to stamp
+        the upcoming turn onto a human message BEFORE it is appended (the message
+        is appended before that turn's dir is created, so the count is the
+        turn-to-be — the dispatcher uses the injected live ``user_turn`` instead,
+        since by dispatch time the dir already exists).
+        """
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return 1
+        count = sum(
+            1
+            for p in session_dir.iterdir()
+            if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
+        )
+        if count == 0:
+            legacy = session_dir / "turns"
+            if legacy.is_dir():
+                count = sum(
+                    1
+                    for p in legacy.iterdir()
+                    if p.is_dir() and p.name.startswith("turn_")
+                )
+        return count + 1
+
+    def update_message(
+        self, session_id: str, message_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Shallow-merge ``updates`` into the message with ``id == message_id``.
+
+        Returns the updated session, or None if the session/message is absent.
+        Mirror of :meth:`append_message`'s persist path.
+        """
+        session = self.get_session(session_id)
+        if session is None:
+            return None
+        for m in session.get("messages", []):
+            if m.get("id") == message_id:
+                m.update(updates)
+                session["updated_at"] = _iso_now()
+                self._persist_session(session_id, session)
+                self._update_index()
+                return session
+        return None
+
+    # ── Task sidecars (task_meta.json, lives INSIDE each workspace) ──
+
+    @staticmethod
+    def write_task_meta(workspace: str | Path, meta: dict[str, Any]) -> None:
+        """Write ``task_meta.json`` into a task workspace (atomic)."""
+        write_json_atomic(Path(workspace) / "task_meta.json", meta)
+
+    @staticmethod
+    def read_task_meta(workspace: str | Path) -> dict[str, Any] | None:
+        """Read ``task_meta.json`` from a workspace, or None if absent/corrupt."""
+        path = Path(workspace) / "task_meta.json"
+        if not path.is_file():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def update_task_meta(
+        self, workspace: str | Path, updates: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Read-merge-write ``task_meta.json`` (preserves existing fields)."""
+        meta = self.read_task_meta(workspace) or {}
+        meta.update(updates)
+        self.write_task_meta(workspace, meta)
+        return meta
+
+    # ── Pending-widget persistence (the conversation widget awaiting a human) ──
+    # Survives WS reconnect + server restart. The small ``marker`` (widget spec +
+    # ToolsToInvoke + output_vars + turn/round/pending_input_id) lives in
+    # session_state.json for a cheap read on (re)connect; the large emit-point
+    # continuation ``blob`` (full _messages etc.) lives in a per-session sidecar
+    # ``pending_input.json`` so the main file doesn't bloat. Single-slot: at most
+    # one conversation widget awaits a human at a time (dev-tool/task widgets
+    # never write here — see WebSocketInteractive, gated on _round_ctx).
+
+    def _pending_input_sidecar(self, session_id: str) -> Path | None:
+        session_dir = self._find_session_dir(session_id)
+        return None if session_dir is None else session_dir / "pending_input.json"
+
+    def set_pending_input(
+        self, session_id: str, marker: dict[str, Any], blob: dict[str, Any]
+    ) -> None:
+        """Persist the currently-awaited widget. Writes the sidecar blob FIRST,
+        then the marker, so a partial write never leaves a marker without its blob
+        (recovery treats a missing blob as re-display-only)."""
+        write_json_atomic(self.get_session_dir(session_id) / "pending_input.json", blob)
+        self.update_session(session_id, {"pending_input": marker})
+
+    def get_pending_input(self, session_id: str) -> dict[str, Any] | None:
+        """Return the pending-widget marker, or None if nothing awaits a human."""
+        session = self.get_session(session_id)
+        return (session or {}).get("pending_input") or None
+
+    def read_pending_input_blob(self, session_id: str) -> dict[str, Any] | None:
+        """Read the emit-point continuation blob, or None if absent/corrupt
+        (⟹ re-display-only recovery)."""
+        path = self._pending_input_sidecar(session_id)
+        if path is None or not path.is_file():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def clear_pending_input(self, session_id: str) -> None:
+        """Clear the marker + delete the sidecar (idempotent). Call when the
+        widget is resolved (answer), superseded (new message), or its turn is
+        abandoned (cancel / error / resume-rewind) — NOT on a plain disconnect
+        (that is the persistence case)."""
+        self.update_session(session_id, {"pending_input": None})
+        path = self._pending_input_sidecar(session_id)
+        if path is not None:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                logger.warning(
+                    "clear_pending_input unlink failed (%s): %s", session_id, e
+                )
+
+    @staticmethod
+    def is_workspace_complete(workspace: str | Path) -> bool:
+        """Canonical "this task workspace is fully complete" predicate.
+
+        Primary signal: ``checkpoints/final_result.json`` (the LinearWorkflow
+        inferencer writes it only at FULL completion — all phases + iterations).
+        Fallback: the AgentFoundation per-phase markers ``.plan_completed`` +
+        ``.impl_completed`` (``artifacts/`` canonical, legacy ``outputs/``). We
+        prefer ``final_result.json`` over markers-alone because the markers are
+        per-phase and would mislabel an analysis-pending workspace as complete.
+
+        Drives the cosmetic subtab status (reconcile) only — reuse-eligibility
+        does NOT depend on it (see :meth:`find_reusable_workspace`).
+        """
+        ws = Path(workspace)
+        if (ws / "checkpoints" / "final_result.json").is_file():
+            return True
+        for sub in ("artifacts", "outputs"):
+            if (ws / sub / ".plan_completed").is_file() and (
+                ws / sub / ".impl_completed"
+            ).is_file():
+                return True
+        return False
+
+    def reconcile_task_ref_statuses(
+        self,
+        session_id: str,
+        *,
+        live_task_ids: set[str] | None = None,
+    ) -> None:
+        """Repair stale ``starting``/``running`` ``task_ref`` statuses from disk.
+
+        For each ``task_ref`` message in ``starting``/``running``:
+          * if its ``taskId`` is in ``live_task_ids`` — SKIP (bg task is
+            still alive; its own success/exception branch will terminalize);
+          * else if its workspace :meth:`is_workspace_complete` — heal to
+            ``completed``;
+          * else — heal to ``error`` with ``errorType="interrupted"`` and a
+            canonical explanatory ``error`` message (distinguishes an
+            interruption from a real runtime exception, whose ``errorType``
+            carries the exception class name).
+
+        When ``live_task_ids is None`` (legacy callers), falls back to the
+        pre-fix behavior: heal every not-complete chip to ``error``. Modern
+        callers pass the set from ``ConversationService.get_live_task_ids``,
+        captured BEFORE any ``evict_session_inferencer`` (which pops the
+        registry without cancelling tasks — a post-evict fetch would return
+        an empty set and cause false-positive healing of alive tasks).
+
+        Persists only if changed. Called before ``session_init`` so restored
+        subtabs reflect reality.
+        """
+        live = live_task_ids if live_task_ids is not None else set()
+        session = self.get_session(session_id)
+        if session is None:
+            return
+        changed = False
+        for m in session.get("messages", []):
+            if m.get("role") != "task_ref":
+                continue
+            if m.get("status") not in ("starting", "running"):
+                continue
+            # Resolve the task_id. Canonical field is `taskId`; fall back to
+            # deriving from the message id in case a legacy record lacks it.
+            tid = m.get("taskId")
+            if not tid:
+                _mid = m.get("id", "")
+                if isinstance(_mid, str) and _mid.startswith("task-ref-"):
+                    tid = _mid[len("task-ref-") :]
+            if tid and tid in live:
+                continue  # bg task still alive — do not touch its status
+            ws = m.get("workspace")
+            if ws and self.is_workspace_complete(ws):
+                if m.get("status") != "completed":
+                    m["status"] = "completed"
+                    # Clear any prior stale error metadata (defense-in-depth).
+                    m.pop("errorType", None)
+                    m.pop("error", None)
+                    changed = True
+            else:
+                if m.get("status") != "error" or m.get("errorType") != "interrupted":
+                    m["status"] = "error"
+                    m["errorType"] = "interrupted"
+                    m["error"] = (
+                        "Task was interrupted (server crashed or restarted "
+                        "before it finished)."
+                    )
+                    changed = True
+        if changed:
+            session["updated_at"] = _iso_now()
+            self._persist_session(session_id, session)
+            self._update_index()
+
+    def find_reusable_workspace(
+        self,
+        session_id: str,
+        tool_name: str,
+        sop_name: str,
+        phase_index: str,
+        primary_val: str,
+    ) -> Path | None:
+        """Find the reusable task workspace matching the SOP-scoped key.
+
+        Matches a workspace's ``task_meta.json`` on the full key ``(tool_name,
+        sop_name, phase_index, primary_arg_value)`` when the workspace is NOT
+        referenced by any current ``task_ref`` message (i.e. it is an orphan left
+        by a keep-truncate). Returns None for an ad-hoc call (empty
+        ``sop_name``/``phase_index``).
+
+        Preference: a COMPLETE match (AF resumes it instantly) over a PARTIAL one
+        (AF CONTINUES it from its markers); oldest-first within each so a looped
+        phase replays orphans in order.
+
+        Precise-only by design: every workspace has a ``task_meta.json`` — new
+        runs write it at dispatch, and pre-feature workspaces are adopted by
+        :meth:`backfill_task_sidecars` (which reconstructs the full key from the
+        session) BEFORE this runs. A workspace with no sidecar is simply not
+        matched (→ the task runs fresh — never a loose/wrong reuse).
+        """
+        if not sop_name or not phase_index:
+            return None
+        session = self.get_session(session_id)
+        if session is None:
+            return None
+        referenced_names = {
+            Path(m["workspace"]).name
+            for m in session.get("messages", [])
+            if m.get("role") == "task_ref" and m.get("workspace")
+        }
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return None
+        tasks_dir = session_dir / "tasks"
+        if not tasks_dir.is_dir():
+            return None
+        # Prefer a COMPLETE key-match (instant reuse) over a PARTIAL one (continue).
+        complete: list[tuple[str, Path]] = []
+        partial: list[tuple[str, Path]] = []
+        for child in tasks_dir.iterdir():
+            if not child.is_dir() or child.name in referenced_names:
+                continue
+            meta = self.read_task_meta(child)
+            if not meta:
+                continue  # no sidecar → not matched (backfill adopts these first)
+            if (
+                meta.get("tool_name") == tool_name
+                and meta.get("sop_name") == sop_name
+                and str(meta.get("phase_index")) == str(phase_index)
+                and meta.get("primary_arg_value") == primary_val
+            ):
+                target = complete if self.is_workspace_complete(child) else partial
+                target.append((str(meta.get("created_at") or ""), child))
+        for bucket in (complete, partial):
+            if bucket:
+                bucket.sort(key=lambda c: c[0])  # oldest first (chronological)
+                return bucket[0][1]
+        return None
+
+    @staticmethod
+    def _dir_tool_name(dirname: str) -> str:
+        """Tool name from a workspace dir ``<tool>_<YYYYMMDD>_<HHMMSS>_<uuid8>``.
+
+        Strips the trailing ``_<8 digits>_<6 digits>_<8 hex>`` allocator suffix
+        (``allocate_tool_workspace`` naming), leaving the (possibly
+        underscore-containing) tool name. Returns the input unchanged when it
+        doesn't match the pattern, so non-workspace dirs never match a tool.
+        """
+        return re.sub(r"_\d{8}_\d{6}_[0-9a-f]{8}$", "", dirname)
+
+    @staticmethod
+    def _dir_created_at(dirname: str) -> str:
+        """ISO timestamp parsed from a workspace dir's ``_<YYYYMMDD>_<HHMMSS>_``
+        allocator stamp, or ``""`` if the name doesn't match."""
+        m = re.search(
+            r"_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_[0-9a-f]{8}$", dirname
+        )
+        if not m:
+            return ""
+        y, mo, da, h, mi, s = m.groups()
+        return f"{y}-{mo}-{da}T{h}:{mi}:{s}Z"
+
+    def _recover_action_targets(
+        self,
+        session_dir: Path,
+        tools: set[str],
+        primary_arg_map: dict[str, str | bool],
+        primary_arg_type_map: dict[str, str],
+    ) -> dict[str, list[str]]:
+        """Recover, per tool, the ordered normalized primary-arg values from the
+        session's recorded tool actions (turn artifacts).
+
+        Reuses the engine's OWN action parser (``parse_conversation_response``) on
+        each ``turn_NNN/round_MMM/inference_response.txt`` and the same
+        ``coerce_tool_arguments`` + primary-arg resolution the dispatcher uses — so
+        a recovered value is byte-identical to what the live dispatch computes.
+        Returns ``{tool_name: [value, ...]}`` in turn→round order. Best-effort:
+        any import/parse failure yields an empty result (caller degrades to "").
+        """
+        out: dict[str, list[str]] = {}
+        turn_dirs = sorted(
+            (
+                p
+                for p in session_dir.iterdir()
+                if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
+            ),
+            key=lambda p: p.name,
+        )
+        for td in turn_dirs:
+            round_dirs = sorted(
+                (p for p in td.iterdir() if p.is_dir() and p.name.startswith("round_")),
+                key=lambda p: p.name,
+            ) or [td]  # fall back to the turn root when there are no round subdirs
+            for rd in round_dirs:
+                resp = rd / "inference_response.txt"
+                if not resp.is_file():
+                    continue
+                for tool, val in self._targets_from_response(
+                    resp, tools, primary_arg_map, primary_arg_type_map
+                ):
+                    out.setdefault(tool, []).append(val)
+        return out
+
+    @staticmethod
+    def _targets_from_response(
+        resp_path: Path,
+        tools: set[str],
+        primary_arg_map: dict[str, str | bool],
+        primary_arg_type_map: dict[str, str],
+    ) -> list[tuple[str, str]]:
+        """Parse one ``inference_response.txt`` into ``(tool, normalized_value)``
+        pairs for the requested ``tools`` — reusing the engine's action parser +
+        the dispatcher's arg coercion so values match the live dispatch exactly.
+        Best-effort: returns ``[]`` on any import/read/parse failure.
+        """
+        try:
+            from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversation_response_parser import (  # noqa: E501
+                parse_conversation_response,
+            )
+            from openteam.server.services.cli_args import coerce_tool_arguments
+
+            parsed = parse_conversation_response(resp_path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        pairs: list[tuple[str, str]] = []
+        for action in getattr(parsed, "action_tools", []) or []:
+            canonical = str(action.get("name", "")).lstrip("-").replace("-", "_")
+            if canonical not in tools:
+                continue
+            try:
+                args = coerce_tool_arguments(action.get("arguments", {}), None)
+            except Exception:
+                continue
+            primary_arg = primary_arg_map.get(canonical)
+            ptype = primary_arg_type_map.get(canonical, "string")
+            # Shared with dispatch (ToolDispatcher._dispatch_as_task) so a
+            # backfilled key equals what the live dispatch computes — honors the
+            # ``False`` opt-out (no volatile ``request`` fallback) identically.
+            val = primary_val_from_args(args, primary_arg, ptype)
+            if val:
+                pairs.append((canonical, val))
+        return pairs
+
+    def backfill_task_sidecars(
+        self,
+        session_id: str,
+        primary_arg_map: dict[str, str | bool],
+        primary_arg_type_map: dict[str, str],
+    ) -> int:
+        """Adopt pre-feature task workspaces that have no ``task_meta.json``.
+
+        Reconstructs a REAL full-key sidecar (tool/sop/phase/primary_arg/status)
+        for each sidecar-less workspace, so the precise reuse matcher can match
+        them with no loose fallback. Idempotent — workspaces that already have a
+        sidecar are skipped. Returns the number of sidecars written.
+
+        Sources (all chosen so a backfilled key equals what the live dispatch
+        computes): ``tool_name`` from the dir name; ``status`` from on-disk
+        completion markers; ``sop_name`` + ``phase_index`` from the session's
+        persisted ``sop_state`` (the same state the rebuilt inferencer restores);
+        ``primary_arg_value`` from the session's recorded action for that tool
+        (:meth:`_recover_action_targets`), attributed to orphan workspaces by
+        creation order (single recovered target → applied to all orphans of that
+        tool). When the value can't be recovered it is left ``""`` so the sidecar
+        simply won't match (the task runs fresh — never a wrong reuse).
+        """
+        session = self.get_session(session_id)
+        if session is None:
+            return 0
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return 0
+        tasks_dir = session_dir / "tasks"
+        if not tasks_dir.is_dir():
+            return 0
+
+        # Orphan workspaces (no sidecar), grouped by tool, in creation order.
+        orphans_by_tool: dict[str, list[Path]] = {}
+        for child in sorted(tasks_dir.iterdir(), key=lambda p: p.name):
+            if not child.is_dir() or self.read_task_meta(child) is not None:
+                continue
+            orphans_by_tool.setdefault(self._dir_tool_name(child.name), []).append(
+                child
+            )
+        if not orphans_by_tool:
+            return 0
+
+        targets_by_tool = self._recover_action_targets(
+            session_dir, set(orphans_by_tool), primary_arg_map, primary_arg_type_map
+        )
+        sop = session.get("sop_state") or {}
+        sop_name = sop.get("sop_name", "") or ""
+        tool_phase_map = sop.get("tool_phase_map", {}) or {}
+
+        written = 0
+        for tool, orphans in orphans_by_tool.items():
+            targets = targets_by_tool.get(tool, [])
+            phase_index = tool_phase_map.get(tool)
+            for i, ws in enumerate(orphans):
+                if len(targets) == 1:
+                    primary_val = targets[0]  # one target → applies to all orphans
+                elif i < len(targets):
+                    primary_val = targets[i]  # by-order attribution
+                else:
+                    primary_val = ""
+                # Mirror the dispatch gate exactly (registered = SOP + phase,
+                # NOT primary_val): an opt-out tool's key is content-free, so an
+                # empty primary_val is correct and must still yield a task_key.
+                task_key = (
+                    f"{sop_name}/{phase_index}/{tool}/{primary_val}"
+                    if (sop_name and phase_index is not None)
+                    else None
+                )
+                self.write_task_meta(
+                    ws,
+                    {
+                        "task_id": f"backfill-{ws.name}",
+                        "tool_name": tool,
+                        "label": primary_val or tool,
+                        "status": (
+                            "completed" if self.is_workspace_complete(ws) else "error"
+                        ),
+                        "workspace": str(ws),
+                        "primary_arg": primary_arg_map.get(tool),
+                        "primary_arg_value": primary_val,
+                        "sop_name": sop_name,
+                        "phase_index": phase_index,
+                        "task_key": task_key,
+                        "turn_number": None,
+                        "created_at": self._dir_created_at(ws.name),
+                        "backfilled": True,
+                    },
+                )
+                written += 1
+        if written:
+            logger.info(
+                "Backfilled %d task sidecar(s) for session %s", written, session_id
+            )
+        return written
+
+    # ── Checkpoint / truncate (resume-from-turn + checkpoint UI) ─────
+
+    def get_session_checkpoints_dir(self, session_id: str) -> Path:
+        """Return ``<session_dir>/checkpoints/``, creating it if absent."""
+        cp = self.get_session_dir(session_id) / "checkpoints"
+        cp.mkdir(parents=True, exist_ok=True)
+        return cp
+
+    def checkpoint_session(self, session_id: str) -> str:
+        """Snapshot the whole session dir into ``checkpoints/<ts>_<hex6>/``.
+
+        Copies every top-level child EXCEPT the ``checkpoints/`` dir itself (a
+        global ``ignore_patterns('checkpoints')`` would wrongly strip each task
+        workspace's own nested ``checkpoints/``). Uses ``copy2`` (independent
+        inodes) — NOT hardlinks: ``session.jsonl`` is append-mode, so a hardlink
+        would let later live appends mutate the snapshot. Returns the snapshot
+        name.
+        """
+        import shutil
+
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            raise FileNotFoundError(f"Session dir not found for {session_id}")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        name = f"{ts}_{uuid4().hex[:6]}"
+        dest = session_dir / "checkpoints" / name
+        dest.mkdir(parents=True, exist_ok=False)
+        for child in session_dir.iterdir():
+            if child.name == "checkpoints":
+                continue
+            target = dest / child.name
+            if child.is_dir():
+                shutil.copytree(child, target)
+            else:
+                shutil.copy2(child, target)
+        logger.info("Checkpointed session %s → %s", session_id, dest.name)
+        return name
+
+    def list_checkpoints(self, session_id: str) -> list[dict[str, Any]]:
+        """List a session's checkpoints (newest first) with ts + message count."""
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return []
+        cp_root = session_dir / "checkpoints"
+        if not cp_root.is_dir():
+            return []
+        out: list[dict[str, Any]] = []
+        for child in sorted(cp_root.iterdir(), reverse=True):
+            if not child.is_dir():
+                continue
+            message_count = 0
+            created_at = None
+            state = child / "session_state.json"
+            if state.is_file():
+                try:
+                    data = json.loads(state.read_text(encoding="utf-8"))
+                    message_count = len(data.get("messages", []))
+                    created_at = data.get("updated_at") or data.get("created_at")
+                except (json.JSONDecodeError, OSError):
+                    pass
+            out.append(
+                {
+                    "name": child.name,
+                    "created_at": created_at,
+                    "message_count": message_count,
+                }
+            )
+        return out
+
+    def restore_checkpoint(self, session_id: str, name: str) -> dict[str, Any] | None:
+        """Restore a session to checkpoint ``name`` (reversibly).
+
+        Snapshots the CURRENT state first (so a restore is itself undoable), then
+        replaces every live top-level child (except ``checkpoints/``) with the
+        snapshot's. Returns the restored session, or None if not found. Caller
+        MUST quiesce in-flight background tasks first.
+        """
+        import shutil
+
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return None
+        cp = session_dir / "checkpoints" / name
+        if not cp.is_dir():
+            return None
+        # 1. snapshot current state first (reversible)
+        self.checkpoint_session(session_id)
+        # 2. clear live top-level children except checkpoints/
+        for child in session_dir.iterdir():
+            if child.name == "checkpoints":
+                continue
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                try:
+                    child.unlink()
+                except OSError:
+                    pass
+        # 3. copy the snapshot's children back into the live dir
+        for child in cp.iterdir():
+            target = session_dir / child.name
+            if child.is_dir():
+                shutil.copytree(child, target)
+            else:
+                shutil.copy2(child, target)
+        self._update_index()
+        # Clear-point (e): a checkpoint restore replaces the live turn state with a
+        # past snapshot — no agentic loop is running against it, so any restored
+        # pending-widget marker is a ghost. Drop it (idempotent).
+        self.clear_pending_input(session_id)
+        logger.info("Restored session %s from checkpoint %s", session_id, name)
+        return self.get_session(session_id)
+
+    def truncate_session_at_message(
+        self, session_id: str, message_id: str, *, drop_tasks: bool
+    ) -> dict[str, Any]:
+        """Truncate a session AFTER the message with ``message_id`` (EXCLUSIVE).
+
+        Keeps the clicked human turn (``messages[:idx+1]``) so it stays visible
+        (no clear-then-reflash) and can be re-run server-side; removes everything
+        AFTER it — its assistant response + later turns — plus the ``turn_NNN/``
+        dirs with ``N >= cut_turn`` and ``run_state/store.json`` (so the rebuilt
+        inferencer re-syncs from the truncated history; the re-run regenerates the
+        clicked turn's own ``turn_<cut>/``). Restores
+        ``session["sop_state"]``/``["suspended_sops"]`` from the pre-turn boundary
+        snapshot ``turn_<cut>/sop_state_in.json`` (null → replay re-enters the SOP
+        fresh). With ``drop_tasks``, ``rmtree``s every task workspace whose sidecar
+        ``turn_number >= cut_turn`` (catches chip-bearing AND ghost orphans).
+
+        Returns ``{messages, cut_turn, dropped_workspaces, resumed_message}``
+        where ``resumed_message`` is the KEPT clicked turn (the caller re-runs it
+        through the normal turn pipeline). The caller MUST quiesce in-flight
+        background tasks BEFORE calling this (see
+        ``ConversationService.drain_session_background_tasks``).
+        """
+        session = self.get_session(session_id)
+        if session is None:
+            return {}
+        messages = session.get("messages", [])
+        idx = next(
+            (i for i, m in enumerate(messages) if m.get("id") == message_id), None
+        )
+        if idx is None:
+            return {}
+        cut_turn = self._resolve_cut_turn(messages, idx)
+        session_dir = self._find_session_dir(session_id)
+
+        # Read the pre-turn SOP boundary BEFORE deleting turn dirs.
+        boundary = self._read_sop_boundary(session_dir, cut_turn)
+        session["sop_state"] = (boundary or {}).get("sop_state")
+        session["suspended_sops"] = (boundary or {}).get("suspended_sops", [])
+
+        # Truncate the conversation — EXCLUSIVE of the clicked turn: keep it
+        # (``messages[:idx+1]``) so it stays visible and can be re-run; drop its
+        # assistant response + all later turns.
+        resumed_message = messages[idx]
+        session["messages"] = messages[: idx + 1]
+        session["updated_at"] = _iso_now()
+        self._persist_session(session_id, session)
+        self._update_index()
+
+        # Clear-point (e): a turn-level rewind drops the clicked turn's assistant
+        # response + all later turns — any widget awaiting a human there is now
+        # stale. Drop the marker so the re-run starts clean (idempotent).
+        self.clear_pending_input(session_id)
+
+        dropped_workspaces: list[str] = []
+        if session_dir is not None:
+            self._remove_turn_artifacts_at_or_after(session_dir, cut_turn)
+            if drop_tasks:
+                dropped_workspaces = self._drop_task_workspaces_at_or_after(
+                    session_dir, cut_turn
+                )
+
+        return {
+            "messages": session["messages"],
+            "cut_turn": cut_turn,
+            "dropped_workspaces": dropped_workspaces,
+            "resumed_message": resumed_message,
+        }
+
+    @staticmethod
+    def _resolve_cut_turn(messages: list[dict[str, Any]], idx: int) -> int:
+        """The turn to cut at: the clicked message's stamped ``turn_number``, else a
+        count-of-prior-human-messages fallback for un-stamped legacy sessions."""
+        cut = messages[idx].get("turn_number")
+        if cut is None:
+            cut = (
+                sum(1 for m in messages[:idx] if m.get("role") in ("manager", "user"))
+                + 1
+            )
+        return int(cut)
+
+    @staticmethod
+    def _read_sop_boundary(
+        session_dir: Path | None, cut_turn: int
+    ) -> dict[str, Any] | None:
+        """Pre-turn SOP snapshot (state ENTERING ``cut_turn``), or None."""
+        if session_dir is None:
+            return None
+        snap = session_dir / f"turn_{cut_turn:03d}" / "sop_state_in.json"
+        if not snap.is_file():
+            return None
+        try:
+            return json.loads(snap.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    @staticmethod
+    def _remove_turn_artifacts_at_or_after(session_dir: Path, cut_turn: int) -> None:
+        """Remove ``turn_NNN/`` dirs with ``N >= cut_turn`` + the run-state store."""
+        import shutil
+
+        for child in session_dir.iterdir():
+            if not (
+                child.is_dir()
+                and child.name.startswith("turn_")
+                and child.name != "turns"
+            ):
+                continue
+            try:
+                n = int(child.name[len("turn_") :])
+            except ValueError:
+                continue
+            if n >= cut_turn:
+                shutil.rmtree(child, ignore_errors=True)
+        run_state = session_dir / "run_state" / "store.json"
+        if run_state.is_file():
+            try:
+                run_state.unlink()
+            except OSError:
+                pass
+
+    def _drop_task_workspaces_at_or_after(
+        self, session_dir: Path, cut_turn: int
+    ) -> list[str]:
+        """``rmtree`` every task workspace whose sidecar ``turn_number >= cut_turn``."""
+        import shutil
+
+        dropped: list[str] = []
+        tasks_dir = session_dir / "tasks"
+        if not tasks_dir.is_dir():
+            return dropped
+        for child in tasks_dir.iterdir():
+            if not child.is_dir():
+                continue
+            meta = self.read_task_meta(child)
+            tn = meta.get("turn_number") if meta else None
+            if tn is not None and int(tn) >= cut_turn:
+                shutil.rmtree(child, ignore_errors=True)
+                dropped.append(str(child))
+        return dropped
+
+    def read_round_resume_state(
+        self, session_id: str, message_id: str
+    ) -> dict[str, Any] | None:
+        """Resolve ``(turn, round)`` from a clicked assistant-bubble ``message_id``
+        and read that round's entry snapshot ``turn_T/round_Y/resume_state.json``.
+
+        Returns ``{"blob", "turn", "round"}`` or ``None`` when the message, its
+        ``turn_number``/``round_index`` stamp, or the snapshot file is absent
+        (mock backend, legacy pre-feature rounds, or an empty/no-bubble round) —
+        the caller then rejects round-resume gracefully. Call this BEFORE
+        ``truncate_session_at_round`` (the ordering invariant): truncate deletes
+        the ``round_Y/`` dir, so the blob must be read into memory first.
+        """
+        session = self.get_session(session_id)
+        if session is None:
+            return None
+        msg = next(
+            (m for m in session.get("messages", []) if m.get("id") == message_id),
+            None,
+        )
+        if msg is None:
+            return None
+        turn = msg.get("turn_number")
+        rnd = msg.get("round_index")
+        if turn is None or rnd is None:
+            return None
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None:
+            return None
+        snap = (
+            session_dir
+            / f"turn_{int(turn):03d}"
+            / f"round_{int(rnd):03d}"
+            / "resume_state.json"
+        )
+        if not snap.is_file():
+            return None
+        try:
+            blob = json.loads(snap.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+        return {"blob": blob, "turn": int(turn), "round": int(rnd)}
+
+    def truncate_session_at_round(
+        self, session_id: str, message_id: str, *, drop_tasks: bool, resume_blob: dict
+    ) -> dict[str, Any]:
+        """Truncate a session to REDO assistant round Y of turn T (EXCLUSIVE of the
+        clicked bubble). Mirrors :meth:`truncate_session_at_message` at round
+        granularity: keeps ``messages[:idx]`` (drops the clicked assistant round +
+        everything after — the loop regenerates round Y onward), removes
+        ``turn_T/round_MMM`` dirs with ``MMM >= Y`` (keeping ``1..Y-1``) and whole
+        ``turn_N`` dirs with ``N > T`` plus ``run_state/store.json``, and restores
+        ``session["sop_state"]``/``["suspended_sops"]`` from ``resume_blob`` (the
+        round-entry snapshot the caller already read — feeds the extra-dirs-aware
+        factory restore on CI rebuild).
+
+        Unlike turn-resume, round-resume KEEPS ``turn_T/``, so it also RESETS
+        ``turn_T/turn.json`` (``assembled_summary``/``latest_round``) to reflect
+        only the kept rounds — else the regenerated first round would append to the
+        discarded rounds' summary.
+
+        Returns ``{messages, cut_turn, cut_round, dropped_workspaces}``. The caller
+        MUST quiesce in-flight background tasks BEFORE calling this.
+        """
+        session = self.get_session(session_id)
+        if session is None:
+            return {}
+        messages = session.get("messages", [])
+        idx = next(
+            (i for i, m in enumerate(messages) if m.get("id") == message_id), None
+        )
+        if idx is None:
+            return {}
+        msg = messages[idx]
+        cut_turn = msg.get("turn_number")
+        cut_round = msg.get("round_index")
+        if cut_turn is None or cut_round is None:
+            # Unstamped/legacy assistant bubble — caller guards this via
+            # read_round_resume_state (returns None → reject); defensive no-op.
+            return {}
+        cut_turn = int(cut_turn)
+        cut_round = int(cut_round)
+        session_dir = self._find_session_dir(session_id)
+
+        # Restore the round-entry SOP boundary from the blob (feeds the factory
+        # _restore_sop_state on the next CI rebuild). Set BOTH keys.
+        session["sop_state"] = resume_blob.get("sop_state")
+        session["suspended_sops"] = resume_blob.get("suspended_sops", [])
+
+        # EXCLUSIVE of the clicked assistant bubble — we redo round Y.
+        session["messages"] = messages[:idx]
+        session["updated_at"] = _iso_now()
+        self._persist_session(session_id, session)
+        self._update_index()
+
+        # Clear-point (e): a resume-rewind discards every round at/after the cut,
+        # including any widget that was awaiting a human there — its marker is now
+        # stale. Drop it so the rewound turn's re-run starts clean (idempotent).
+        self.clear_pending_input(session_id)
+
+        # Reset turn_T/turn.json to the kept-rounds state (round-resume keeps
+        # turn_T; a shallow-merge overwrite of these two keys is sufficient).
+        kept_bubbles = [
+            m
+            for m in session["messages"]
+            if m.get("role") == "assistant"
+            and int(m.get("turn_number") or -1) == cut_turn
+            and m.get("content")
+        ]
+        assembled = "\n\n".join(m["content"] for m in kept_bubbles)
+        # Last KEPT round index is cut_round-1 (rounds 1..cut_round-1 are kept),
+        # regardless of whether that round produced a display bubble.
+        latest_round = cut_round - 1
+        try:
+            self.update_turn_root_summary(
+                session_id,
+                cut_turn,
+                {"assembled_summary": assembled, "latest_round": latest_round},
+            )
+        except Exception as e:
+            logger.debug("truncate_session_at_round: turn.json reset failed: %s", e)
+
+        dropped_workspaces: list[str] = []
+        if session_dir is not None:
+            self._remove_round_artifacts_at_or_after(session_dir, cut_turn, cut_round)
+            if drop_tasks:
+                dropped_workspaces = self._drop_task_workspaces_at_or_after_round(
+                    session_dir, cut_turn, cut_round
+                )
+
+        return {
+            "messages": session["messages"],
+            "cut_turn": cut_turn,
+            "cut_round": cut_round,
+            "dropped_workspaces": dropped_workspaces,
+        }
+
+    @staticmethod
+    def _remove_round_artifacts_at_or_after(
+        session_dir: Path, cut_turn: int, cut_round: int
+    ) -> None:
+        """Remove ``turn_cut_turn/round_MMM`` dirs with ``MMM >= cut_round`` (keep
+        ``1..cut_round-1`` + ``turn.json``), whole ``turn_N`` dirs with
+        ``N > cut_turn``, and ``run_state/store.json``."""
+        import shutil
+
+        for child in session_dir.iterdir():
+            if not (
+                child.is_dir()
+                and child.name.startswith("turn_")
+                and child.name != "turns"
+            ):
+                continue
+            try:
+                n = int(child.name[len("turn_") :])
+            except ValueError:
+                continue
+            if n > cut_turn:
+                shutil.rmtree(child, ignore_errors=True)
+            elif n == cut_turn:
+                for rd in child.iterdir():
+                    if not (rd.is_dir() and rd.name.startswith("round_")):
+                        continue
+                    try:
+                        r = int(rd.name[len("round_") :])
+                    except ValueError:
+                        continue
+                    if r >= cut_round:
+                        shutil.rmtree(rd, ignore_errors=True)
+        run_state = session_dir / "run_state" / "store.json"
+        if run_state.is_file():
+            try:
+                run_state.unlink()
+            except OSError:
+                pass
+
+    def _drop_task_workspaces_at_or_after_round(
+        self, session_dir: Path, cut_turn: int, cut_round: int
+    ) -> list[str]:
+        """``rmtree`` every task workspace created AT/AFTER round ``cut_round`` of
+        turn ``cut_turn``: ``turn_number > cut_turn`` OR (``turn_number == cut_turn``
+        AND ``round_number >= cut_round``). A missing ``round_number`` defaults to 1
+        (legacy) so a whole-turn redo (cut_round == 1) still drops same-turn tasks;
+        a missing ``turn_number`` is never dropped."""
+        import shutil
+
+        dropped: list[str] = []
+        tasks_dir = session_dir / "tasks"
+        if not tasks_dir.is_dir():
+            return dropped
+        for child in tasks_dir.iterdir():
+            if not child.is_dir():
+                continue
+            meta = self.read_task_meta(child)
+            tn = meta.get("turn_number") if meta else None
+            if tn is None:
+                continue
+            tn = int(tn)
+            rn = int(meta.get("round_number") or 1)
+            if tn > cut_turn or (tn == cut_turn and rn >= cut_round):
+                shutil.rmtree(child, ignore_errors=True)
+                dropped.append(str(child))
+        return dropped
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session file or directory. Returns True if deleted, False if not found."""
@@ -619,7 +1711,8 @@ class SessionStore:
                 if agent_id is not None or agent_name is not None:
                     primary_agent = {
                         "id": agent_id,
-                        "name": agent_name or (str(agent_id) if agent_id else "Assistant"),
+                        "name": agent_name
+                        or (str(agent_id) if agent_id else "Assistant"),
                     }
                     break
 
@@ -667,15 +1760,18 @@ class SessionStore:
             session_count = 0
             if sessions_dir.is_dir():
                 session_count = sum(
-                    1 for sd in sessions_dir.iterdir()
+                    1
+                    for sd in sessions_dir.iterdir()
                     if sd.is_dir() and (sd / "session_state.json").exists()
                 )
-            servers.append({
-                "name": d.name,
-                "created_at": info.get("created_at"),
-                "session_count": session_count,
-                "is_current": d == self._server_dir,
-            })
+            servers.append(
+                {
+                    "name": d.name,
+                    "created_at": info.get("created_at"),
+                    "session_count": session_count,
+                    "is_current": d == self._server_dir,
+                }
+            )
         return servers
 
     def _create_server_dir(self) -> Path:
@@ -699,7 +1795,8 @@ class SessionStore:
     def _find_latest_server(self) -> Path | None:
         """Find the most recent server directory (by name sort)."""
         candidates = [
-            d for d in self._servers_dir.iterdir()
+            d
+            for d in self._servers_dir.iterdir()
             if d.is_dir() and d.name.startswith("server_")
         ]
         if not candidates:
@@ -781,29 +1878,20 @@ class SessionStore:
     def _update_index(self) -> None:
         """Update sessions_index.json for fast listing."""
         sessions = self._scan_sessions()
-        sessions.sort(key=lambda s: s.get("updated_at") or s.get("created_at") or "", reverse=True)
+        sessions.sort(
+            key=lambda s: s.get("updated_at") or s.get("created_at") or "", reverse=True
+        )
         index = {"sessions": sessions, "updated_at": _iso_now()}
         self._atomic_write(self._dir / "sessions_index.json", index)
 
     def _atomic_write(self, path: Path, data: dict[str, Any]) -> None:
-        """Write JSON atomically via tmp file + os.replace."""
-        # Use the target file's parent directory for the temp file
-        tmp_dir = str(path.parent)
-        fd, tmp_path = tempfile.mkstemp(
-            dir=tmp_dir, suffix=".tmp", prefix=".session_"
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-                f.write("\n")
-            os.replace(tmp_path, str(path))
-        except Exception:
-            # Clean up tmp file on failure
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        """Write JSON atomically via tmp file + os.replace.
+
+        Thin wrapper over the shared :func:`json_io.write_json_atomic` so the
+        same durable-write primitive backs both ``session_state.json`` and the
+        per-workspace ``task_meta.json`` sidecars.
+        """
+        write_json_atomic(path, data)
 
     def _find_session_dir(self, session_id: str) -> Path | None:
         """Find the session directory for a session_id.

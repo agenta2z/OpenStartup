@@ -12,6 +12,7 @@ Usage:
     python scripts/migrate_runtime_workspaces.py --dry-run
     python scripts/migrate_runtime_workspaces.py --apply
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,7 +24,8 @@ from pathlib import Path
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="Actually move files (default is dry-run)",
     )
     args = parser.parse_args()
@@ -67,7 +69,9 @@ def main() -> int:
                 orphan_dirs.append(tasks_dir)
 
     if orphan_dirs:
-        print(f"2. Orphan server-level task dirs (cannot auto-associate with sessions):")
+        print(
+            f"2. Orphan server-level task dirs (cannot auto-associate with sessions):"
+        )
         for d in orphan_dirs:
             count = sum(1 for _ in d.iterdir() if _.is_dir())
             print(f"   {d} ({count} task dirs)")

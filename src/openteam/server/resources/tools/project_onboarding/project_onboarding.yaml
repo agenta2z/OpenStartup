@@ -25,7 +25,6 @@ name: project_onboarding_bta
 
 workspace:
   _target_: InferencerWorkspace
-  use_final_deliverables_folder: true
 
 # --- Outer Breakdown ---
 breakdown_inferencer:

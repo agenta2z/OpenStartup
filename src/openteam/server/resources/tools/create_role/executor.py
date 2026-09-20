@@ -40,19 +40,18 @@ import re
 from pathlib import Path
 from typing import Any, List, Optional
 
-from attr import attrib, attrs
-
 from agent_foundation.common.inferencers.agentic_inferencers.external.rovochat.rovochat_inferencer import (
     RovoChatInferencer,
+)
+from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
+    RovoDevCliInferencer,
 )
 from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
     BreakdownThenAggregateInferencer,
 )
 from agent_foundation.common.inferencers.inferencer_base import InferencerBase
-from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
-    RovoDevCliInferencer,
-)
 from agent_foundation.common.response_parsers import extract_delimited
+from attr import attrib, attrs
 from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
 
 _logger = logging.getLogger(__name__)
@@ -69,6 +68,7 @@ _PROMPT_TEMPLATES_ROOT = (
 
 # AgentFoundation fallback templates root (for multi-root TemplateManager).
 import agent_foundation.resources as _af_res
+
 _AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
 
 
@@ -79,8 +79,12 @@ def _load_variable_file(space: str, var_name: str, variant: str = "create_role")
     reads ``task_breakdown/main/_variables/task_preamble/create_role.jinja2``.
     """
     path = (
-        _PROMPT_TEMPLATES_ROOT / space / "main" / "_variables"
-        / var_name / f"{variant}.jinja2"
+        _PROMPT_TEMPLATES_ROOT
+        / space
+        / "main"
+        / "_variables"
+        / var_name
+        / f"{variant}.jinja2"
     )
     if not path.is_file():
         raise FileNotFoundError(f"Variable template not found: {path}")
@@ -116,14 +120,10 @@ def parse_breakdown_response(raw_output: str) -> List[str]:
     response_text = extract_delimited(str(raw_output))
 
     # 2. Try to extract JSON from ```json ... ``` code fence
-    json_match = re.search(
-        r"```json[^\n{]*(\{[\s\S]*\})\s*```", response_text
-    )
+    json_match = re.search(r"```json[^\n{]*(\{[\s\S]*\})\s*```", response_text)
     if not json_match:
         # No code fence — maybe the whole response is JSON?
-        json_match = re.search(
-            r"\{[\s\S]*\"subtasks\"[\s\S]*\}", response_text
-        )
+        json_match = re.search(r"\{[\s\S]*\"subtasks\"[\s\S]*\}", response_text)
         if json_match:
             json_str = json_match.group(0)
         else:
@@ -310,17 +310,23 @@ def build_create_role_inferencer(
     from agent_foundation.common.inferencers.inferencer_workspace import (
         InferencerWorkspace,
     )
+
     if isinstance(workspace, str):
         workspace = InferencerWorkspace(root=workspace)
 
     # Build runtime directories from workspace.root (if available)
     import os as _os
+
     streaming_cache_dir: Optional[str] = None
     workspace_root = workspace.root if workspace is not None else None
     if workspace_root:
-        streaming_cache_dir = _os.path.join(workspace_root, "_runtime", "inferencer_cache")
+        streaming_cache_dir = _os.path.join(
+            workspace_root, "_runtime", "inferencer_cache"
+        )
         _os.makedirs(streaming_cache_dir, exist_ok=True)
-        _os.makedirs(_os.path.join(workspace_root, "_runtime", "tmp_output_files"), exist_ok=True)
+        _os.makedirs(
+            _os.path.join(workspace_root, "_runtime", "tmp_output_files"), exist_ok=True
+        )
 
     # Common kwargs for _make_rovochat
     rovo_kwargs: dict[str, Any] = dict(
@@ -336,7 +342,9 @@ def build_create_role_inferencer(
 
     # 1. Breakdown inferencer — uses generic task_breakdown template
     #    task_preamble explicitly loaded from _variables/task_preamble/create_role.jinja2
-    breakdown_preamble = _load_variable_file("task_breakdown", "task_preamble", "create_role")
+    breakdown_preamble = _load_variable_file(
+        "task_breakdown", "task_preamble", "create_role"
+    )
     breakdown_inf = _make_rovochat(**rovo_kwargs)
     breakdown_inf.template_manager = tm
     breakdown_inf.template_key = "initial"
@@ -347,7 +355,10 @@ def build_create_role_inferencer(
     # 2. Worker factory — uses generic deep_research template
     #    task_preamble explicitly loaded from _variables/task_preamble/create_role.jinja2
     #    Creates a fresh RovoChat per sub-query for conversation isolation
-    worker_preamble = _load_variable_file("deep_research", "task_preamble", "create_role")
+    worker_preamble = _load_variable_file(
+        "deep_research", "task_preamble", "create_role"
+    )
+
     def worker_factory(sub_query: str, index: int):
         _logger.info("Creating worker %d for sub-query: %.80s...", index, sub_query)
         # output_path is relative — BTA assigns child workspace in
@@ -418,6 +429,7 @@ def build_create_role_inferencer(
 # Generic executor entry point — called by ToolDispatcher
 # ---------------------------------------------------------------------------
 
+
 async def execute(
     arguments: dict,
     session_context: dict,
@@ -445,7 +457,8 @@ async def execute(
         ToolExecutionResult,
     )
     from agent_foundation.resources.tools.task.executor import (
-        _run_topology, _resolve_workspace,
+        _resolve_workspace,
+        _run_topology,
     )
 
     role_description = arguments.get("role_description", "")
@@ -454,9 +467,8 @@ async def execute(
     yaml_path = Path(__file__).parent / "create_role_bta.yaml"
     templates_path = Path(__file__).resolve().parent.parent.parent / "prompt_templates"
 
-    from agent_foundation.common.workspace.allocator import (
-        allocate_tool_workspace,
-    )
+    from agent_foundation.common.workspace.allocator import allocate_tool_workspace
+
     _sr = (session_context or {}).get("session_root", "")
     if _sr:
         _tasks_base = Path(_sr) / "tasks"

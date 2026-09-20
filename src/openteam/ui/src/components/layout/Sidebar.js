@@ -15,7 +15,6 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import ChatIcon from '@mui/icons-material/Chat';
 import { useTheme } from '@mui/material/styles';
-import { useApiData } from '../../hooks/useApiData';
 import { postJson } from '../../utils/api';
 import SettingsDrawer from './SettingsDrawer';
 
@@ -141,9 +140,10 @@ function TaskSubtab({ task, isActive, onClick }) {
   );
 }
 
-export default function Sidebar({ onSessionClick, activeSessionId, tasks, activeTaskId, onTaskClick }) {
+export default function Sidebar({ onSessionClick, activeSessionId, tasks, activeTaskId, onTaskClick, sessions, loading, onRefresh }) {
   const theme = useTheme();
-  const { data: sessions, loading, refetch } = useApiData('/sessions');
+  // The session list is owned by App (so live WS events in ManagerChatView can
+  // trigger a refetch to keep counts/rows fresh); Sidebar receives it as props.
   const groupedSessions = useMemo(() => buildGroupedSessions(sessions), [sessions]);
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -153,7 +153,7 @@ export default function Sidebar({ onSessionClick, activeSessionId, tasks, active
     try {
       const newSession = await postJson('/sessions', {});
       onSessionClick?.(newSession.id);  // navigate immediately (responsive UX)
-      refetch();                         // sidebar catches up asynchronously
+      onRefresh?.();                     // sidebar catches up asynchronously
     } catch (err) {
       console.error('Failed to create session:', err);
       // Graceful: in mock mode POST returns 400, button stays but nothing happens

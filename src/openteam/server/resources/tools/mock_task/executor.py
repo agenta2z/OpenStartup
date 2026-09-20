@@ -39,12 +39,15 @@ async def execute(arguments: dict, session_context: dict) -> Any:
     cfg_path = _PROFILES_DIR / f"{profile}.yaml"
     if not cfg_path.exists():
         available = [p.stem for p in _PROFILES_DIR.glob("*.yaml")]
-        return {"success": False, "output": f"Unknown profile '{profile}'. Available: {available}"}
+        return {
+            "success": False,
+            "output": f"Unknown profile '{profile}'. Available: {available}",
+        }
 
     _logger.info("[mock_task] profile=%s speed=%s seed=%s", profile, speed, seed)
 
     import agent_foundation.common.configs.registered_targets  # noqa: register aliases
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
     cfg = load_config(str(cfg_path))
     if speed != 1.0:
@@ -56,11 +59,14 @@ async def execute(arguments: dict, session_context: dict) -> Any:
 
     try:
         from agent_foundation.ui.graph_reporter_factory import make_graph_reporter
+
         task_id = session_context.get("task_id", "")
         bta.graph_reporter = make_graph_reporter(session_context, task_id)
         if bta.graph_reporter is not None:
-            _logger.info("[mock_task] graph_reporter attached: %s",
-                         type(bta.graph_reporter).__name__)
+            _logger.info(
+                "[mock_task] graph_reporter attached: %s",
+                type(bta.graph_reporter).__name__,
+            )
     except Exception as exc:
         _logger.warning("[mock_task] graph_reporter attach failed: %s", exc)
 

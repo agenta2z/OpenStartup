@@ -77,9 +77,66 @@ def _debug_mode_enabled() -> bool:
     ``InferencerBase._propagate_cascading_attributes``.
     """
     import os
+
     return os.environ.get("OPENTEAM_DEBUG_MODE", "").strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
+
+
+def _restore_sop_state(
+    conv_inferencer: Any, ctx: BackendBuildContext, openteam_sops_dir: Path
+) -> None:
+    """Rehydrate persisted ``sop_state`` + ``suspended_sops`` onto a fresh CI.
+
+    Reads ``session["sop_state"]``/``["suspended_sops"]`` (persisted at turn exit
+    by ConversationService) and rebuilds each ``SOPState`` via ``from_dict``,
+    reattaching the non-serializable ``.sop`` graph through
+    ``build_sop_state(extra_sop_dirs=...)`` (which is extra-dirs-aware — unlike
+    the CI's own ``_reload_sop_definition``, so OpenTeam's own SOPs reload too).
+    AgentFoundation built-in SOPs (e.g. ``model_optimization``) are found via
+    ``load_all_sops`` regardless of ``extra_sop_dirs``.
+    """
+    from agent_foundation.common.workflow.sop_state import SOPState
+    from agent_foundation.resources.tools.sop.executor import build_sop_state
+
+    sess = ctx.session_store.get_session(ctx.session_id) or {}
+    sop_dict = sess.get("sop_state")
+    suspended = sess.get("suspended_sops") or []
+
+    def _rehydrate(d: dict) -> Any:
+        st = SOPState.from_dict(d)
+        if getattr(st, "sop", None) is None and getattr(st, "sop_name", ""):
+            fresh, _err = build_sop_state(
+                st.sop_name,
+                yolo=getattr(st, "yolo_mode", False),
+                extra_sop_dirs=[openteam_sops_dir],
+            )
+            if fresh is not None:
+                st.sop = fresh.sop
+                # Fix D (hardening): the derived phase-maps are persisted verbatim
+                # and NOT refreshed by from_dict, so a session created under an
+                # older SOP graph would otherwise run the NEW graph with STALE
+                # maps. Recompute them from the freshly-loaded graph; keep runtime
+                # progress (completed_phases / phase_executed_tools) untouched.
+                # This is the load-bearing reattach site for OpenTeam — its resume
+                # path uses reattach_sop=False, bypassing the CI's own reload.
+                st.phase_required_tools = fresh.sop.phase_required_tools
+                st.tool_phase_map = fresh.sop.tool_to_phase_map
+        return st
+
+    if sop_dict:
+        conv_inferencer.sop_state = _rehydrate(sop_dict)
+        logger.info(
+            "Restored sop_state for session %s (sop=%s, phase=%s)",
+            ctx.session_id,
+            getattr(conv_inferencer.sop_state, "sop_name", "?"),
+            getattr(conv_inferencer.sop_state, "current_phase", "?"),
+        )
+    if suspended:
+        conv_inferencer._suspended_sops = [_rehydrate(d) for d in suspended if d]
 
 
 def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
@@ -111,16 +168,9 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     the YAML only governs the wrapper config.
     """
     import agent_foundation
-    from agent_foundation.resources.tools import _ci_host
     from agent_foundation.common.inferencers.agentic_inferencers.conversational.template_manager_renderer import (
         TemplateManagerPromptRenderer,
     )
-    from rich_python_utils.string_utils.formatting.template_manager.template_manager import (
-        TemplateManager,
-    )
-    from agent_foundation.resources.tools.registry import load_all_tools
-    from openteam.server.integrations.dispatch import build_integration_executor
-    from openteam.server.services.tool_dispatcher import ToolDispatcher
 
     # (a) Prompt renderer
     #
@@ -141,6 +191,13 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     # canonical way to recover the directory list — element [0] is the
     # primary AF location.
     from agent_foundation.resources import prompt_templates as _af_prompt_templates
+    from agent_foundation.resources.tools import _ci_host
+    from agent_foundation.resources.tools.registry import load_all_tools
+    from openteam.server.integrations.dispatch import build_integration_executor
+    from openteam.server.services.tool_dispatcher import ToolDispatcher
+    from rich_python_utils.string_utils.formatting.template_manager.template_manager import (
+        TemplateManager,
+    )
 
     _af_templates_dir = Path(list(_af_prompt_templates.__path__)[0])
     prompt_renderer = TemplateManagerPromptRenderer(
@@ -194,20 +251,24 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
         integration_executor=integration_executor,
         session_context=session_context,
         interactive=None,  # Injected per-turn by run_conversation_turn
+        session_store=ctx.session_store,  # sidecars, task_ref, reuse matcher
     )
 
-    # (g) Forward-decl + tool_executor closure with tool_phase_map injection
-    conv_inferencer = None  # bound below; safe — tools only run during run_agentic_loop
-
-    async def tool_executor(tool_name, arguments):
-        result = await dispatcher(tool_name, arguments)
-        if hasattr(result, "context_updates") and conv_inferencer is not None:
-            tool_phase_map = conv_inferencer.prior_context.get("tool_phase_map", {})
-            tool_phase = tool_phase_map.get(tool_name)
-            if tool_phase and "current_phase" not in result.context_updates:
-                result.context_updates["current_phase"] = tool_phase
-                result.context_updates["phase_status"] = "completed"
-        return result
+    # (g) The dispatcher IS the tool executor — pass it DIRECTLY, do not wrap it.
+    # `ToolDispatcher` implements `ToolExecutorCallable` (async `__call__`) AND the
+    # `HubAwareToolExecutor` / `DashboardAwareToolExecutor` capability Protocols
+    # (`create_experiment_hub` / `open_dashboard`). This is load-bearing: the CI's
+    # `__attrs_post_init__` builds the `DashboardCoordinator` with
+    # `tool_dispatcher = _tool_dispatcher or tool_executor`, and `_tool_dispatcher`
+    # is only assigned AFTER `build_ci_from_config` returns (see (i) below). A bare
+    # passthrough closure is NOT Hub-aware, so the coordinator would capture a
+    # non-Hub-aware executor and `maybe_open` would log "executor is not
+    # dashboard-aware" and never open the Experiment Hub. Passing the dispatcher
+    # makes that construction-time fallback Hub-aware regardless of assignment
+    # order. (The old wrapper existed only for a `current_phase` writer removed in
+    # Fix 4b — the SOP framework's `_check_phase_completion` is the sole
+    # authoritative writer — so the wrapper had become pure passthrough dead code.)
+    conv_inferencer = None  # bound below (assigned from build_ci_from_config)
 
     # (h) ConversationalInferencer — built from the AgentFoundation framework
     # YAML so max_iterations / soft_max_iterations / compression_threshold /
@@ -217,7 +278,10 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
     # list discover the same OpenTeam SOPs the dispatcher's session_context does.
     ci_config_path = (
         Path(agent_foundation.__file__).parent
-        / "resources" / "configs" / "conversational" / "default.yaml"
+        / "resources"
+        / "configs"
+        / "conversational"
+        / "default.yaml"
     )
     # SOP discovery filters for the Orchestrator's "Available SOPs" prompt
     # section. Semantics match iptables / AWS IAM / k8s NetworkPolicy:
@@ -237,13 +301,37 @@ def _wrap_in_conversational(base: Any, ctx: BackendBuildContext) -> Any:
         base_inferencer=base,
         prompt_renderer=prompt_renderer,
         tool_registry=tool_registry,
-        tool_executor=tool_executor,
+        tool_executor=dispatcher,
         extra_sop_dirs=[openteam_sops_dir],
         allowed_sops=allowed_sops or None,
         disallowed_sops=disallowed_sops or None,
     )
     # (i) Attach dispatcher for per-turn interactive injection
     conv_inferencer._tool_dispatcher = dispatcher
+    # (i.1) Back-ref so the dispatcher can read the LIVE sop_state at dispatch
+    # time (for SOP-scoped task keying). Same object the per-turn injection
+    # updates; the dispatcher + CI are always rebuilt together on eviction.
+    dispatcher._inferencer = conv_inferencer
+
+    # (i.2) Restore persisted SOP state (Piece F) onto the freshly-built CI so a
+    # mid-SOP session survives restart/eviction. We rehydrate OpenStartup-side
+    # via build_sop_state(extra_sop_dirs=...) — NOT the CI's _reload_sop_definition,
+    # which is not extra-dirs-aware and would fail to find OpenTeam's own SOPs.
+    #
+    # NOTE (load-bearing): this is a deliberate parallel path to the CI's dormant
+    # RunStateStore "conversation"-blob mechanism. That path's _serialize_pause_state
+    # never fires in normal turns (self._paused is never set), so the agentic
+    # loop's _rehydrate_from_resumed_store is a no-op and will NOT clobber the
+    # sop_state we set here. Activating that path instead would require AF changes
+    # (a session-stable RunContext node + the extra-dirs reload fix); we avoid
+    # those per the zero-AF-change constraint.
+    if _sid and ctx.session_store is not None:
+        try:
+            _restore_sop_state(conv_inferencer, ctx, openteam_sops_dir)
+        except Exception:
+            logger.warning(
+                "SOP-state restore failed for session %s", _sid, exc_info=True
+            )
 
     # (i.5) Operator opt-in: enable verbose debug logging on the CI and cascade
     # it to the backend leaf. enable_debug_mode() is the reliable trigger for the

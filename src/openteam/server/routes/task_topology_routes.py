@@ -15,7 +15,10 @@ router = APIRouter()
 
 _TOPOLOGIES_DIR = (
     Path(__file__).resolve().parent.parent
-    / "resources" / "tools" / "task" / "topologies"
+    / "resources"
+    / "tools"
+    / "task"
+    / "topologies"
 )
 
 _DESC_RE = re.compile(r"^#\s*(.+)$")

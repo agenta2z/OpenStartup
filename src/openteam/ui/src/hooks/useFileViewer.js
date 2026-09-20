@@ -14,6 +14,10 @@ export function useFileViewer() {
   const [fileError, setFileError] = useState(null);
   const [fileLoading, setFileLoading] = useState(false);
 
+  // HTML iframe state — HTML files render via iframe for proper links/CSS
+  const [isHtmlFile, setIsHtmlFile] = useState(false);
+  const [htmlFilePath, setHtmlFilePath] = useState('');
+
   // Folder browsing state
   const [folderTree, setFolderTree] = useState(null);
   const [folderPath, setFolderPath] = useState('');
@@ -24,6 +28,8 @@ export function useFileViewer() {
     if (!filePath) return;
     setFileError(null);
     setFileContent('');
+    setIsHtmlFile(false);
+    setHtmlFilePath('');
     setFileLoading(true);
     setIsFolderMode(false);
     setFolderTree(null);
@@ -32,6 +38,13 @@ export function useFileViewer() {
     try {
       const name = filePath.split('/').pop() || 'Document';
       setFileName(name);
+
+      if (name.endsWith('.html') || name.endsWith('.htm')) {
+        setIsHtmlFile(true);
+        setHtmlFilePath(filePath);
+        setFileLoading(false);
+        return;
+      }
 
       const response = await fetch(`/api/view/${filePath}`);
       if (!response.ok) {
@@ -83,9 +96,19 @@ export function useFileViewer() {
     setSelectedFilePath(filePath);
     setFileError(null);
     setFileContent('');
+    setIsHtmlFile(false);
+    setHtmlFilePath('');
     setFileLoading(true);
 
     try {
+      const name = filePath.split('/').pop() || '';
+      if (name.endsWith('.html') || name.endsWith('.htm')) {
+        setIsHtmlFile(true);
+        setHtmlFilePath(filePath);
+        setFileLoading(false);
+        return;
+      }
+
       const response = await fetch(`/api/view/${filePath}`);
       if (!response.ok) {
         const msg = await response.text().catch(() => `HTTP ${response.status}`);
@@ -106,6 +129,8 @@ export function useFileViewer() {
     setIsFolderMode(false);
     setFolderTree(null);
     setSelectedFilePath('');
+    setIsHtmlFile(false);
+    setHtmlFilePath('');
   }, []);
 
   return {
@@ -116,6 +141,9 @@ export function useFileViewer() {
     fileLoading,
     openFileViewer,
     closeFileViewer,
+    // HTML iframe rendering
+    isHtmlFile,
+    htmlFilePath,
     // Folder browsing
     folderTree,
     folderPath,

@@ -1,5 +1,7 @@
 """Wrapper-side helpers shared by all four tool wrappers in server.py."""
+
 from __future__ import annotations
+
 from typing import Any
 
 
@@ -14,8 +16,11 @@ def strip_unset(d: dict[str, Any]) -> dict[str, Any]:
     Each clause is intentional; DO NOT collapse to ``v in (None, False, "", [])``:
     that form drops ``0`` because ``0 == False`` is True in Python.
     """
-    return {k: v for k, v in d.items()
-            if v is not None and v is not False and v != "" and v != []}
+    return {
+        k: v
+        for k, v in d.items()
+        if v is not None and v is not False and v != "" and v != []
+    }
 
 
 def render_result(result: Any) -> str:

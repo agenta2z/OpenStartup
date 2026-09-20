@@ -113,9 +113,7 @@ async def _do_slack_api_call(
     if cookie:
         headers["Cookie"] = f"d={cookie}"
 
-    filtered_params = {
-        k: str(v) for k, v in params.items() if v is not None
-    }
+    filtered_params = {k: str(v) for k, v in params.items() if v is not None}
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.get(url, params=filtered_params, headers=headers)
@@ -157,7 +155,9 @@ async def slack_api_call(
     # On auth failure, invalidate cache and retry with fresh tokens
     error_code = data.get("error", "")
     if error_code in _AUTH_ERROR_CODES:
-        logger.warning("Slack token expired (%s), refreshing from proximity...", error_code)
+        logger.warning(
+            "Slack token expired (%s), refreshing from proximity...", error_code
+        )
         _token_cache = _TokenCache()
 
         fresh = await _fetch_tokens_from_proximity()

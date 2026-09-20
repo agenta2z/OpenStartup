@@ -20,6 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BugReportIcon from '@mui/icons-material/BugReport';
 
+import { useApiData } from './hooks/useApiData';
 import Sidebar from './components/layout/Sidebar';
 import TeamOverviewView from './components/views/TeamOverviewView';
 import ProjectsView from './components/views/ProjectsView';
@@ -44,6 +45,12 @@ function App() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
+
+  // Session list lives here (not in Sidebar) so live WS events surfaced by
+  // ManagerChatView (connect / session_init / turn end / task_status) can call
+  // refetch() and keep the sidebar counts/rows fresh — it was previously fetched
+  // once on mount and went stale after a server restart.
+  const { data: sessions, loading: sessionsLoading, refetch: refetchSessions } = useApiData('/sessions');
 
   const isDrillDown = selectedProjectId || selectedEmployeeId || selectedConversationId || selectedSessionId;
 
@@ -87,6 +94,7 @@ function App() {
         onTasksChanged={handleTasksChanged}
         onActiveTaskChanged={handleActiveTaskChanged}
         onSwitchTabRef={handleSwitchTabRef}
+        onSessionsShouldRefresh={refetchSessions}
       />
     );
     if (selectedProjectId) return <SprintBoardView projectId={selectedProjectId} onBack={handleBack} />;
@@ -109,6 +117,9 @@ function App() {
         tasks={sessionTasks}
         activeTaskId={activeTaskId}
         onTaskClick={handleSidebarTaskClick}
+        sessions={sessions}
+        loading={sessionsLoading}
+        onRefresh={refetchSessions}
       />
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
         <AppBar position="static" elevation={0} sx={{ backgroundColor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>

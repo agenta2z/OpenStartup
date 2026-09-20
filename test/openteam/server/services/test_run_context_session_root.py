@@ -55,6 +55,7 @@ def test_run_id_provenance_flows_into_child():
 
 # --- ConversationService session-root wiring (the refactor under test) ----------
 
+
 def _bare_service():
     """A ConversationService with only the caches wired (skips the heavy __init__)."""
     from openteam.server.services.conversation_service import ConversationService
@@ -62,6 +63,8 @@ def _bare_service():
     svc = ConversationService.__new__(ConversationService)
     svc._session_roots = {}
     svc._inferencers = {}
+    svc._session_loggers = {}
+    svc._bg_tasks = {}
     return svc
 
 

@@ -18,7 +18,7 @@ exclusion list `lkp_ugc_dup_exception_list` changes. Replaces the manual ~2-day 
 - **PR pattern**: ml-studio [#21555](https://bitbucket.org/atlassian/ml-studio/pull-requests/21555) → [#22489](https://bitbucket.org/atlassian/ml-studio/pull-requests/22489); xpsearch-content [#20852](https://bitbucket.org/atlassian/xpsearch-content/pull-requests/20852) → [#22512](https://bitbucket.org/atlassian/xpsearch-content/pull-requests/22512)
 
 ## Prerequisites
-[__must__]:
+[__required__]:
 - **SSAM groups**:
   - `mlp-search-relevance-tenant-modeling-dl-ml-studio-access` (verified working) — for training + filtering + eval workflows
   - `mlp-search-relevance-dl-ml-studio-access` (verified working) — for `package_l2_output_norm_scores_xt` packaging
@@ -32,7 +32,7 @@ exclusion list `lkp_ugc_dup_exception_list` changes. Replaces the manual ~2-day 
 - **ML Lens metrics SSAM** (unknown canonical group name as of 2026-06-03; ping `#help-mlplatform` with POCO decisionId) — only needed to automate MRR extraction; without it, MRRs are read manually from the View Run UI
 
 ## Verified blueprint reference
-[__must__] Use these EXACT blueprint IDs. Do not call `atlas ml workflow get-blueprint -n <name>` and trust the first result — each region needs its own blueprint, and the `get-blueprint` CLI returns only the single most recent variant for a name.
+[__required__] Use these EXACT blueprint IDs. Do not call `atlas ml workflow get-blueprint -n <name>` and trust the first result — each region needs its own blueprint, and the `get-blueprint` CLI returns only the single most recent variant for a name.
 
 | Phase | Workflow | Use case | Blueprint ID | Region |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@ Read the current state of `lkp_ugc_dup_exception_list` and compute a determinist
 
 **Why server-side checksum, not row download**: The table has 365k+ rows (~25MB+) which exceeds the Databricks SQL Statements API's default 25MB INLINE response cap. The orchestrator computes `SHA2(SUM(HASH(*)), 256)` server-side, returning a 64-char checksum + COUNT(*) + DESCRIBE + LIMIT 5 sample.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `python3 CoreProjects/xtenant_refresh_automation/refresh_xtenant_check.py --cache .xtenant_cache/last_seen.json`
 
 **Verified working warehouse**: `ac8c98be41a8ce28` (general data warehouse — has SELECT on the exception-list catalog)
@@ -64,7 +64,7 @@ Read the current state of `lkp_ugc_dup_exception_list` and compute a determinist
 
 Fire the un-filtered training workflow. Used for sanity comparison only; downstream phases use Phase 2's artifact.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `atlas ml workflow run -b edfb796a-0e83-4aa2-8bb6-b70d43c5ec9d -e prod`
 
 **Capture**: ML Studio Run ID from the output line `ML Studio Run ID: <uuid>`. Runtime ~1h 30m – 2h. 2026-06-02 example: run `06c06b43-f769-4070-ae60-8d2c9963059b`.
@@ -76,7 +76,7 @@ Fire the un-filtered training workflow. Used for sanity comparison only; downstr
 
 Fire the training workflow that reads `lkp_ugc_dup_exception_list` and produces the new `best_two_head_model.pt` artifact. **This is the canonical refresh.**
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `atlas ml workflow run -b 290570de-bcf4-40f4-9090-15bffefa262d -e prod`
 
 **Capture**: ML Studio Run ID. Runtime ~1h 30m – 2h. 2026-06-02 example: run `b929f0ce-549a-421f-b6f3-7b0d41f9e709`.
@@ -88,7 +88,7 @@ Fire the training workflow that reads `lkp_ugc_dup_exception_list` and produces 
 
 Package the new trained model into `assets.tar.gz` consumable by Tarot V2.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `atlas ml workflow run -b 7a6085b7-6898-49f8-831d-e74b8af97ebd -e prod`
 
 **Capture**: ML Studio Run ID. Runtime ~15-30 min. 2026-06-02 example: run `1b1a1e42-4adf-4429-a11d-5ec1789045e7`.
@@ -98,7 +98,7 @@ Package the new trained model into `assets.tar.gz` consumable by Tarot V2.
 
 Create a new YAML descriptor in `atlassian/ml-studio` registering the Tarot V3 package for the new model. Pattern: copy the most recent `package_ensemble_l2_general_doc_stack_retrain_zero_query_<MMDD>.yaml` to the new date.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__bitbucket__invoke_tool` with `bitbucketRepoContent action=branch.create` then `action=commit.create` then `bitbucketPullRequest action=create draft=true`
 
 **Branch convention**: `tchen7/automation-<YYYY-MM-DD>-tarot-v3-v<NEW_VERSION>`
@@ -131,7 +131,7 @@ variables:
 
 Two-step: (5a) fire the Databricks launchpad job that creates the ml-registry version, (5b) the Tarot V3 PR from Phase 4 is what allows future workflows to consume the registered version.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `databricks --profile ml-ugc-prod jobs run-now 41970387619718 --no-wait`
 
 **Verification**:
@@ -176,7 +176,7 @@ end-to-end automated refresh completed <DATE>:
 
 File a draft PR in `atlassian/xpsearch-content` against `master` (NOTE: master, not main) as a placeholder. The real diff (4 regional yamls + maintainers.yml updating the endpoint slug) cannot be written until TS provisions the new endpoint (Phase 7 outcome).
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__bitbucket__invoke_tool` with `bitbucketRepoContent action=branch.create target=master` then `action=commit.create branch=<feature>` then `bitbucketPullRequest action=create draft=true targetBranch=master`
 
 **Branch convention**: `tchen7/automation-<YYYY-MM-DD>-xtenant-v<NEW_VERSION>`
@@ -187,7 +187,7 @@ File a draft PR in `atlassian/xpsearch-content` against `master` (NOTE: master, 
 
 **CRITICAL — DO NOT REPEAT 2026-06-02 MISTAKE**: `atlas ml workflow run` has **NO `--region` flag**. Running the same blueprint 4 times produces 4 us_west_2 runs, not 4 region runs. Use the 4 region-specific blueprint IDs from the Verified blueprint reference table.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 ```bash
 atlas ml workflow run -b 453a789e-409d-4ebf-9c0f-8552621d937b -e prod   # us_west_2
 atlas ml workflow run -b 992be8ce-bb75-4588-ab4e-fd2ad83460a4 -e prod   # us
@@ -228,7 +228,7 @@ The runbook's MRR comparison table requires reading 4 MRR values from each regio
 
 Publish a launch doc under the user's personal space following the runbook template.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__atlassian__invoke_tool` with `create_confluence_page parent_url=<personal_space>`
 
 **Title convention**: `Apply lkp_ugc_dup_exception_list to Filter Tenant for Cross Tenant Modeling - <YYYY-MM-DD> (Automated)`

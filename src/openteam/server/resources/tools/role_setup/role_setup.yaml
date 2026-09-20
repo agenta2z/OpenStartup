@@ -24,8 +24,7 @@ _template_manager:
 name: outer_bta
 
 workspace:
-  _target_: InferencerWorkspace
-  use_final_deliverables_folder: true  # deliverables (skills, tools, association JSON) go to final_deliverables/; reports stay in outputs/
+  _target_: InferencerWorkspace  # deliverables (skills, tools, association JSON) and reports land in outputs/
 
 # --- Outer Breakdown ---
 breakdown_inferencer:
@@ -52,7 +51,6 @@ group_max_concurrency:
 worker_factory:
   skill_tool_creation:
     _import_: "role_setup_skill_tool_creation.yaml"
-    # workspace.use_final_deliverables_folder: true is set in role_setup_skill_tool_creation.yaml
   skill_tool_association:
     _target_: RovoDevCLI
     template_root_space: implementation
@@ -64,7 +62,6 @@ worker_factory:
 # --- Outer Aggregator ---
 aggregator_inferencer:
   _target_: RovoDevCLI
-  output_is_deliverable: true
   output_path: "role_setup_report.md"
   template_root_space: implementation
   template_variables:

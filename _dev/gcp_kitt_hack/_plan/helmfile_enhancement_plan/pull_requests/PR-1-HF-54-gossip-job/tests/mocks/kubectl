@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Mock `kubectl` binary used by patch.sh tests.
+#
+# Behavior is driven by env vars set by each test:
+#   KUBECTL_LOG    : path to a file where every invocation is appended (one line per call)
+#   KUBECTL_GET_READY : "true" or "false" — what to return for `get pod ... ready` queries
+#   KUBECTL_FAIL_ON  : substring; if any arg matches, exit 1 (used to simulate kubectl errors)
+#   KUBECTL_GET_PODS_OUT : verbatim stdout for `get pod -l ...` (final summary call)
+#
+# All arguments are recorded so tests can assert on the exact kubectl invocations.
+set -uo pipefail
+
+# Record this call (1 line: pipe-separated args)
+if [[ -n "${KUBECTL_LOG:-}" ]]; then
+  printf '%s\n' "$(printf '%s|' "$@")" >> "$KUBECTL_LOG"
+fi
+
+# Optional failure injection
+if [[ -n "${KUBECTL_FAIL_ON:-}" ]]; then
+  for arg in "$@"; do
+    if [[ "$arg" == *"$KUBECTL_FAIL_ON"* ]]; then
+      echo "mock kubectl: injected failure on arg '$arg'" >&2
+      exit 1
+    fi
+  done
+fi
+
+# Behavior dispatch
+case "$1" in
+  set)  # set env -n NS statefulset/NAME ENV=VAL ...
+    echo "statefulset.apps/${4#*/} env updated"
+    exit 0
+    ;;
+  delete)  # delete pod -n NS POD ...
+    echo "pod \"${4:-?}\" deleted"
+    exit 0
+    ;;
+  get)
+    # `get pod -n NS POD -o jsonpath='{.status.containerStatuses[0].ready}'`
+    if [[ "$2" == "pod" && "$*" == *jsonpath* ]]; then
+      echo "${KUBECTL_GET_READY:-true}"
+      exit 0
+    fi
+    # `get pod -n NS -l label -o wide` (final summary)
+    if [[ "$2" == "pod" && "$*" == *"-l "* ]]; then
+      echo "${KUBECTL_GET_PODS_OUT:-NAME READY STATUS  RESTARTS AGE NODE}"
+      exit 0
+    fi
+    echo "mock kubectl get: unhandled args: $*" >&2
+    exit 0
+    ;;
+  *)
+    echo "mock kubectl: unknown verb '$1' (full args: $*)" >&2
+    exit 0
+    ;;
+esac

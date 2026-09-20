@@ -27,9 +27,28 @@ class WebSocketInteractive:
         *,
         task_input_queues: "dict[str, asyncio.Queue] | None" = None,
         pending_input_cache: "dict[str, Any] | None" = None,
+        snapshot_store: "Any | None" = None,
+        session_id: str = "",
+        data_service: "Any | None" = None,
     ) -> None:
         self._send = send_callback
         self._input_queue = input_queue
+        # Data-service handle for DURABLE pending-widget persistence (Layer 2).
+        # Used by persist_pending_widget() to write the marker (session_state.json)
+        # + emit-point blob (sidecar) so an unanswered widget survives a WS
+        # reconnect / server restart. None on CLI/dev-tool paths (no persistence).
+        self._data_service = data_service
+        # The pending_input_id minted by the most recent asend_response — exposed
+        # so the CI can key the durable marker+blob to the same id as the wire
+        # frame + the connection-scoped cache entry.
+        self._last_pending_input_id: str | None = None
+        # v4 Phase 4.1 — TaskGraphSnapshotStore reference + session_id for the
+        # per-task snapshot mirror. send_graph_event mutates the snapshot
+        # BEFORE the wire send so manager_websocket_routes.session_init can
+        # replay the state to a freshly-connected client. Optional — None on
+        # the CLI/dev-tool path (no replay required there).
+        self._snapshot_store = snapshot_store
+        self._session_id = session_id
         # Per-connection routing table for background-task input queues. Shared
         # with the WebSocket handler's pending_input_response router so that a
         # child interactive created via for_background_task() can receive widget
@@ -99,7 +118,19 @@ class WebSocketInteractive:
                 "(no routing table wired on this interactive)"
             )
         child_queue: asyncio.Queue = asyncio.Queue()
-        child = TaskWebSocketInteractive(self._send, child_queue, task_id=task_id)
+        # Propagate the snapshot store + session_id (from THIS interactive, which
+        # is the store-bearing main-conversation interactive) so the child's
+        # send_graph_event mirrors into the snapshot under the chip's task_id and
+        # send_task_status fires mark_task_terminal. Keystone of graph durability
+        # for async-dispatched (SOP) tasks. Routing table still intentionally NOT
+        # passed — leaf tasks don't spawn children (that is unrelated to mirroring).
+        child = TaskWebSocketInteractive(
+            self._send,
+            child_queue,
+            task_id=task_id,
+            snapshot_store=self._snapshot_store,
+            session_id=self._session_id,
+        )
         # Point-in-time snapshot of the dispatching turn's prompt_data so the
         # child's first asend_response can inline it. NOT kept in sync: the
         # parent's _last_prompt_data is later reassigned (not mutated) by
@@ -121,14 +152,38 @@ class WebSocketInteractive:
         Dispatches GraphTopologyEvent, NodeStatusEvent, NodeStreamEvent to the
         appropriate WS message type. Wrapped in try/except with circuit breaker
         so visualization failures never abort computation.
+
+        v4 Phase 4.1 — also mirrors the event into the per-task snapshot
+        before serializing for the wire. The snapshot is the source of truth
+        for replay on session_init / request_graph_replay; mutating here
+        (the single emit point) keeps it in lock-step with whatever the
+        client sees.
         """
         if self._graph_send_disabled:
             return
         import logging as _log
+
         _logger = _log.getLogger(__name__)
         from agent_foundation.common.inferencers.graph_events import (
-            GraphTopologyEvent, NodeStatusEvent, NodeStreamEvent, GraphReconcileEvent,
+            GraphReconcileEvent,
+            GraphTopologyEvent,
+            NodeStatusEvent,
+            NodeStreamEvent,
         )
+
+        # v4 Phase 4.1 — snapshot mutation BEFORE wire dispatch. Guarded so a
+        # snapshot bug can never abort the live send (visualization parity is
+        # nice-to-have; live correctness is load-bearing).
+        if self._snapshot_store is not None and task_id and self._session_id:
+            try:
+                snap = self._snapshot_store.get_or_create(self._session_id, task_id)
+                snap.apply_event(event)
+            except Exception as _snap_exc:
+                _logger.warning(
+                    "[WS] snapshot apply failed (task_id=%s): %s",
+                    task_id,
+                    _snap_exc,
+                )
         if isinstance(event, GraphTopologyEvent):
             msg: dict[str, Any] = {
                 "type": "graph_topology",
@@ -141,6 +196,12 @@ class WebSocketInteractive:
                 msg["parent_node_id"] = event.parent_node_id
             if event.version:
                 msg["version"] = event.version
+            # v4 Phase 5.2 — only ship reset when it deviates from the default
+            # True; this keeps the wire payload compact for the common case
+            # (BTA full-diamond re-emit) and explicit-only for append cases
+            # (LWI dynamic round add). Client treats absent === True.
+            if getattr(event, "reset", True) is False:
+                msg["reset"] = False
             # Root topology resets the circuit breaker
             if not event.parent_node_id:
                 self._graph_send_disabled = False
@@ -181,10 +242,15 @@ class WebSocketInteractive:
                 self._graph_send_disabled = True
                 _logger.warning(
                     "[WS] Graph events disabled after %d consecutive failures: %s",
-                    self._graph_send_failures, exc,
+                    self._graph_send_failures,
+                    exc,
                 )
             else:
-                _logger.debug("[WS] send_graph_event failed (%d/3): %s", self._graph_send_failures, exc)
+                _logger.debug(
+                    "[WS] send_graph_event failed (%d/3): %s",
+                    self._graph_send_failures,
+                    exc,
+                )
 
     async def on_clean_output_available(self, clean_output: str) -> None:
         """Called after streaming completes when a cleaner final output is available.
@@ -275,10 +341,22 @@ class WebSocketInteractive:
         request: str = "",
         tool_name: str = "",
         error: str = "",
+        error_type: str = "",
     ) -> None:
         """Notify the frontend of task lifecycle events (starting/running/completed/error).
 
         Creates or updates a task subtab in the UI.
+
+        v4 Phase 4.1 — on terminal status, stamp the per-task graph snapshot
+        so the store's prune sweep can evict it after TTL. Active snapshots
+        never expire; terminal snapshots get the 600s grace window
+        (configurable in TaskGraphSnapshotStore) so an immediate refresh
+        still hydrates.
+
+        ``error_type`` (snake_case on the wire — matches ``task_id`` /
+        ``tool_name``) carries the exception class name for a real error
+        (e.g. ``"ValueError"``) or the sentinel ``"interrupted"`` for a
+        reconcile-healed row so the UI can distinguish them.
         """
         msg: dict[str, Any] = {
             "type": "task_status",
@@ -291,7 +369,70 @@ class WebSocketInteractive:
             msg["tool_name"] = tool_name
         if error:
             msg["error"] = error
+        if error_type:
+            msg["error_type"] = error_type
         await self._send(msg)
+        if (
+            self._snapshot_store is not None
+            and self._session_id
+            and task_id
+            and status in ("completed", "error")
+        ):
+            try:
+                self._snapshot_store.mark_task_terminal(self._session_id, task_id)
+            except Exception:
+                # Never let TTL bookkeeping abort the WS notification path.
+                pass
+
+    async def send_dashboard_open(
+        self,
+        hub_id: str,
+        manifest: dict[str, Any],
+        seed: "dict[str, Any] | None" = None,
+    ) -> None:
+        """Notify the frontend to open/activate a Dashboard subtab.
+
+        Mirror of :meth:`send_task_status` for the Dashboard ``tool_type``:
+        creates a dashboard subtab in the UI seeded with ``manifest`` (the
+        canonical tab structure from the tool's ``dashboard_config``) + ``seed``
+        (initial state, e.g. the selected proposals for the Selection tab).
+        """
+        await self._send(
+            {
+                "type": "dashboard_open",
+                "hub_id": hub_id,
+                "manifest": manifest,
+                "seed": seed or {},
+            }
+        )
+
+    async def send_dashboard_status(
+        self, hub_id: str, status: str, **extra: Any
+    ) -> None:
+        """Notify the frontend of a Dashboard subtab status change."""
+        await self._send(
+            {"type": "dashboard_status", "hub_id": hub_id, "status": status, **extra}
+        )
+
+    async def send_dashboard_event(
+        self,
+        hub_id: str,
+        event_type: str,
+        payload: "dict[str, Any] | None" = None,
+    ) -> None:
+        """Push a generic live-update event into a Dashboard's ``wsEvents$`` stream.
+
+        ``event_type`` ∈ run_progress / run_completed / submission_state /
+        setup_completed / combo_changed / verdict_ready / autopilot_tick.
+        """
+        await self._send(
+            {
+                "type": "dashboard_event",
+                "hub_id": hub_id,
+                "event_type": event_type,
+                "payload": payload or {},
+            }
+        )
 
     async def send_turn_boundary(
         self,
@@ -300,10 +441,12 @@ class WebSocketInteractive:
         cache_folder: str = "",
     ) -> None:
         """Signal a turn boundary (agentic loop iteration boundary)."""
-        await self._send({
-            "type": "turn_boundary",
-            "turn_number": turn_number,
-        })
+        await self._send(
+            {
+                "type": "turn_boundary",
+                "turn_number": turn_number,
+            }
+        )
 
     async def send_round_message_end(
         self,
@@ -319,13 +462,15 @@ class WebSocketInteractive:
         ``final_content`` is "" the UI commits/persists nothing; otherwise it
         commits the round's assistant bubble carrying {message_id, round_index}.
         """
-        await self._send({
-            "type": "message_end",
-            "message_id": message_id,
-            "round_index": round_index,
-            "turn_number": turn_number,
-            "final_content": final_content,
-        })
+        await self._send(
+            {
+                "type": "message_end",
+                "message_id": message_id,
+                "round_index": round_index,
+                "turn_number": turn_number,
+                "final_content": final_content,
+            }
+        )
 
     @staticmethod
     def _sanitize_for_json(value: Any) -> Any:
@@ -377,6 +522,7 @@ class WebSocketInteractive:
     ) -> None:
         """Send a conversation tool prompt (confirmation, clarification, etc.)."""
         import logging as _logging
+
         _log = _logging.getLogger(__name__)
         input_mode = kwargs.get("input_mode")
         msg: dict[str, Any] = {
@@ -385,13 +531,14 @@ class WebSocketInteractive:
         }
         if input_mode is not None:
             mode_dict = (
-                input_mode.to_dict()
-                if hasattr(input_mode, "to_dict")
-                else input_mode
+                input_mode.to_dict() if hasattr(input_mode, "to_dict") else input_mode
             )
             msg["input_mode"] = mode_dict
-            _log.info("[asend_response] input_mode.mode=%s metadata=%s",
-                      mode_dict.get("mode"), mode_dict.get("metadata"))
+            _log.info(
+                "[asend_response] input_mode.mode=%s metadata=%s",
+                mode_dict.get("mode"),
+                mode_dict.get("metadata"),
+            )
         else:
             _log.info("[asend_response] no input_mode (free_text fallback)")
 
@@ -421,6 +568,7 @@ class WebSocketInteractive:
         # back to this prompt (and persist it as a widget_response message).
         pending_input_id = uuid.uuid4().hex
         msg["pending_input_id"] = pending_input_id
+        self._last_pending_input_id = pending_input_id
         if self._round_ctx:
             mid = self._round_ctx.get("message_id")
             ridx = self._round_ctx.get("round_index")
@@ -437,9 +585,7 @@ class WebSocketInteractive:
             if self._pending_input_cache is not None:
                 mode_dict = msg.get("input_mode")
                 metadata = (
-                    mode_dict.get("metadata", {})
-                    if isinstance(mode_dict, dict)
-                    else {}
+                    mode_dict.get("metadata", {}) if isinstance(mode_dict, dict) else {}
                 ) or {}
                 self._pending_input_cache[pending_input_id] = {
                     "scope": "conversation",
@@ -451,9 +597,12 @@ class WebSocketInteractive:
                     "prompt": str(response),
                     "input_mode": mode_dict,
                     "widget_type": kwargs.get("widget_type"),
-                    "viewPath": metadata.get("viewPath"),
-                    "viewLabel": metadata.get("viewLabel"),
-                    "viewType": metadata.get("viewType"),
+                    "viewPath": metadata.get("view") or metadata.get("viewPath"),
+                    "viewLabel": metadata.get("view_label")
+                    or metadata.get("viewLabel"),
+                    "viewType": metadata.get("view_type")
+                    or metadata.get("viewType")
+                    or "file",
                     "prompt_data": sanitized_prompt_data,
                 }
 
@@ -462,6 +611,46 @@ class WebSocketInteractive:
     async def aget_input(self) -> Any:
         """Wait for user input from the WebSocket (fed by incoming messages)."""
         return await self._input_queue.get()
+
+    def persist_pending_widget(
+        self,
+        *,
+        tools: "list | None",
+        action_tools: "list | None",
+        blob: dict[str, Any],
+    ) -> None:
+        """Durably persist the widget just emitted by ``asend_response`` so an
+        unanswered widget survives a WS reconnect / server restart (Layer 2,
+        Piece 1). Assembles the marker from the connection-scoped cache entry
+        (prompt / input_mode / turn / round / message_id / pending_input_id) plus
+        the full ``ToolsToInvoke`` with a faithful ``ConversationTool`` round-trip
+        (so recovery reconstructs the EXACT widget) + the CI-supplied emit-point
+        continuation ``blob``; the store writes sidecar-first. No-op on CLI /
+        dev-tool paths (no data_service / cache / round context). Best-effort —
+        never breaks the live turn."""
+        if self._data_service is None or self._pending_input_cache is None:
+            return
+        pid = self._last_pending_input_id
+        if not pid:
+            return
+        entry = dict(self._pending_input_cache.get(pid) or {})
+        if entry.get("scope") != "conversation":
+            return
+        entry["tools"] = [
+            t.to_dict() if hasattr(t, "to_dict") else t for t in (tools or [])
+        ]
+        entry["action_tools"] = list(action_tools or [])
+        store = getattr(self._data_service, "session_store", None)
+        if store is None or not hasattr(store, "set_pending_input"):
+            return
+        try:
+            store.set_pending_input(self._session_id, entry, blob)
+        except Exception as e:  # best-effort — never break the live turn
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "persist_pending_widget failed (%s): %s", self._session_id, e
+            )
 
 
 class TaskWebSocketInteractive(WebSocketInteractive):
@@ -480,8 +669,20 @@ class TaskWebSocketInteractive(WebSocketInteractive):
         input_queue: asyncio.Queue,
         *,
         task_id: str,
+        snapshot_store: "Any | None" = None,
+        session_id: str = "",
     ) -> None:
-        super().__init__(send_callback, input_queue)
+        # v4 Phase 4.1 / graph-persistence fix — forward the snapshot store +
+        # session_id so this background-task child MIRRORS its graph events into
+        # TaskGraphSnapshotStore (keyed by the same task_id as the sidebar chip)
+        # and fires mark_task_terminal on completion. Without this the async SOP
+        # task's graph renders live but is never captured → lost on reconnect.
+        super().__init__(
+            send_callback,
+            input_queue,
+            snapshot_store=snapshot_store,
+            session_id=session_id,
+        )
         self._task_id = task_id
 
     async def stream_token_batches(

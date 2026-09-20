@@ -4,14 +4,15 @@ Pattern verified against acra-python/packages/mcp-atlassian-exp/src/atlassian_ex
   - mcp = FastMCP("openteam")
   - mcp.add_tool(FunctionTool.from_function(wrapper))
 """
+
 from __future__ import annotations
+
 from typing import Any, Literal
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
-
+from openteam.mcp_server._helpers import render_result, strip_unset, to_dash_form
 from openteam.mcp_server.context import build_session_context
-from openteam.mcp_server._helpers import to_dash_form, strip_unset, render_result
 
 
 async def openteam_task(
@@ -57,11 +58,15 @@ async def openteam_task(
     mode_flags[mode] = True
 
     raw = {
-        "request": request, "agent_config": agent_config,
+        "request": request,
+        "agent_config": agent_config,
         **mode_flags,
-        "model": model, "override": override,
-        "no_dual": no_dual, "analysis": analysis,
-        "multi_iter": multi_iter, "max_iterations": max_iterations,
+        "model": model,
+        "override": override,
+        "no_dual": no_dual,
+        "analysis": analysis,
+        "multi_iter": multi_iter,
+        "max_iterations": max_iterations,
         "resume": resume,
         "copy_workspace": copy_workspace,
         "initial_plan": initial_plan,
@@ -77,11 +82,16 @@ async def openteam_create_role(
 ) -> str:
     """Synthesize a role document from a free-form description."""
     from openteam.server.resources.tools.create_role.executor import execute as _exec
-    args = strip_unset(to_dash_form({
-        "role_description": role_description,
-        "output_path": output_path,
-        "max_facets": max_facets,
-    }))
+
+    args = strip_unset(
+        to_dash_form(
+            {
+                "role_description": role_description,
+                "output_path": output_path,
+                "max_facets": max_facets,
+            }
+        )
+    )
     return render_result(await _exec(args, build_session_context()))
 
 
@@ -92,11 +102,16 @@ async def openteam_role_setup(
 ) -> str:
     """Decompose a role document into actionable setup steps."""
     from openteam.server.resources.tools.role_setup.executor import execute as _exec
-    args = strip_unset(to_dash_form({
-        "role_document_path": role_document_path,
-        "max_facets": max_facets,
-        "max_inner_facets": max_inner_facets,
-    }))
+
+    args = strip_unset(
+        to_dash_form(
+            {
+                "role_document_path": role_document_path,
+                "max_facets": max_facets,
+                "max_inner_facets": max_inner_facets,
+            }
+        )
+    )
     return render_result(await _exec(args, build_session_context()))
 
 
@@ -108,21 +123,28 @@ async def openteam_project_onboarding(
     max_inner_facets: int = 5,
 ) -> str:
     """Onboard an AI employee to a project."""
-    from openteam.server.resources.tools.project_onboarding.executor import execute as _exec
-    args = strip_unset(to_dash_form({
-        "project_document_path": project_document_path,
-        "role_setup_path": role_setup_path,
-        "artifacts_path": artifacts_path,
-        "max_facets": max_facets,
-        "max_inner_facets": max_inner_facets,
-    }))
+    from openteam.server.resources.tools.project_onboarding.executor import (
+        execute as _exec,
+    )
+
+    args = strip_unset(
+        to_dash_form(
+            {
+                "project_document_path": project_document_path,
+                "role_setup_path": role_setup_path,
+                "artifacts_path": artifacts_path,
+                "max_facets": max_facets,
+                "max_inner_facets": max_inner_facets,
+            }
+        )
+    )
     return render_result(await _exec(args, build_session_context()))
 
 
 _WRAPPERS: dict[str, Any] = {
-    "openteam_task":               openteam_task,
-    "openteam_create_role":        openteam_create_role,
-    "openteam_role_setup":         openteam_role_setup,
+    "openteam_task": openteam_task,
+    "openteam_create_role": openteam_create_role,
+    "openteam_role_setup": openteam_role_setup,
     "openteam_project_onboarding": openteam_project_onboarding,
 }
 
@@ -133,7 +155,9 @@ def create_openteam_server(tool_names: list[str] | None = None) -> FastMCP:
     enabled = set(tool_names) if tool_names else set(_WRAPPERS)
     invalid = enabled - set(_WRAPPERS)
     if invalid:
-        raise ValueError(f"Unknown tool names: {sorted(invalid)}; available: {sorted(_WRAPPERS)}")
+        raise ValueError(
+            f"Unknown tool names: {sorted(invalid)}; available: {sorted(_WRAPPERS)}"
+        )
     for name, wrapper in _WRAPPERS.items():
         if name not in enabled:
             continue
