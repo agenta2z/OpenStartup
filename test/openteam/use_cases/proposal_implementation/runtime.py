@@ -57,7 +57,9 @@ class CallContext:
     primary_key: str
     round_num: Optional[int]
     started_at: float = field(default_factory=time.monotonic)
-    started_at_iso: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    started_at_iso: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     @property
     def prompt_path(self) -> Path:
@@ -126,7 +128,9 @@ class RunWorkspace:
         gitignore = base_dir / ".gitignore"
         if not gitignore.exists():
             try:
-                gitignore.write_text("# Per-run inferencer logs; never commit.\n*\n!.gitignore\n!README.md\n")
+                gitignore.write_text(
+                    "# Per-run inferencer logs; never commit.\n*\n!.gitignore\n!README.md\n"
+                )
             except Exception as e:
                 logger.warning("Could not write .gitignore at %s: %s", gitignore, e)
 
@@ -143,11 +147,16 @@ class RunWorkspace:
         run_dir = base_dir / run_id
         run_dir.mkdir(exist_ok=True)
 
-        ws = cls(base_dir=base_dir, run_id=run_id, run_dir=run_dir,
-                 max_call_dirs=max_call_dirs)
+        ws = cls(
+            base_dir=base_dir,
+            run_id=run_id,
+            run_dir=run_dir,
+            max_call_dirs=max_call_dirs,
+        )
         ws._write_run_metadata(cli_args=cli_args)
-        logger.info("Runtime workspace created: %s (max_call_dirs=%d)",
-                    run_dir, max_call_dirs)
+        logger.info(
+            "Runtime workspace created: %s (max_call_dirs=%d)", run_dir, max_call_dirs
+        )
         return ws
 
     def _write_run_metadata(self, *, cli_args: Optional[list] = None) -> None:
@@ -188,7 +197,8 @@ class RunWorkspace:
                         "🛑 RUNAWAY DETECTED: %d call dirs created in this run "
                         "(limit %d). Disabling per-call logging to protect disk. "
                         "Investigate the orchestrator immediately.",
-                        self._call_dirs_created, self.max_call_dirs,
+                        self._call_dirs_created,
+                        self.max_call_dirs,
                     )
                     self._runaway_warned = True
                 # Return a no-op context — orchestrator can still parse output,

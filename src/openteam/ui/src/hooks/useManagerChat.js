@@ -16,10 +16,44 @@ import {
   stripToolsToInvoke,
 } from '../components/chat/ThinkingFold';
 import { useGraphState } from './useGraphState';
+import { makeWsEvents } from './useDashboardEvents';
 import { fetchJson } from '../utils/api';
 
 const WS_RECONNECT_BASE_MS = 1000;
 const WS_RECONNECT_MAX_MS = 30000;
+// Client keepalive ping interval (Layer 1). Must be < any reasonable proxy idle
+// timeout and < the 30s server heartbeat so idle connections stay alive.
+const WS_KEEPALIVE_MS = 20000;
+
+/**
+ * Persist / restore the active tab selection per session. The task subtab triad
+ * historically did NOT persist the active tab (it always reopened to 'session');
+ * dashboards add this small convention so a hub stays focused across a reload.
+ * Mirrors the safe try/catch localStorage idiom used by ThemeProvider.
+ */
+function _activeTabKey(sid) {
+  return `ot_active_tab_${sid || 'na'}`;
+}
+function readActiveTab(sid) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(_activeTabKey(sid));
+    return raw ? JSON.parse(raw) : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function saveActiveTab(sid, tabType, id) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(
+      _activeTabKey(sid),
+      JSON.stringify({ tabType: tabType || 'session', id: id != null ? id : null }),
+    );
+  } catch (_e) {
+    /* ignore */
+  }
+}
 
 /**
  * Resolve the widgetType string from a pendingInput object.
@@ -74,12 +108,29 @@ export function useManagerChat(sessionId) {
   const [messages, setMessages] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  // Resume-in-progress UI lock (round/turn resume). Set on send, cleared on the
+  // first of message_start / terminal status / error / a safety timeout. Purely a
+  // UI flag — resume is server-authoritative. resumeStage drives the banner text.
+  const [isResuming, setIsResuming] = useState(false);
+  const [resumeStage, setResumeStage] = useState(null);
+  const resumeTimeoutRef = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [pendingInput, setPendingInput] = useState(null);
   // Task subtab state
   const [tasks, setTasks] = useState({});
   const [activeTabType, setActiveTabType] = useState('session');
   const [activeTaskId, setActiveTaskId] = useState(null);
+  // Dashboard subtab state — mirror of the task triad, keyed by hubId. Each
+  // entry is {manifest, seed, status, wsEvents$}. Multiple dashboards per
+  // session are possible (the map must not assume exactly one); one is active
+  // at a time via activeDashboardId. The per-hub wsEvents$ bus is the live
+  // dashboard_event stream DashboardPanel subscribes to.
+  const [dashboards, setDashboards] = useState({});
+  const [activeDashboardId, setActiveDashboardId] = useState(null);
+  // Stable per-hub bus registry. Buses live outside React state (kept in a ref)
+  // so a re-render never re-creates a hub's stream and drops its subscribers;
+  // the `dashboards` map only stores a reference to the same object.
+  const dashboardBusesRef = useRef({});
   // Monotonic counter bumped on events that change the sidebar session list
   // (connect / session_init / turn completion / task_status transitions). The
   // view forwards it up so App can refetch('/sessions') and keep counts fresh —
@@ -92,6 +143,13 @@ export function useManagerChat(sessionId) {
   const wsRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef(null);
+  // Client→server WebSocket keepalive (Layer 1). During idle the client
+  // otherwise transmits nothing (the server heartbeat is server→client only),
+  // so a proxy/NAT with a bidirectional/client-idle policy silently drops the
+  // socket — the reconnect then clears the pending widget. A periodic client
+  // ping (server already replies `pong`) keeps the connection alive. Cleared on
+  // close/error/unmount so no duplicate timers accumulate across reconnects.
+  const pingTimerRef = useRef(null);
   const streamingContentRef = useRef('');
   const streamingMetadataRef = useRef({});
   const connectRef = useRef(null);
@@ -111,15 +169,12 @@ export function useManagerChat(sessionId) {
   // so dev-tool cancels and Approve/Reject widget responses reach the right per-task queue
   // (see manager_websocket_routes.py Patch 3.4 / R9b).
   const currentTaskIdRef = useRef(null);
-  // Resume support: when resumeFromTurn() fires, it stashes the human turn's text
-  // here. The server truncates history at that turn and re-sends a session_init
-  // frame; the session_init handler then auto-replays this text as a fresh message
-  // (cleared after replay) so the turn re-runs from the chosen checkpoint.
-  const pendingResumeReplayRef = useRef(null);
-  // Stable ref to the latest sendMessage. handleServerMessage is useCallback([],…)
-  // — an empty-deps closure — so it can't read the current sendMessage directly
-  // without a stale-closure bug. The resume auto-replay goes through this ref.
-  const sendMessageRef = useRef(null);
+  // Resume re-injection is SERVER-AUTHORITATIVE (manager_websocket_routes.py:
+  // resume_from_turn keeps the clicked turn, then re-runs it via process_message).
+  // The client does NOT replay it — the old pendingResumeReplayRef/sendMessageRef
+  // round-trip was fragile: it nulled the token before a setTimeout→sendMessage
+  // that silently no-ops on a non-OPEN socket, so a WS reconnect during the
+  // resume's blocking FS ops permanently dropped the turn.
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -155,16 +210,33 @@ export function useManagerChat(sessionId) {
       setSessionsRefreshTick((n) => n + 1);
       // Send init with session_id so server can resume correct conversation
       ws.send(JSON.stringify({ type: 'init', session_id: sessionId }));
+      // Start the client keepalive ping (Layer 1). 20s < any reasonable proxy
+      // idle timeout and < the 30s server heartbeat. Replace any prior timer
+      // (defensive — a reconnect should never leave two running).
+      if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+      pingTimerRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, WS_KEEPALIVE_MS);
     };
 
     ws.onclose = () => {
       setConnectionStatus('disconnected');
       wsRef.current = null;
+      if (pingTimerRef.current) {
+        clearInterval(pingTimerRef.current);
+        pingTimerRef.current = null;
+      }
       scheduleReconnect();
     };
 
     ws.onerror = () => {
       setConnectionStatus('error');
+      if (pingTimerRef.current) {
+        clearInterval(pingTimerRef.current);
+        pingTimerRef.current = null;
+      }
     };
 
     ws.onmessage = (event) => {
@@ -210,10 +282,27 @@ export function useManagerChat(sessionId) {
     }]);
   }, []);
 
+  // Get (or lazily create) the stable per-hub event bus. handleServerMessage is
+  // an empty-deps closure, so it must reach the bus registry through this ref-
+  // backed helper rather than capturing `dashboards` (which would go stale).
+  const getOrCreateBus = useCallback((hubId) => {
+    if (!hubId) return null;
+    let bus = dashboardBusesRef.current[hubId];
+    if (!bus) {
+      bus = makeWsEvents();
+      dashboardBusesRef.current[hubId] = bus;
+    }
+    return bus;
+  }, []);
+
   const handleServerMessage = useCallback((data) => {
     switch (data.type) {
       case 'task_status': {
-        const { task_id, status, request, tool_name, error: taskError } = data;
+        const {
+          task_id, status, request, tool_name,
+          error: taskError,
+          error_type: taskErrorType,
+        } = data;
         // Track currently in-flight dev-tool task_id so cancelRequest +
         // sendPendingInputResponse can route by task_id (manager_websocket_routes
         // Patch 3.4 / R9b). Clear on terminal states.
@@ -234,7 +323,8 @@ export function useManagerChat(sessionId) {
             ...prev,
             [task_id]: {
               id: task_id, label, toolName: tool_name,
-              status: 'starting', streamContent: '', isStreaming: false, error: null,
+              status: 'starting', streamContent: '', isStreaming: false,
+              error: null, errorType: null,
             },
           }));
           setMessages(prev => [...prev, {
@@ -243,12 +333,57 @@ export function useManagerChat(sessionId) {
             timestamp: new Date().toISOString(),
           }]);
         } else {
+          // A clean terminal ("completed"/"cancelled") should CLEAR any prior
+          // error metadata — mirrors reconcile's behavior in session_store.py
+          // which .pop()s errorType/error when healing to "completed". This
+          // keeps the tasks[] / messages[] shape consistent with the on-disk
+          // state (backend _run success branch also clears these fields).
+          //
+          // For non-terminal-clean transitions (running, error): if the WS
+          // event carries new error info, use it; else preserve prior detail
+          // so a status-only re-broadcast doesn't wipe context.
+          const isCleanTerminal = status === 'completed' || status === 'cancelled';
           setTasks(prev => prev[task_id]
-            ? { ...prev, [task_id]: { ...prev[task_id], status, error: taskError || null } }
+            ? {
+                ...prev,
+                [task_id]: {
+                  ...prev[task_id],
+                  status,
+                  error: taskError !== undefined
+                    ? (taskError || null)
+                    : isCleanTerminal
+                      ? null
+                      : (prev[task_id].error ?? null),
+                  errorType: taskErrorType !== undefined
+                    ? (taskErrorType || null)
+                    : isCleanTerminal
+                      ? null
+                      : (prev[task_id].errorType ?? null),
+                },
+              }
             : prev
           );
+          // BUG FIX: the pre-fix line dropped taskError/taskErrorType when writing
+          // to messages[], so a reload/re-render lost the detail even though the
+          // tasks[] map had it. Preserve both when the WS event carries them.
+          // On clean-terminal, explicitly clear (mirrors tasks[] above).
           setMessages(prev => prev.map(msg =>
-            msg.role === 'task_ref' && msg.taskId === task_id ? { ...msg, status } : msg
+            msg.role === 'task_ref' && msg.taskId === task_id
+              ? {
+                  ...msg,
+                  status,
+                  ...(taskError !== undefined
+                    ? { error: taskError }
+                    : isCleanTerminal
+                      ? { error: null }
+                      : {}),
+                  ...(taskErrorType !== undefined
+                    ? { errorType: taskErrorType }
+                    : isCleanTerminal
+                      ? { errorType: null }
+                      : {}),
+                }
+              : msg
           ));
         }
         // A task transition (start or terminal) changes what the sidebar should
@@ -279,41 +414,138 @@ export function useManagerChat(sessionId) {
       }
 
       case 'task_completed': {
-        const { task_id: cTaskId, tool_name: cToolName, result_summary, workspace, document_path } = data;
-        // Auto-advance: send a new WS message to trigger next conversation turn.
-        // Wording deliberately TOOL-NEUTRAL (no `create_role`-flavored "Role
-        // Document" / "Phase 2") so the LLM doesn't pattern-match the example
-        // as inapplicable to whichever tool actually ran (e.g. understand_codebase,
-        // research_propose). The defensive viewPath fallback below in
-        // augmentedPendingInput is the belt; this is the suspenders.
+        const {
+          task_id: cTaskId,
+          tool_name: cToolName,
+          result_summary,
+          workspace,
+          document_path,
+          next_step_tool, // backend-supplied (Conversation-tool-only guard); may be undefined
+        } = data;
+        // Persist the completed task's deliverable pointer + workspace onto the
+        // task map so the detail panel's graph-less fallback (DeliverableView)
+        // renders on the LIVE path too — not only after a reload (the
+        // session_init restore path already sets documentPath). Merge-only, so a
+        // graph already hydrated (and the sibling task_status 'completed' status)
+        // is preserved.
+        if (cTaskId && (document_path || workspace)) {
+          setTasks(prev => prev[cTaskId]
+            ? {
+                ...prev,
+                [cTaskId]: {
+                  ...prev[cTaskId],
+                  ...(document_path ? { documentPath: document_path } : {}),
+                  ...(workspace ? { workspace } : {}),
+                },
+              }
+            : prev
+          );
+        }
+        // Auto-advance: send a new WS message to trigger the next conversation
+        // turn. Facts-only synthesis — the SOP's <SOPNextStepGuidance> is the
+        // single source of truth for the required next tool. Prior versions
+        // hardcoded a "you MUST respond with confirmation" directive + example
+        // JSON that dominated the SOP guidance and misfired for phases whose
+        // required tool wasn't confirmation (e.g. Phase 2b requires
+        // proposal_selection). If the backend attaches `next_step_tool`
+        // (deterministic Conversation-tool naming derived from
+        // SOPState.phase_required_tools), name it explicitly. If not, defer
+        // generically to the guidance block.
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           const parts = [
             `[System notification: Task '${cToolName || cTaskId}' (${cTaskId}) completed successfully.`,
             workspace ? `Workspace: ${workspace}.` : '',
             document_path ? `Generated document: ${document_path}.` : '',
             result_summary ? `Summary: ${result_summary.slice(0, 300)}.` : '',
-            `CRITICAL: Present 3-5 bullet points summarizing the key aspects of the document, then`,
-            `you MUST respond with a "confirmation" conversation tool (NOT "clarification" or "free_text").`,
-            document_path
-              ? `Set view to "${document_path}", view_label to "View Documentation",`
-                + ` yes_label to "✅ Approve & Proceed", no_label to "❌ Request Changes".`
-              : `Set yes_label to "✅ Approve & Proceed", no_label to "❌ Request Changes".`,
-            `Example ToolsToInvoke block:`,
-            '```json ToolsToInvoke',
-            JSON.stringify({
-              type: 'conversation',
-              name: 'confirmation',
-              arguments: {
-                prompt: 'Review the generated artifact to proceed to the next phase?',
-                view: document_path || undefined,
-                view_label: 'View Documentation',
-                yes_label: '✅ Approve & Proceed',
-                no_label: '❌ Request Changes',
-              },
-            }),
-            '```]',
+            next_step_tool
+              ? `Invoke the required \`${next_step_tool}\` conversation tool as specified in <SOPNextStepGuidance> above; do not default to a confirmation tool.`
+              : `Refer to <SOPNextStepGuidance> above for the required next tool call; do not default to a confirmation tool.`,
+            // Preserve the polished confirmation-button labels ONLY when the
+            // next required tool actually IS `confirmation` — keeps Phase 1b's
+            // UX intact without forcing `confirmation` on Phase 2b.
+            next_step_tool === 'confirmation' && document_path
+              ? `If invoking confirmation: set view to "${document_path}", view_label to "View Documentation", yes_label to "✅ Approve & Proceed", no_label to "❌ Request Changes".`
+              : '',
+            ']',
           ].filter(Boolean).join(' ');
           wsRef.current.send(JSON.stringify({ type: 'message', content: parts, is_auto_advance: true }));
+        }
+        break;
+      }
+
+      case 'dashboard_open': {
+        // Create/activate a dashboard subtab for hub_id, storing its manifest +
+        // seed and a stable per-hub event bus. Mirrors task_status:'starting'
+        // (which seeds tasks[task_id] + a task_ref message). We also drop a
+        // dashboard_ref message so the chat stream shows a card and a restore
+        // has a marker even though the server persists its own dashboard_ref.
+        const openHubId = data.hub_id;
+        if (openHubId) {
+          const bus = getOrCreateBus(openHubId);
+          setDashboards(prev => ({
+            ...prev,
+            [openHubId]: {
+              hubId: openHubId,
+              manifest: data.manifest || null,
+              seed: data.seed || {},
+              status: (prev[openHubId] && prev[openHubId].status) || 'open',
+              wsEvents$: bus,
+            },
+          }));
+          // Switch to it (matches dashboard_open semantics: "switch to it").
+          setActiveTabType('dashboard');
+          setActiveDashboardId(openHubId);
+          setActiveTaskId(null);
+          saveActiveTab(sessionId, 'dashboard', openHubId);
+          // Drop a dashboard_ref card if one isn't already present for this hub.
+          const label = (data.manifest && data.manifest.label) || 'Dashboard';
+          const icon = (data.manifest && data.manifest.icon) || '';
+          setMessages(prev => (
+            prev.some(m => m.role === 'dashboard_ref' && m.hubId === openHubId)
+              ? prev
+              : [...prev, {
+                id: `dashboard-ref-${openHubId}`, role: 'dashboard_ref',
+                hubId: openHubId, label, icon, status: 'open',
+                timestamp: new Date().toISOString(),
+              }]
+          ));
+          // The sidebar's subtab list changed — nudge the session-list refresh.
+          setSessionsRefreshTick((n) => n + 1);
+        }
+        break;
+      }
+
+      case 'dashboard_status': {
+        // Update a hub's status chip (sidebar + dashboard_ref card). `status` is
+        // required; any extra fields ride along on the entry for the chip.
+        const statusHubId = data.hub_id;
+        if (statusHubId) {
+          const { type: _t, hub_id: _h, status, ...extra } = data;
+          setDashboards(prev => prev[statusHubId]
+            ? { ...prev, [statusHubId]: { ...prev[statusHubId], status, ...extra } }
+            : prev
+          );
+          setMessages(prev => prev.map(msg =>
+            msg.role === 'dashboard_ref' && msg.hubId === statusHubId
+              ? { ...msg, status }
+              : msg
+          ));
+        }
+        break;
+      }
+
+      case 'dashboard_event': {
+        // Push a live update into the target hub's wsEvents$ bus. DashboardPanel
+        // subscribed to that bus dispatches {type:'DASHBOARD_EVENT', event} into
+        // its own reducer. Route STRICTLY by hub_id so hub A's run_progress
+        // never leaks into hub B. The forwarded event keeps event_type + payload
+        // (the shape the dashboard reducer/views consume).
+        const evtHubId = data.hub_id;
+        if (evtHubId) {
+          const bus = getOrCreateBus(evtHubId);
+          if (bus) {
+            bus.next({ event_type: data.event_type, payload: data.payload || {} });
+          }
         }
         break;
       }
@@ -386,10 +618,32 @@ export function useManagerChat(sessionId) {
           committedRoundIdsRef.current = new Set();
           setStreamingMessage({ role: 'agent', content: '', metadata: {}, responsePhase: 'pre_response' });
           setIsStreaming(true);
+          // Resume handoff: streaming has begun → drop the "Resuming…" lock (the
+          // isStreaming lock now covers input) and cancel the safety timeout.
+          if (resumeTimeoutRef.current) { clearTimeout(resumeTimeoutRef.current); resumeTimeoutRef.current = null; }
+          setIsResuming(false);
+          setResumeStage(null);
         }
         break;
 
       case 'pending_input': {
+        // Layer 2, Piece 2 (re-display) idempotency guard. A `restored` re-emit
+        // fires on (re)connect to bring back a persisted, still-unanswered
+        // widget. If we are ALREADY showing that exact widget (same
+        // pending_input_id), keep it as-is — rebuilding would remount the widget
+        // component and discard any in-progress local input (half-typed text,
+        // a pending selection) and reset the submit guard. Only a fresh (live)
+        // pending_input or a different id rebuilds. (On a real reconnect,
+        // session_init has already nulled pendingInput first, so this is a
+        // no-op there; it protects any re-emit that is NOT preceded by a reset.)
+        if (
+          data.restored &&
+          pendingInputRef.current &&
+          pendingInputRef.current.pendingInputId &&
+          pendingInputRef.current.pendingInputId === data.pending_input_id
+        ) {
+          break;
+        }
         // r13: commit the matching round's preamble bubble (the AI's text before
         // the conversation tool invocation) IF non-empty, deduped by the
         // RoundContext message_id, then show the widget. The committed bubble is
@@ -529,6 +783,12 @@ export function useManagerChat(sessionId) {
         // Don't add to message list — next message_start/token/message_end follows.
         break;
 
+      case 'resume_status':
+        // Progress frame during a resume (checkpointing → truncating → restoring).
+        // Updates the non-blocking "Resuming…" banner text; does not gate input.
+        setResumeStage(data.stage || null);
+        break;
+
       case 'error':
         // Clear any stuck widget on error
         setPendingInput(null);
@@ -546,6 +806,10 @@ export function useManagerChat(sessionId) {
         streamingMetadataRef.current = {};
         currentRoundIdRef.current = null;
         currentRoundIndexRef.current = null;
+        // Resume rejected/failed before streaming → drop the lock + timeout.
+        if (resumeTimeoutRef.current) { clearTimeout(resumeTimeoutRef.current); resumeTimeoutRef.current = null; }
+        setIsResuming(false);
+        setResumeStage(null);
         break;
 
       case 'status':
@@ -561,6 +825,11 @@ export function useManagerChat(sessionId) {
           currentRoundIndexRef.current = null;
           // Turn finished — its message_count changed, so refresh the sidebar.
           setSessionsRefreshTick((n) => n + 1);
+          // Terminal → drop any resume lock + safety timeout (covers a resume that
+          // finished/errored without emitting a message_start).
+          if (resumeTimeoutRef.current) { clearTimeout(resumeTimeoutRef.current); resumeTimeoutRef.current = null; }
+          setIsResuming(false);
+          setResumeStage(null);
         }
         break;
 
@@ -572,8 +841,11 @@ export function useManagerChat(sessionId) {
         setStreamingMessage(null);
         // Keep activeTabType='session' / activeTaskId=null on (re)load — do NOT
         // auto-open a task tab even when persisted task_ref messages rebuild tabs.
+        // Same policy for dashboards: rebuild the subtab list but stay on the
+        // session conversation (no auto-open).
         setActiveTabType('session');
         setActiveTaskId(null);
+        setActiveDashboardId(null);
         // Reset per-round bubble lifecycle state for the (re)loaded session.
         streamingContentRef.current = '';
         streamingMetadataRef.current = {};
@@ -584,6 +856,10 @@ export function useManagerChat(sessionId) {
         // (there is NO separate tasks payload — the task subtabs/panel rehydrate
         // entirely from history). Replaces the old setTasks({}).
         const tasksAcc = {};
+        // Same for dashboards: rebuild the per-hub map from persisted
+        // dashboard_ref history entries (the "a hub exists" marker, analogous to
+        // task_ref). Each restored hub gets its stable wsEvents$ bus back.
+        const dashboardsAcc = {};
         // Load existing messages from session history (r13 round-aware reload).
         if (data.messages) {
           let maxTurn = 0;
@@ -610,6 +886,10 @@ export function useManagerChat(sessionId) {
               const workspace = msg.workspace != null ? msg.workspace : null;
               const documentPath = msg.documentPath != null ? msg.documentPath
                 : (msg.document_path != null ? msg.document_path : null);
+              // Accept camel + snake naming for errorType (persisted state uses
+              // camelCase in session_state.messages; task_meta.json uses snake).
+              const errorType = msg.errorType != null ? msg.errorType
+                : (msg.error_type != null ? msg.error_type : null);
               // Mirror the live task_status:'starting' tasks[task_id] shape so
               // Sidebar/TaskPanel render restored tabs identically.
               if (taskId != null) {
@@ -622,16 +902,55 @@ export function useManagerChat(sessionId) {
                   documentPath,
                   streamContent: '',
                   isStreaming: false,
-                  error: status === 'error' ? (msg.error || 'Task failed') : null,
+                  error: status === 'error' ? (msg.error || 'Task failed') : (msg.error || null),
+                  errorType,
                 };
               }
               // Mirror the live task_status:'starting' task_ref message shape so
               // TaskCard renders this restored ref identically to a live one.
+              // Also carry error+errorType so a chip tooltip works after reload.
               return {
                 id: msg.id || `task-ref-${taskId || i}`,
                 role: 'task_ref',
                 taskId,
                 label,
+                status,
+                timestamp: msg.timestamp,
+                turnNumber: persistedTurn,
+                roundIndex,
+                roundNumber: roundIndex,
+                ...(msg.error != null ? { error: msg.error } : {}),
+                ...(errorType != null ? { errorType } : {}),
+              };
+            }
+
+            // PRESERVE persisted dashboard_ref markers BEFORE the generic role
+            // coercion, so they re-hydrate as DashboardCards AND repopulate the
+            // dashboards map for the Sidebar subtabs / DashboardPanel. Accept
+            // camel + snake field names (matches task_ref handling). There is NO
+            // separate dashboards payload — the subtabs rehydrate from history.
+            if (msg.role === 'dashboard_ref') {
+              const hubId = msg.hubId != null ? msg.hubId : msg.hub_id;
+              const label = msg.label || 'Dashboard';
+              const icon = msg.icon || '';
+              const status = msg.status || 'open';
+              const manifest = msg.manifest != null ? msg.manifest : null;
+              const seed = msg.seed != null ? msg.seed : (msg.seed_state != null ? msg.seed_state : {});
+              if (hubId != null) {
+                dashboardsAcc[hubId] = {
+                  hubId,
+                  manifest,
+                  seed: seed || {},
+                  status,
+                  wsEvents$: getOrCreateBus(hubId),
+                };
+              }
+              return {
+                id: msg.id || `dashboard-ref-${hubId || i}`,
+                role: 'dashboard_ref',
+                hubId,
+                label,
+                icon,
                 status,
                 timestamp: msg.timestamp,
                 turnNumber: persistedTurn,
@@ -705,21 +1024,21 @@ export function useManagerChat(sessionId) {
         // Rebuild the tasks map from the accumulated task_ref messages (replaces
         // the old setTasks({})). Restored tabs render identically to live ones.
         setTasks(tasksAcc);
+        // Rebuild the dashboards map from accumulated dashboard_ref markers.
+        // Drop buses for hubs that no longer exist after this (re)load so a
+        // resume that discarded a hub doesn't keep a dangling stream.
+        dashboardBusesRef.current = Object.keys(dashboardsAcc).reduce((acc, hubId) => {
+          acc[hubId] = dashboardsAcc[hubId].wsEvents$;
+          return acc;
+        }, {});
+        setDashboards(dashboardsAcc);
         // session_init (initial load, reconnect, or post-resume/restore re-send)
         // can change the sidebar's session rows/counts — refresh the list.
         setSessionsRefreshTick((n) => n + 1);
-        // Auto-replay after a post-resume session_init: resumeFromTurn() stashed
-        // the human turn's text; the server truncated history at that turn and
-        // re-sent this frame. Replay the text as a fresh message (via the stable
-        // ref to avoid a stale-closure bug) so the turn re-runs. Clear the ref
-        // first so a normal reload/reconnect session_init never replays.
-        if (pendingResumeReplayRef.current != null) {
-          const replayText = pendingResumeReplayRef.current;
-          pendingResumeReplayRef.current = null;
-          setTimeout(() => {
-            if (sendMessageRef.current) sendMessageRef.current(replayText);
-          }, 0);
-        }
+        // No client-side resume replay here. After resume_from_turn the server
+        // keeps the clicked turn (this session_init already renders it) AND
+        // re-runs it server-side, streaming the result — replaying it here would
+        // double-run the turn.
         break;
       }
 
@@ -763,23 +1082,54 @@ export function useManagerChat(sessionId) {
     wsRef.current.send(JSON.stringify({ type: 'message', content: text, message_id: messageId }));
   }, []);
 
-  // Keep sendMessageRef pointed at the latest sendMessage so the empty-deps
-  // handleServerMessage closure (resume auto-replay) calls the current one.
-  sendMessageRef.current = sendMessage;
+  // Arm the resume-in-progress UI lock: set the flag + a safety timeout so a lost
+  // session_init / status frame can't strand the banner + input-lock forever.
+  // Shared by resumeFromTurn and resumeFromRound.
+  const armResumeTimeout = useCallback(() => {
+    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
+    setIsResuming(true);
+    setResumeStage(null);
+    resumeTimeoutRef.current = setTimeout(() => {
+      resumeTimeoutRef.current = null;
+      setIsResuming(false);
+      setResumeStage(null);
+      setMessages((prev) => [...prev, {
+        id: `resume-timeout-${Date.now()}`,
+        role: 'error',
+        content: 'Resume timed out waiting for the server. Please try again.',
+        timestamp: new Date().toISOString(),
+      }]);
+    }, 30000);
+  }, []);
 
   // Resume the conversation from a chosen human turn. The server truncates
-  // history at message_id and re-sends a session_init frame; we stash the turn's
-  // text so the session_init handler can auto-replay it (re-running that turn).
+  // history AFTER message_id (keeping that turn), restores the pre-turn SOP
+  // state, re-sends a session_init frame, and re-runs the kept turn server-side.
+  // The client just sends the request — no text stashing / replay.
   // drop_tasks=true also discards any task subtabs/artifacts created after it.
-  const resumeFromTurn = useCallback((messageId, dropTasks, content) => {
+  const resumeFromTurn = useCallback((messageId, dropTasks) => {
     if (!messageId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    pendingResumeReplayRef.current = content != null ? content : '';
+    armResumeTimeout();
     wsRef.current.send(JSON.stringify({
       type: 'resume_from_turn',
       message_id: messageId,
       drop_tasks: !!dropTasks,
     }));
-  }, []);
+  }, [armResumeTimeout]);
+
+  // Resume from a chosen ASSISTANT round (regenerate that round onward). The
+  // server rewinds to the round, checkpoints, truncates, re-sends session_init,
+  // and auto-forwards the loop (NO user re-injection). drop_tasks discards tasks
+  // created at/after that round; otherwise they are kept + reused on re-dispatch.
+  const resumeFromRound = useCallback((messageId, dropTasks) => {
+    if (!messageId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    armResumeTimeout();
+    wsRef.current.send(JSON.stringify({
+      type: 'resume_from_round',
+      message_id: messageId,
+      drop_tasks: !!dropTasks,
+    }));
+  }, [armResumeTimeout]);
 
   // Fetch the list of restorable checkpoints for a session (newest first).
   // fetchJson already unwraps a top-level {data:…} envelope, so the GET
@@ -804,11 +1154,18 @@ export function useManagerChat(sessionId) {
     wsRef.current.send(JSON.stringify({ type: 'restore_checkpoint', checkpoint: name }));
   }, []);
 
-  // Switch between session conversation and a task panel
+  // Switch between the session conversation, a task panel, and a dashboard
+  // subtab. Signature is switchTab(tabId, tabType) — id FIRST (kept from the
+  // task triad; the dashboard branch follows the same order). Only one of
+  // activeTaskId / activeDashboardId is non-null at a time. The active tab is
+  // persisted per session so a reload reopens the same surface.
   const switchTab = useCallback((tabId, tabType) => {
-    setActiveTabType(tabType || 'session');
-    setActiveTaskId(tabType === 'task' ? tabId : null);
-  }, []);
+    const type = tabType || 'session';
+    setActiveTabType(type);
+    setActiveTaskId(type === 'task' ? tabId : null);
+    setActiveDashboardId(type === 'dashboard' ? tabId : null);
+    saveActiveTab(sessionId, type, tabType === 'task' || tabType === 'dashboard' ? tabId : null);
+  }, [sessionId]);
 
   const sendPendingInputResponse = useCallback((response) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -893,6 +1250,39 @@ export function useManagerChat(sessionId) {
     setIsStreaming(false);
   }, []);
 
+  // Emit a `hub_command` frame over the EXISTING manager socket. This is the
+  // transport for the dashboard's three long-running actions
+  // (implement_hypothesis / resume_implement_task / run_experiment_combos) —
+  // the server streams progress back as `dashboard_event`s into the hub bus.
+  // Passed to useHubApiClient so the WS send stays inside the one socket.
+  const sendHubCommand = useCallback((command, payload = {}) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('[useManagerChat] hub_command dropped — socket not open:', command);
+      return;
+    }
+    wsRef.current.send(JSON.stringify({ type: 'hub_command', command, ...payload }));
+  }, []);
+
+  // R1 — chat "Go To Experiment Hub" handoff. Sends a NET-NEW `open_dashboard`
+  // frame that OPENS + SEEDS the Experiment Hub subtab out-of-turn (server
+  // builds the hub controller, seeds proposals from
+  // phase_outputs.research_propose__proposals_path, auto_implement=False, and
+  // emits the one-shot `dashboard_open` that `case 'dashboard_open'` renders).
+  // CRITICAL: this does NOT call sendPendingInputResponse — the Phase-2b pending
+  // input stays LIVE (the SOP holds at 2b); the in-hub confirm advances it later.
+  const openDashboardFromWidget = useCallback((payload) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('[useManagerChat] open_dashboard dropped — socket not open');
+      return;
+    }
+    const p = payload || {};
+    wsRef.current.send(JSON.stringify({
+      type: 'open_dashboard',
+      dashboard_id: 'experiment_hub',
+      selected_ids: Array.isArray(p.selected_proposals) ? p.selected_proposals : [],
+    }));
+  }, []);
+
   // v4 Phase 4.1 — ask the server to re-emit the snapshot for a task (or
   // every task in the session when ``taskId`` is omitted). Used by TaskPanel
   // when the user drills into a node whose sub-graph isn't loaded yet —
@@ -962,6 +1352,7 @@ export function useManagerChat(sessionId) {
     connect();
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (pingTimerRef.current) clearInterval(pingTimerRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, [connect, sessionId]);
@@ -978,8 +1369,12 @@ export function useManagerChat(sessionId) {
     pendingInput: augmentedPendingInput,
     sendPendingInputResponse,
     isConnected: connectionStatus === 'connected',
-    // Session resumability (resume from a human turn + checkpoint restore)
+    // Session resumability (resume from a human turn or an assistant round +
+    // checkpoint restore) plus the non-blocking resume-in-progress UI lock.
     resumeFromTurn,
+    resumeFromRound,
+    isResuming,
+    resumeStage,
     fetchCheckpoints,
     restoreCheckpoint,
     // Sidebar freshness — bumps on connect / session_init / turn end / task_status
@@ -989,6 +1384,13 @@ export function useManagerChat(sessionId) {
     activeTabType,
     activeTaskId,
     switchTab,
+    // Dashboard subtab state (mirror of the task triad, keyed by hubId).
+    dashboards,
+    activeDashboardId,
+    // WS transport for the dashboard's long-running hub_command actions.
+    sendHubCommand,
+    // R1 — chat "Go To Experiment Hub" open+seed handoff (no pending-input resolve).
+    openDashboardFromWidget,
     // Graph visualization state (sub-graphs, drill-down, navigation)
     // Wrapped to include requestGraphReplay for on-demand snapshot hydrate.
     graphState: graphStateWithReplay,

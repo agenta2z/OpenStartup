@@ -1,10 +1,10 @@
 """TIER-1 tests for openteam.mcp_server.server.create_openteam_server."""
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
-
 from openteam.mcp_server.server import create_openteam_server
 
 

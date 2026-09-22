@@ -1,14 +1,15 @@
 """TIER-1 tests for openteam.mcp_server._helpers."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-
 from openteam.mcp_server._helpers import render_result, strip_unset, to_dash_form
 
 
 # ---- strip_unset -----------------------------------------------------------
+
 
 class TestStripUnset:
     def test_strip_unset_preserves_zero(self):
@@ -36,12 +37,14 @@ class TestStripUnset:
 
 # ---- to_dash_form ----------------------------------------------------------
 
+
 class TestToDashForm:
     def test_to_dash_form(self):
         assert to_dash_form({"foo_bar": 1, "baz": 2}) == {"foo-bar": 1, "baz": 2}
 
 
 # ---- render_result ----------------------------------------------------------
+
 
 class TestRenderResult:
     def test_render_result_dataclass(self):

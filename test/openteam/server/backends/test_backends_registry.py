@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 # Bootstrap sys.path
 _HERE = Path(__file__).resolve()

@@ -33,32 +33,45 @@ COREPROJECTS_ROOT = OPENSTARTUP_ROOT.parent
 # Outer YAML — the entry-point invoked by the CLI / dispatcher.
 OUTER_YAML_PATH = (
     OPENSTARTUP_ROOT
-    / "src" / "openteam" / "server" / "resources" / "tools"
-    / "role_setup" / "role_setup.yaml"
+    / "src"
+    / "openteam"
+    / "server"
+    / "resources"
+    / "tools"
+    / "role_setup"
+    / "role_setup.yaml"
 )
 
 # Inner YAML — imported by outer's worker_factory.skill_tool_creation slot.
 INNER_YAML_PATH = (
     OPENSTARTUP_ROOT
-    / "src" / "openteam" / "server" / "resources" / "tools"
-    / "role_setup" / "role_setup_skill_tool_creation.yaml"
+    / "src"
+    / "openteam"
+    / "server"
+    / "resources"
+    / "tools"
+    / "role_setup"
+    / "role_setup_skill_tool_creation.yaml"
 )
 
 AF_TEMPLATES_DIR = (
     COREPROJECTS_ROOT
-    / "AgentFoundation" / "src" / "agent_foundation"
-    / "resources" / "prompt_templates"
+    / "AgentFoundation"
+    / "src"
+    / "agent_foundation"
+    / "resources"
+    / "prompt_templates"
 )
 
 OPENSTARTUP_TEMPLATES_DIR = (
-    OPENSTARTUP_ROOT
-    / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    OPENSTARTUP_ROOT / "src" / "openteam" / "server" / "resources" / "prompt_templates"
 )
 
 
 # ---------------------------------------------------------------------------
 # Skip markers (shared with the real-CLI integration test)
 # ---------------------------------------------------------------------------
+
 
 def _cli_available(command: str) -> bool:
     try:
@@ -78,10 +91,7 @@ ACLI_AVAILABLE = _cli_available("acli")
 
 ROVOCHAT_CREDS_AVAILABLE = bool(
     (os.environ.get("ROVOCHAT_EMAIL") or os.environ.get("JIRA_EMAIL"))
-    and (
-        os.environ.get("ROVOCHAT_API_TOKEN")
-        or os.environ.get("JIRA_API_TOKEN")
-    )
+    and (os.environ.get("ROVOCHAT_API_TOKEN") or os.environ.get("JIRA_API_TOKEN"))
 )
 
 skip_no_acli = pytest.mark.skipif(

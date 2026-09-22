@@ -11,6 +11,7 @@ Two enforcement points (BOTH must hold):
 Together these form an in-depth defense against accidental fork bombs if a
 future server-side helper ever imports ``openteam.client``.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,12 +19,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from openteam.client.discovery import ServerHandle, compute_server_id
+from openteam.client.discovery import compute_server_id, ServerHandle
 from openteam.client.supervisor import (
-    NoServerAvailable,
     auto_launch_server,
     ensure_server,
+    NoServerAvailable,
 )
 
 
@@ -48,6 +48,7 @@ def test_spawned_child_env_includes_no_autolaunch(tmp_path, monkeypatch):
 
     # Mock find_server so the wait loop exits on second iteration
     from openteam.client import supervisor as sup
+
     call_count = {"n": 0}
 
     def _fake_find(*, runtime_root, host, port=None):
@@ -55,9 +56,14 @@ def test_spawned_child_env_includes_no_autolaunch(tmp_path, monkeypatch):
         if call_count["n"] >= 2:
             sid = compute_server_id(runtime_root, host, port or 8099)
             return ServerHandle(
-                server_id=sid, pid=os.getpid(), host=host, port=port or 8099,
+                server_id=sid,
+                pid=os.getpid(),
+                host=host,
+                port=port or 8099,
                 runtime_root=str(Path(runtime_root).resolve()),
-                server_dir_name="x", started_at="x", version="x",
+                server_dir_name="x",
+                started_at="x",
+                version="x",
             )
         return None
 
@@ -68,8 +74,11 @@ def test_spawned_child_env_includes_no_autolaunch(tmp_path, monkeypatch):
     )
 
     auto_launch_server(
-        runtime_root=tmp_path, host="127.0.0.1", port=8099,
-        wait_timeout_s=2.0, poll_interval_s=0.05,
+        runtime_root=tmp_path,
+        host="127.0.0.1",
+        port=8099,
+        wait_timeout_s=2.0,
+        poll_interval_s=0.05,
     )
     assert captured_env.get("OPENTEAM_AUTO_LAUNCH") == "0", (
         "FORK-BOMB GUARD MISSING: auto_launch_server did NOT set "
@@ -85,6 +94,8 @@ async def test_ensure_server_refuses_when_guard_set(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENTEAM_AUTO_LAUNCH", "0")
     with pytest.raises(NoServerAvailable, match="OPENTEAM_AUTO_LAUNCH=0"):
         await ensure_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8000,
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8000,
             auto_launch=True,
         )

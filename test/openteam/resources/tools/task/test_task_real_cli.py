@@ -37,7 +37,17 @@ import pytest
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
-YAML_PATH = _HERE.parents[4] / "src" / "openteam" / "server" / "resources" / "tools" / "task" / "topologies" / "breakdown-multiflow-plan-then-implement.yaml"
+YAML_PATH = (
+    _HERE.parents[4]
+    / "src"
+    / "openteam"
+    / "server"
+    / "resources"
+    / "tools"
+    / "task"
+    / "topologies"
+    / "breakdown-multiflow-plan-then-implement.yaml"
+)
 
 # OpenStartup repo (the target_path for ClaudeCodeCli leaves to investigate)
 OPENSTARTUP_PATH = Path(
@@ -49,12 +59,15 @@ OPENSTARTUP_PATH = Path(
         str(_HERE.parents[4]),
     )
 )
-TEMPLATES_DIR = OPENSTARTUP_PATH / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+TEMPLATES_DIR = (
+    OPENSTARTUP_PATH / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+)
 
 
 # ---------------------------------------------------------------------------
 # Skip markers (inlined; this dir has no shared conftest yet)
 # ---------------------------------------------------------------------------
+
 
 def _cli_available(command: str) -> bool:
     try:
@@ -91,11 +104,11 @@ PROFILES = {
     # outer Dual iter, 2 workers per BTA, 1 inner iter, 1 flow step per
     # MFDual flow. Asserts only minimal completion semantics.
     "quick": {
-        "outer_dual_iter": 0,           # No fixer pass — base PTI's output is final
+        "outer_dual_iter": 0,  # No fixer pass — base PTI's output is final
         "bta_workers": 2,
         "mfdual_iter": 1,
         "inner_dual_iter": 1,
-        "flow_dynamic_steps": 1,        # NEW: minimal per-flow followups
+        "flow_dynamic_steps": 1,  # NEW: minimal per-flow followups
         "min_response_len": 100,
     },
     "shallow": {
@@ -212,6 +225,7 @@ hang for hours):
 # Smoke test (no LLM)
 # ===========================================================================
 
+
 def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     """Validate the YAML loads and instantiates the new Topology B-extended
     shape without LLM calls.
@@ -226,16 +240,14 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     before the real-CLI test burns money.
     """
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
-
-    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.dual_inferencer import (
-        DualInferencer,
+    from agent_foundation.common.inferencers.agentic_inferencers.external.claude_code.claude_code_cli_inferencer import (
+        ClaudeCodeCliInferencer,
     )
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
         BreakdownThenAggregateInferencer,
     )
-    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.plan_then_implement_inferencer import (
-        PlanThenImplementInferencer,
+    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.dual_inferencer import (
+        DualInferencer,
     )
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.multi_flow_dual_inferencer import (
         MultiFlowDualInferencer,
@@ -243,12 +255,15 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.multi_flow_inferencer import (
         MultiFlowInferencer,
     )
-    from agent_foundation.common.inferencers.agentic_inferencers.external.claude_code.claude_code_cli_inferencer import (
-        ClaudeCodeCliInferencer,
+    from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.plan_then_implement_inferencer import (
+        PlanThenImplementInferencer,
     )
     from agent_foundation.common.inferencers.flow_parsers import (
-        parse_winner_tag, parse_decision_stop, parse_finalplan_tag,
+        parse_decision_stop,
+        parse_finalplan_tag,
+        parse_winner_tag,
     )
+    from rich_python_utils.config_utils import instantiate, load_config
 
     cfg = load_config(
         str(YAML_PATH),
@@ -355,7 +370,11 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # If any of these fire, decomposition logic has leaked back into the
     # plan stage (Option A violation).
     plan_agg_flags = plan_agg.template_extra_feed or {}
-    for _flag in ("include_iteration_judgment", "include_winner_pick", "include_execution_subtasks"):
+    for _flag in (
+        "include_iteration_judgment",
+        "include_winner_pick",
+        "include_execution_subtasks",
+    ):
         assert not plan_agg_flags.get(_flag, False), (
             f"Plan BTA aggregator must not set {_flag!r} (Option A: aggregator "
             f"does pure prose integration; per-section structuring is the exec "
@@ -400,8 +419,14 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # And the upstream_artifacts slot must be populated with formatted
     # worker outputs (matches the ### Result N format used by both the
     # legacy default and the new injection path).
-    upstream = plan_bta.aggregator_inferencer.template_extra_feed.get("upstream_artifacts")
-    assert upstream is not None and "### Result 1" in upstream and "### Result 2" in upstream, (
+    upstream = plan_bta.aggregator_inferencer.template_extra_feed.get(
+        "upstream_artifacts"
+    )
+    assert (
+        upstream is not None
+        and "### Result 1" in upstream
+        and "### Result 2" in upstream
+    ), (
         f"upstream_artifacts must contain formatted ### Result N entries; got {upstream!r}"
     )
     # Stale aggregation_guidance must be dropped when the next breakdown
@@ -411,7 +436,9 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     plan_bta._inject_aggregator_extra_feed(
         worker_results=["worker 1 output"],
     )
-    assert "aggregation_guidance" not in plan_bta.aggregator_inferencer.template_extra_feed, (
+    assert (
+        "aggregation_guidance" not in plan_bta.aggregator_inferencer.template_extra_feed
+    ), (
         "Stale aggregation_guidance must be dropped when the next breakdown "
         "does not produce one"
     )
@@ -468,7 +495,9 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     )
     assert isinstance(sample_exec_dual.base_inferencer, ClaudeCodeCliInferencer)
     assert sample_exec_dual.base_inferencer.template_root_space == "implementation"
-    assert not (sample_exec_dual.base_inferencer.template_variables or {}).get("task_instructions"), (
+    assert not (sample_exec_dual.base_inferencer.template_variables or {}).get(
+        "task_instructions"
+    ), (
         "exec worker base must NOT set a task_instructions variant — the generic "
         "wrapper plus the subtask description carry all needed context"
     )
@@ -536,7 +565,9 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
         f"_logger value should be 'auto' or a resolved logger; got {deep_leaf.logger!r}"
     )
     # _debug_mode cascade reached deep leaf
-    assert deep_leaf.debug_mode is True, "_debug_mode: true cascade did not reach deep leaf"
+    assert deep_leaf.debug_mode is True, (
+        "_debug_mode: true cascade did not reach deep leaf"
+    )
 
     # Verify per-leaf logger DID resolve where workspace was already assigned —
     # the plan BTA's aggregator (constructed at YAML instantiation, gets workspace
@@ -551,12 +582,16 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # The outer Dual creates its `_workspace` from that, then propagation
     # cascades through the inferencer tree via each `_workspace` setter.
     # Each child gets `parent_workspace.child("<attr_name>")`.
-    assert base_pti._workspace is not None, "base PTI didn't receive propagated workspace"
+    assert base_pti._workspace is not None, (
+        "base PTI didn't receive propagated workspace"
+    )
     assert base_pti._workspace.root.replace("\\", "/").endswith(
         "/children/base_inferencer"
     ), f"base PTI workspace root: {base_pti._workspace.root!r}"
     fixer_pti = inferencer.fixer_inferencer
-    assert fixer_pti._workspace is not None, "fixer PTI didn't receive propagated workspace"
+    assert fixer_pti._workspace is not None, (
+        "fixer PTI didn't receive propagated workspace"
+    )
     assert fixer_pti._workspace.root.replace("\\", "/").endswith(
         "/children/fixer_inferencer"
     ), f"fixer PTI workspace root: {fixer_pti._workspace.root!r}"
@@ -622,8 +657,11 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # via {% if aggregation_guidance %} so plan BTA aggregators see Option B
     # plumbing (the breakdown's reconstruction strategy reaches the aggregator).
     _plan_vars = plan_agg.template_manager.load_variables(
-        {"task_preamble": "aggregation", "task_instructions": "aggregation",
-         "task_response_format": "aggregation"},
+        {
+            "task_preamble": "aggregation",
+            "task_instructions": "aggregation",
+            "task_response_format": "aggregation",
+        },
         root_space="plan",
     )
     agg_preamble_text = _plan_vars["task_preamble"]
@@ -631,8 +669,10 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
         "task_preamble/aggregation.jinja2 must reference {{ aggregation_guidance }} "
         "so the breakdown's reconstruction guidance reaches the aggregator"
     )
-    assert "{%- if aggregation_guidance %}" in agg_preamble_text or \
-           "{% if aggregation_guidance %}" in agg_preamble_text, (
+    assert (
+        "{%- if aggregation_guidance %}" in agg_preamble_text
+        or "{% if aggregation_guidance %}" in agg_preamble_text
+    ), (
         "task_preamble must gate aggregation_guidance behind an `{% if %}` so "
         "breakdowns that don't emit guidance render cleanly"
     )
@@ -719,6 +759,7 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
 # Real-CLI integration test
 # ===========================================================================
 
+
 @pytest.mark.integration
 @skip_claude
 @skip_openstartup
@@ -747,10 +788,18 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
         "consensus_config.max_iterations": p["outer_dual_iter"],
         "base_inferencer.max_breakdown": p["bta_workers"],
         "fixer_inferencer.max_breakdown": p["bta_workers"],
-        "base_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
-        "base_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
-        "fixer_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
-        "fixer_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
+        "base_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p[
+            "mfdual_iter"
+        ],
+        "base_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p[
+            "inner_dual_iter"
+        ],
+        "fixer_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p[
+            "mfdual_iter"
+        ],
+        "fixer_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p[
+            "inner_dual_iter"
+        ],
     }
 
     # Let `_run_topology` allocate its own working_dir (server/_runtime/tasks/
@@ -791,8 +840,11 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
     )
 
     # base BTA's children/ must have artifacts (the workers ran)
-    base_children = list((base_dir / "children").rglob("*")) \
-        if (base_dir / "children").exists() else []
+    base_children = (
+        list((base_dir / "children").rglob("*"))
+        if (base_dir / "children").exists()
+        else []
+    )
     base_artifact_count = sum(1 for f in base_children if f.is_file())
     assert base_artifact_count > 0, (
         f"base BTA produced no children/ artifacts under {base_dir}"
@@ -805,13 +857,15 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
     # fixer fired. Check for FILES specifically — if reviewer approved on first
     # pass, fixer has skeleton dirs but zero files.
     fixer_files = (
-        [f for f in fixer_dir.rglob("*") if f.is_file()]
-        if fixer_dir.exists() else []
+        [f for f in fixer_dir.rglob("*") if f.is_file()] if fixer_dir.exists() else []
     )
     fixer_fired = bool(fixer_files)
     if fixer_fired:
-        fixer_children = list((fixer_dir / "children").rglob("*")) \
-            if (fixer_dir / "children").exists() else []
+        fixer_children = (
+            list((fixer_dir / "children").rglob("*"))
+            if (fixer_dir / "children").exists()
+            else []
+        )
         fixer_artifact_count = sum(1 for f in fixer_children if f.is_file())
         assert fixer_artifact_count > 0, (
             f"fixer BTA fired but produced no children/ artifacts under {fixer_dir}"
@@ -829,6 +883,7 @@ async def test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd):
 # ===========================================================================
 # PAI codebase-understanding task (RovoDevCLI default)
 # ===========================================================================
+
 
 def _build_pai_doc_request() -> str:
     """Construct the codebase-understanding prompt for proactive-ai-platform.
@@ -941,10 +996,18 @@ async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
         "consensus_config.max_iterations": p["outer_dual_iter"],
         "base_inferencer.max_breakdown": p["bta_workers"],
         "fixer_inferencer.max_breakdown": p["bta_workers"],
-        "base_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
-        "base_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
-        "fixer_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p["mfdual_iter"],
-        "fixer_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p["inner_dual_iter"],
+        "base_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p[
+            "mfdual_iter"
+        ],
+        "base_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p[
+            "inner_dual_iter"
+        ],
+        "fixer_inferencer.worker_factory.__default__.planner_inferencer.consensus_config.max_iterations": p[
+            "mfdual_iter"
+        ],
+        "fixer_inferencer.worker_factory.__default__.executor_inferencer.consensus_config.max_iterations": p[
+            "inner_dual_iter"
+        ],
         # NEW v1.7.2: flow_max_dynamic_steps cap (per-flow MFDual followups).
         "_params.flow_max_dynamic_steps": p["flow_dynamic_steps"],
     }
@@ -981,8 +1044,11 @@ async def test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd):
         f"contents: {list(workspace.iterdir())}"
     )
 
-    base_children = list((base_dir / "children").rglob("*")) \
-        if (base_dir / "children").exists() else []
+    base_children = (
+        list((base_dir / "children").rglob("*"))
+        if (base_dir / "children").exists()
+        else []
+    )
     base_artifact_count = sum(1 for f in base_children if f.is_file())
     assert base_artifact_count > 0, (
         f"base BTA produced no children/ artifacts under {base_dir}"
@@ -1104,8 +1170,11 @@ async def test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd
         f"contents: {list(workspace.iterdir())}"
     )
 
-    base_children = list((base_dir / "children").rglob("*")) \
-        if (base_dir / "children").exists() else []
+    base_children = (
+        list((base_dir / "children").rglob("*"))
+        if (base_dir / "children").exists()
+        else []
+    )
     base_artifact_count = sum(1 for f in base_children if f.is_file())
     assert base_artifact_count > 0, (
         f"planner BTA produced no children/ artifacts under {base_dir}"
@@ -1225,17 +1294,26 @@ async def test_real_cli_subprocess_plan_mode(tmp_path, capfd):
     request_override_file = os.environ.get("BMP_REQUEST_FILE", "").strip()
     if request_override_file and Path(request_override_file).is_file():
         request = Path(request_override_file).read_text(encoding="utf-8").strip()
-        print(f"[real-cli-subprocess] request loaded from BMP_REQUEST_FILE "
-              f"({len(request)} chars): {request_override_file}")
+        print(
+            f"[real-cli-subprocess] request loaded from BMP_REQUEST_FILE "
+            f"({len(request)} chars): {request_override_file}"
+        )
 
     cmd = [
-        _sys.executable, "-m", "openteam.server.resources.tools.task",
+        _sys.executable,
+        "-m",
+        "openteam.server.resources.tools.task",
         "--plan",
-        "--agent-config", "breakdown-multiflow-plan",
-        "--override", f"_params.default_inferencer={_DEFAULT_INFERENCER}",
-        "--override", "_params.plan_max_breakdown=2",  # minimal breakdown
-        "--override", "_params.flow_max_dynamic_steps=1",  # minimal iteration
-        "--override", "_params.consensus_max_iterations=1",
+        "--agent-config",
+        "breakdown-multiflow-plan",
+        "--override",
+        f"_params.default_inferencer={_DEFAULT_INFERENCER}",
+        "--override",
+        "_params.plan_max_breakdown=2",  # minimal breakdown
+        "--override",
+        "_params.flow_max_dynamic_steps=1",  # minimal iteration
+        "--override",
+        "_params.consensus_max_iterations=1",
     ]
     if target_path:
         # Verify path exists before launching so we fail loudly instead of
@@ -1249,8 +1327,10 @@ async def test_real_cli_subprocess_plan_mode(tmp_path, capfd):
         cmd.extend(["--override", f"_target_path={target_path}"])
         print(f"[real-cli-subprocess] _target_path: {target_path}")
     else:
-        print("[real-cli-subprocess] _target_path: (not set; subagents sandboxed "
-              "to workspace only)")
+        print(
+            "[real-cli-subprocess] _target_path: (not set; subagents sandboxed "
+            "to workspace only)"
+        )
     cmd.append(request)
     print(f"[real-cli-subprocess] cmd: {' '.join(cmd[:5])} ... (request elided)")
 
@@ -1318,7 +1398,7 @@ async def test_real_cli_subprocess_plan_mode(tmp_path, capfd):
     full_log = result.stdout + result.stderr
     assert "NameError" not in full_log, (
         f"NameError detected in CLI output (regression of Bug B fix). "
-        f"Excerpt: {full_log[full_log.find('NameError'):full_log.find('NameError') + 500]!r}"
+        f"Excerpt: {full_log[full_log.find('NameError') : full_log.find('NameError') + 500]!r}"
     )
     sharing_warnings = full_log.count("share inferencer")
     assert sharing_warnings == 0, (
@@ -1391,22 +1471,34 @@ if __name__ == "__main__":
     async def _main():
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
+
             class _StubCapfd:
                 def readouterr(self):
                     return type("R", (), {"out": "", "err": ""})()
+
             capfd = _StubCapfd()
 
             if use_cli_subprocess:
-                print(f"[direct-run] mode=cli-subprocess default_inferencer={_DEFAULT_INFERENCER!r}")
+                print(
+                    f"[direct-run] mode=cli-subprocess default_inferencer={_DEFAULT_INFERENCER!r}"
+                )
                 await test_real_cli_subprocess_plan_mode(tmp_path, capfd)
             elif use_plan:
-                print(f"[direct-run] mode=plan default_inferencer={_DEFAULT_INFERENCER!r}")
-                await test_plan_only_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
+                print(
+                    f"[direct-run] mode=plan default_inferencer={_DEFAULT_INFERENCER!r}"
+                )
+                await test_plan_only_pai_codebase_understanding_with_rovodev(
+                    tmp_path, capfd
+                )
             elif use_pai:
-                print(f"[direct-run] mode=pai default_inferencer={_DEFAULT_INFERENCER!r}")
+                print(
+                    f"[direct-run] mode=pai default_inferencer={_DEFAULT_INFERENCER!r}"
+                )
                 await test_real_pai_codebase_understanding_with_rovodev(tmp_path, capfd)
             else:
-                print(f"[direct-run] mode=canonical default_inferencer={_DEFAULT_INFERENCER!r}")
+                print(
+                    f"[direct-run] mode=canonical default_inferencer={_DEFAULT_INFERENCER!r}"
+                )
                 await test_real_dual_outside_bta_pti_mfdual_dual(tmp_path, capfd)
 
     asyncio.run(_main())

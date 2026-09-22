@@ -81,7 +81,7 @@ _BANNER_MARKERS = (
     "Jira projects:",
     "Using model:",
     "Session context:",
-    "\u2517",   # box-drawing
+    "\u2517",  # box-drawing
     "\u2501",
 )
 
@@ -136,9 +136,7 @@ class _RecordingInteractive:
 # ---------------------------------------------------------------------------
 # _build_production_like_ci — uses the EXACT production factory
 # ---------------------------------------------------------------------------
-def _build_production_like_ci(
-    target_path: str, cache_dir: str, templates_dir: Path
-):
+def _build_production_like_ci(target_path: str, cache_dir: str, templates_dir: Path):
     """Build a CI by calling the production factory ``_rovodev_factory``.
 
     This is the LITERAL production code path: ``_rovodev_factory(ctx)`` →
@@ -166,7 +164,9 @@ def _build_production_like_ci(
 # ---------------------------------------------------------------------------
 # Resolve templates_dir
 # ---------------------------------------------------------------------------
-_TEMPLATES_DIR = _OPENSTARTUP_ROOT / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+_TEMPLATES_DIR = (
+    _OPENSTARTUP_ROOT / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +196,7 @@ class TestRealSessionWithRovoDevCli(unittest.IsolatedAsyncioTestCase):
         for h in list(root_logger.handlers):
             root_logger.removeHandler(h)
         root_logger.setLevel(logging.DEBUG)
-        _fmt = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        _fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         _stream_handler = logging.StreamHandler()
         _stream_handler.setLevel(logging.DEBUG)
         _stream_handler.setFormatter(_fmt)
@@ -256,7 +254,9 @@ class TestRealSessionWithRovoDevCli(unittest.IsolatedAsyncioTestCase):
         print(f"  AgenticResult type:       {type(result).__name__}")
         print(f"  raw_response (len={len(raw)}): {raw[:200]!r}")
         print(f"  base.get_final_output() (len={len(final)}): {final[:300]!r}")
-        print(f"  base._last_clean_output (len={len(last_clean)}): {last_clean[:300]!r}")
+        print(
+            f"  base._last_clean_output (len={len(last_clean)}): {last_clean[:300]!r}"
+        )
         print(f"  recorded stream chunks:   {len(interactive.stream_chunks)}")
         print(f"  recorded widgets:         {len(interactive.emitted_widgets)}")
         print(f"  clean_corrections fired:  {len(interactive.clean_corrections)}")
@@ -291,7 +291,8 @@ class TestRealSessionWithRovoDevCli(unittest.IsolatedAsyncioTestCase):
         # 3. Internal consistency — both accessors should hold the same
         #    documented value (line 606-612).
         self.assertEqual(
-            last_clean.strip(), final.strip(),
+            last_clean.strip(),
+            final.strip(),
             f"``_last_clean_output`` ({len(last_clean)} chars) does not "
             f"match ``get_final_output()`` ({len(final)} chars).",
         )
@@ -308,7 +309,8 @@ class TestRealSessionWithRovoDevCli(unittest.IsolatedAsyncioTestCase):
         #    fire, the UI would display the noisy banner instead of the
         #    clean answer.
         self.assertGreaterEqual(
-            len(interactive.clean_corrections), 1,
+            len(interactive.clean_corrections),
+            1,
             "``on_clean_output_available`` was NEVER called — the UI "
             "display path is broken (no ``stream_correction`` event would "
             "be sent in production). Verified at "

@@ -37,14 +37,13 @@ import logging
 import os
 import sys
 import time
-
-from rich_python_utils.common_objects.debuggable import LoggerConfig
-from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
-from rich_python_utils.io_utils.json_io import JsonLogger, SpaceExtMode
 from datetime import datetime
 from pathlib import Path
 
 import click
+from rich_python_utils.common_objects.debuggable import LoggerConfig
+from rich_python_utils.io_utils.json_io import JsonLogger, SpaceExtMode
+from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +155,9 @@ def _extract_aggregator_result(result) -> str:
             continue
         logger.debug(
             "Result element [%d]: type=%s, len=%d",
-            i, type(r).__name__, len(text),
+            i,
+            type(r).__name__,
+            len(text),
         )
         # Prefer TerminalInferencerResponse over plain strings
         is_response = hasattr(r, "output")
@@ -260,11 +261,36 @@ def _extract_aggregator_result(result) -> str:
     default=False,
     help="Run only the outer breakdown step (identify setup tasks). Skip workers and aggregation.",
 )
-@click.option("--subtask-breakdown-only", is_flag=True, default=False, help="Run inner BTA breakdown only for a specific subtask (no workers, no aggregation)")
-@click.option("--run-subtask", is_flag=True, default=False, help="Run full inner BTA for a specific subtask (breakdown + workers). Use --disable-subtask-aggregator to skip aggregation.")
-@click.option("--breakdown-file", default=None, type=click.Path(), help="Path to outer breakdown output file (for --subtask-breakdown-only / --run-subtask)")
-@click.option("--subtask-index", default=1, type=int, help="1-based subtask index (for --subtask-breakdown-only / --run-subtask)")
-@click.option("--inner-research-only", is_flag=True, default=False, help="Run inner BTA workers only (needs --breakdown-file with inner breakdown output)")
+@click.option(
+    "--subtask-breakdown-only",
+    is_flag=True,
+    default=False,
+    help="Run inner BTA breakdown only for a specific subtask (no workers, no aggregation)",
+)
+@click.option(
+    "--run-subtask",
+    is_flag=True,
+    default=False,
+    help="Run full inner BTA for a specific subtask (breakdown + workers). Use --disable-subtask-aggregator to skip aggregation.",
+)
+@click.option(
+    "--breakdown-file",
+    default=None,
+    type=click.Path(),
+    help="Path to outer breakdown output file (for --subtask-breakdown-only / --run-subtask)",
+)
+@click.option(
+    "--subtask-index",
+    default=1,
+    type=int,
+    help="1-based subtask index (for --subtask-breakdown-only / --run-subtask)",
+)
+@click.option(
+    "--inner-research-only",
+    is_flag=True,
+    default=False,
+    help="Run inner BTA workers only (needs --breakdown-file with inner breakdown output)",
+)
 @click.option(
     "--resume-workspace",
     default=None,
@@ -276,7 +302,12 @@ def _extract_aggregator_result(result) -> str:
         "not the outer experiment root (that file is the outer breakdown)."
     ),
 )
-@click.option("--disable-subtask-aggregator", is_flag=True, default=False, help="Skip inner (subtask-level) aggregation phase (run breakdown + workers only). For --run-subtask mode.")
+@click.option(
+    "--disable-subtask-aggregator",
+    is_flag=True,
+    default=False,
+    help="Skip inner (subtask-level) aggregation phase (run breakdown + workers only). For --run-subtask mode.",
+)
 @click.option(
     "--tools-file",
     default=None,
@@ -325,7 +356,14 @@ def main(
     # 2. Validate auth (not required for breakdown-only with RovoDevCli)
     has_uct = bool(uct_token)
     has_basic = bool(email and api_token)
-    if not has_uct and not has_basic and not breakdown_only and not subtask_breakdown_only and not inner_research_only and not resume_workspace:
+    if (
+        not has_uct
+        and not has_basic
+        and not breakdown_only
+        and not subtask_breakdown_only
+        and not inner_research_only
+        and not resume_workspace
+    ):
         click.echo(
             "ERROR: Provide either --uct-token or (--email + --api-token) for authentication.",
             err=True,
@@ -356,7 +394,9 @@ def main(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         workspace = (Path(output_dir) / timestamp).resolve()
 
-    from agent_foundation.common.inferencers.inferencer_workspace import InferencerWorkspace
+    from agent_foundation.common.inferencers.inferencer_workspace import (
+        InferencerWorkspace,
+    )
 
     ws = InferencerWorkspace(root=str(workspace))
     ws.ensure_dirs("_runtime")
@@ -394,9 +434,9 @@ def main(
     try:
         from openteam.server.resources.tools.role_setup.executor import (
             build_breakdown_only,
-            build_subtask_breakdown_only,
             build_inner_research_only,
             build_role_setup_inferencer,
+            build_subtask_breakdown_only,
         )
     except ImportError as e:
         click.echo(
@@ -417,7 +457,9 @@ def main(
         is_artifact=True,
         parts_min_size=0,
         space_ext_mode=SpaceExtMode.MOVE,
-        parts_file_namer=lambda obj: obj.get("type", "") if isinstance(obj, dict) else "",
+        parts_file_namer=lambda obj: obj.get("type", "")
+        if isinstance(obj, dict)
+        else "",
     )
     inferencer_logger = [
         (json_logger, LoggerConfig(pass_item_key_as="parts_key_path_root")),
@@ -455,21 +497,26 @@ def main(
             sys.exit(1)
 
         import json as _json
+
         saved = _json.loads(ckpt.read_text())
-        sub_queries = saved.get("sub_queries", saved) if isinstance(saved, dict) else saved
+        sub_queries = (
+            saved.get("sub_queries", saved) if isinstance(saved, dict) else saved
+        )
         click.echo(f"[Resume] Workspace: {resume_ws}")
         click.echo(f"[Resume] {len(sub_queries)} sub_queries from checkpoint")
-        click.echo(f"Auth: {'UCT' if has_uct else 'Basic' if has_basic else 'None (local only)'}")
+        click.echo(
+            f"Auth: {'UCT' if has_uct else 'Basic' if has_basic else 'None (local only)'}"
+        )
         click.echo("")
 
         # Build the same inner BTA that was used for breakdown — just with resume enabled
         from openteam.server.resources.tools.role_setup.executor import (
             _aggregation_instructions_from_path,
+            _APP_SKILLS_DIR,
+            _APP_TOOLS_DIR,
             _build_inner_bta,
             _load_variable_file,
             _PROMPT_TEMPLATES_ROOT,
-            _APP_TOOLS_DIR,
-            _APP_SKILLS_DIR,
             _render_variable_file,
             format_available_tools_and_skills,
         )
@@ -481,7 +528,9 @@ def main(
             extra_tool_dirs=[_APP_TOOLS_DIR], extra_skill_dirs=[_APP_SKILLS_DIR]
         )
 
-        templates_root = Path(templates_dir) if templates_dir else _PROMPT_TEMPLATES_ROOT
+        templates_root = (
+            Path(templates_dir) if templates_dir else _PROMPT_TEMPLATES_ROOT
+        )
         tm = TemplateManager(
             templates=str(templates_root),
             active_template_type="main",
@@ -507,8 +556,12 @@ def main(
         )
 
         rovo_kwargs = dict(
-            cloud_id=cloud_id, uct_token=uct_token, email=email,
-            api_token=api_token, base_url=base_url, agent_named_id=agent_named_id,
+            cloud_id=cloud_id,
+            uct_token=uct_token,
+            email=email,
+            api_token=api_token,
+            base_url=base_url,
+            agent_named_id=agent_named_id,
         )
 
         streaming_cache_dir = str(workspace / "_runtime" / "inferencer_cache")
@@ -516,7 +569,11 @@ def main(
         # Recover the original subtask query from config (so the aggregator
         # sees the real task description, not the literal string "resume").
         _prev_config_path = Path(resume_workspace) / "config.json"
-        _prev_config = json.loads(_prev_config_path.read_text()) if _prev_config_path.exists() else {}
+        _prev_config = (
+            json.loads(_prev_config_path.read_text())
+            if _prev_config_path.exists()
+            else {}
+        )
         _task_query = _prev_config.get("task_query", "resume")
         _subtask_index = _prev_config.get("subtask_index", 0)
         if _task_query == "resume":
@@ -563,7 +620,9 @@ def main(
 
         click.echo(f"\nRunning BTA (resume=True, query={_task_query[:60]}...)...")
         start_time = time.time()
-        result = _run_async_with_forced_cleanup(bta.ainfer(_task_query, inference_config={}))
+        result = _run_async_with_forced_cleanup(
+            bta.ainfer(_task_query, inference_config={})
+        )
         elapsed = time.time() - start_time
 
         result_text = _extract_aggregator_result(result)
@@ -571,12 +630,15 @@ def main(
             result_text[:50000], encoding="utf-8"
         )
         (workspace / "artifacts" / "summary.json").write_text(
-            json.dumps({
-                "mode": "resume",
-                "workspace": str(workspace),
-                "sub_queries_count": len(sub_queries),
-                "duration_seconds": round(elapsed, 1),
-            }, indent=2),
+            json.dumps(
+                {
+                    "mode": "resume",
+                    "workspace": str(workspace),
+                    "sub_queries_count": len(sub_queries),
+                    "duration_seconds": round(elapsed, 1),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
 
@@ -586,11 +648,16 @@ def main(
 
     elif inner_research_only:
         if not breakdown_file:
-            click.echo("ERROR: --breakdown-file is required with --inner-research-only", err=True)
+            click.echo(
+                "ERROR: --breakdown-file is required with --inner-research-only",
+                err=True,
+            )
             sys.exit(1)
 
         click.echo(f"[Inner Research] Workers from: {breakdown_file}")
-        click.echo(f"Auth: {'UCT' if has_uct else 'Basic' if has_basic else 'None (local only)'}")
+        click.echo(
+            f"Auth: {'UCT' if has_uct else 'Basic' if has_basic else 'None (local only)'}"
+        )
         click.echo("")
 
         bta, sub_queries = build_inner_research_only(
@@ -630,13 +697,16 @@ def main(
             result_text, encoding="utf-8"
         )
         (workspace / "artifacts" / "summary.json").write_text(
-            json.dumps({
-                "mode": "inner_research_only",
-                "breakdown_file": breakdown_file,
-                "sub_queries_count": len(sub_queries),
-                "result_length": len(result_text),
-                "duration_seconds": round(elapsed, 1),
-            }, indent=2),
+            json.dumps(
+                {
+                    "mode": "inner_research_only",
+                    "breakdown_file": breakdown_file,
+                    "sub_queries_count": len(sub_queries),
+                    "result_length": len(result_text),
+                    "duration_seconds": round(elapsed, 1),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
 
@@ -646,29 +716,35 @@ def main(
 
     elif run_subtask:
         if not breakdown_file:
-            click.echo("ERROR: --breakdown-file is required with --run-subtask", err=True)
+            click.echo(
+                "ERROR: --breakdown-file is required with --run-subtask", err=True
+            )
             sys.exit(1)
 
-        mode_desc = "breakdown + workers" + (" (skip aggregation)" if disable_subtask_aggregator else " + aggregation")
+        mode_desc = "breakdown + workers" + (
+            " (skip aggregation)" if disable_subtask_aggregator else " + aggregation"
+        )
         click.echo(f"[Run Subtask] Subtask {subtask_index} from: {breakdown_file}")
         click.echo(f"[Run Subtask] Mode: {mode_desc}")
         click.echo(f"Auth mode: {'UCT' if has_uct else 'Basic Auth'}")
         click.echo("")
 
-        inferencer, inference_input = build_subtask_breakdown_only(  # inference_input = subtask_desc
-            breakdown_file=breakdown_file,
-            subtask_index=subtask_index,
-            role_document_path=role_document_path,
-            cloud_id=cloud_id,
-            uct_token=uct_token,
-            email=email,
-            api_token=api_token,
-            base_url=base_url,
-            agent_named_id=agent_named_id,
-            templates_dir=templates_dir,
-            streaming_cache_dir=streaming_cache_dir,
-            workspace=str(workspace),
-            inferencer_logger=inferencer_logger,
+        inferencer, inference_input = (
+            build_subtask_breakdown_only(  # inference_input = subtask_desc
+                breakdown_file=breakdown_file,
+                subtask_index=subtask_index,
+                role_document_path=role_document_path,
+                cloud_id=cloud_id,
+                uct_token=uct_token,
+                email=email,
+                api_token=api_token,
+                base_url=base_url,
+                agent_named_id=agent_named_id,
+                templates_dir=templates_dir,
+                streaming_cache_dir=streaming_cache_dir,
+                workspace=str(workspace),
+                inferencer_logger=inferencer_logger,
+            )
         )
         # Override: run full inner BTA (breakdown + workers), not just breakdown
         inferencer.breakdown_only = False
@@ -682,10 +758,15 @@ def main(
 
     elif subtask_breakdown_only:
         if not breakdown_file:
-            click.echo("ERROR: --breakdown-file is required with --subtask-breakdown-only", err=True)
+            click.echo(
+                "ERROR: --breakdown-file is required with --subtask-breakdown-only",
+                err=True,
+            )
             sys.exit(1)
 
-        click.echo(f"[Subtask Breakdown Only] Subtask {subtask_index} from: {breakdown_file}")
+        click.echo(
+            f"[Subtask Breakdown Only] Subtask {subtask_index} from: {breakdown_file}"
+        )
         click.echo(f"Auth mode: {'UCT' if has_uct else 'Basic Auth'}")
         click.echo("")
 
@@ -749,11 +830,17 @@ def main(
         primary_deliverable = output_file
     else:
         from agent_foundation.common.response_parsers import extract_delimited
-        clean_text = extract_delimited(result_text) if "<Response>" in result_text else result_text
+
+        clean_text = (
+            extract_delimited(result_text)
+            if "<Response>" in result_text
+            else result_text
+        )
         (artifacts_dir / "aggregator_raw_output.md").write_text(clean_text)
 
-        deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + \
-                           list(outputs_dir.rglob("tools/**/*"))
+        deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + list(
+            outputs_dir.rglob("tools/**/*")
+        )
         if deliverable_files:
             logger.info(
                 "Agent created %d deliverable(s): %s",

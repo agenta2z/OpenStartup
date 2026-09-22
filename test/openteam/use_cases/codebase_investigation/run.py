@@ -36,11 +36,11 @@ except ImportError as exc:  # pragma: no cover - import-time only
     raise
 
 from openteam.use_cases._shared_runtime import (
-    SingleShotRunWorkspace,
     parse_sentinel,
     promote_to_artifacts,
     sentinel_indicates_success,
     setup_run_workspace,
+    SingleShotRunWorkspace,
 )
 
 logger = logging.getLogger("codebase_investigation")
@@ -59,17 +59,18 @@ def _render_prompt(target_path: Path, output_docs_dir: Path) -> str:
     )
 
 
-async def _run_inferencer(prompt: str, target_path: Path, ws: SingleShotRunWorkspace) -> str:
+async def _run_inferencer(
+    prompt: str, target_path: Path, ws: SingleShotRunWorkspace
+) -> str:
     ws.prompt_path.write_text(prompt, encoding="utf-8")
 
     # Grant write access to the project root so create_file works for docs/runtime
     import json as _json
+
     _project_root_str = str(ws.project_root)
-    _cfg_override = _json.dumps({
-        "toolPermissions": {
-            "allowedExternalPaths": [_project_root_str]
-        }
-    })
+    _cfg_override = _json.dumps(
+        {"toolPermissions": {"allowedExternalPaths": [_project_root_str]}}
+    )
     inf = RovoDevCliInferencer(
         target_path=str(target_path),
         idle_timeout_seconds=900,
@@ -158,7 +159,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Project root: {ws.project_root}")
     print(f"Run dir     : {ws.run_dir}")
     print(f"Docs (run)  : {ws.docs_dir}")
-    print(f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}")
+    print(
+        f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}"
+    )
     print(f"Status      : {sentinel}")
     return 0 if promoted is not None else 1
 

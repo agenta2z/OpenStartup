@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -107,6 +108,18 @@ const TASK_STATUS_CFG = {
 function TaskSubtab({ task, isActive, onClick }) {
   const theme = useTheme();
   const cfg = TASK_STATUS_CFG[task.status] || TASK_STATUS_CFG.running;
+  const tooltip = task.status === 'error' && task.error
+    ? (task.errorType ? `${task.errorType}: ${task.error}` : task.error)
+    : '';
+  const chip = (
+    <Chip
+      label={cfg.label}
+      size="small"
+      color={cfg.color}
+      variant="outlined"
+      sx={{ height: 16, fontSize: '0.6rem', flexShrink: 0, '& .MuiChip-label': { px: 0.75 } }}
+    />
+  );
   return (
     <Box
       onClick={onClick}
@@ -129,6 +142,58 @@ function TaskSubtab({ task, isActive, onClick }) {
       >
         {(task.label || task.toolName || task.id).slice(0, 28)}
       </Typography>
+      {tooltip
+        ? <Tooltip title={tooltip} arrow placement="right">{chip}</Tooltip>
+        : chip}
+    </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  DashboardSubtab — indented dashboard (hub) entry under a session    */
+/* ------------------------------------------------------------------ */
+
+// Status → chip styling for a dashboard hub. The dashboard_status `status`
+// string is free-form (server-defined); map the common ones and fall back to a
+// neutral chip showing the raw status for anything unrecognised.
+const DASHBOARD_STATUS_CFG = {
+  open:      { label: 'Open',      color: 'info' },
+  idle:      { label: 'Idle',      color: 'default' },
+  running:   { label: 'Running',   color: 'info' },
+  active:    { label: 'Active',    color: 'info' },
+  completed: { label: 'Complete',  color: 'success' },
+  error:     { label: 'Error',     color: 'error' },
+};
+
+function DashboardSubtab({ dashboard, isActive, onClick }) {
+  const theme = useTheme();
+  const cfg = DASHBOARD_STATUS_CFG[dashboard.status]
+    || { label: dashboard.status || 'Open', color: 'default' };
+  const manifest = dashboard.manifest || {};
+  const icon = manifest.icon || '';
+  const label = manifest.label || dashboard.hubId || 'Dashboard';
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        pl: 4.5, pr: 1.5, py: 0.75, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 0.75, mx: 1, mb: 0.25,
+        borderRadius: 1,
+        backgroundColor: isActive ? theme.custom.surfaces.activeHighlight : 'transparent',
+        borderLeft: isActive ? `3px solid ${theme.palette.primary.light}` : '3px solid transparent',
+        '&:hover': { backgroundColor: isActive ? theme.custom.surfaces.activeHighlight : theme.custom.surfaces.hoverBg },
+      }}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          fontSize: '0.75rem', flex: 1, lineHeight: 1.3,
+          color: isActive ? 'primary.light' : 'text.secondary',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}
+      >
+        {(icon ? `${icon} ` : '') + label.slice(0, 26)}
+      </Typography>
       <Chip
         label={cfg.label}
         size="small"
@@ -140,7 +205,7 @@ function TaskSubtab({ task, isActive, onClick }) {
   );
 }
 
-export default function Sidebar({ onSessionClick, activeSessionId, tasks, activeTaskId, onTaskClick, sessions, loading, onRefresh }) {
+export default function Sidebar({ onSessionClick, activeSessionId, tasks, activeTaskId, onTaskClick, dashboards, activeDashboardId, onDashboardClick, sessions, loading, onRefresh }) {
   const theme = useTheme();
   // The session list is owned by App (so live WS events in ManagerChatView can
   // trigger a refetch to keep counts/rows fresh); Sidebar receives it as props.
@@ -192,11 +257,12 @@ export default function Sidebar({ onSessionClick, activeSessionId, tasks, active
               {group.sessions.map((session) => {
                 const isActiveSession = session.id === activeSessionId;
                 const sessionTaskList = isActiveSession ? Object.values(tasks || {}) : [];
+                const sessionDashboardList = isActiveSession ? Object.values(dashboards || {}) : [];
                 return (
                   <React.Fragment key={session.id}>
                     <SessionItem
                       session={session}
-                      isActive={isActiveSession && !activeTaskId}
+                      isActive={isActiveSession && !activeTaskId && !activeDashboardId}
                       onClick={onSessionClick}
                     />
                     {/* Task subtabs — indented under active session */}
@@ -206,6 +272,15 @@ export default function Sidebar({ onSessionClick, activeSessionId, tasks, active
                         task={task}
                         isActive={activeTaskId === task.id}
                         onClick={() => onTaskClick?.(task.id)}
+                      />
+                    ))}
+                    {/* Dashboard subtabs — indented under active session */}
+                    {sessionDashboardList.map(dashboard => (
+                      <DashboardSubtab
+                        key={dashboard.hubId}
+                        dashboard={dashboard}
+                        isActive={activeDashboardId === dashboard.hubId}
+                        onClick={() => onDashboardClick?.(dashboard.hubId)}
                       />
                     ))}
                   </React.Fragment>

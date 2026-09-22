@@ -37,6 +37,48 @@ const STATUS_CONFIG = {
   error:     { label: 'Error',     color: 'error',   showSpinner: false },
 };
 
+/**
+ * Fix 5 — inline deliverable fallback for a graph-less task. Renders
+ * `task.documentPath` via the existing `GET /api/view/{path}`: an `.html`
+ * deliverable (e.g. Sphinx docs) in an `<iframe>`, otherwise via `MarkdownRenderer`.
+ * Degrades to showing the path on a fetch failure (e.g. a path outside
+ * `/api/view`'s allowed bases) — never a broken pane.
+ */
+function DeliverableView({ path }) {
+  const [state, setState] = useState({ loading: true, content: null, error: null });
+  const isHtml = /\.html?$/i.test(path || '');
+  useEffect(() => {
+    if (!path || isHtml) {
+      setState({ loading: false, content: null, error: null });
+      return;
+    }
+    let cancelled = false;
+    setState({ loading: true, content: null, error: null });
+    fetch(`/api/view/${path}`)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((t) => { if (!cancelled) setState({ loading: false, content: t, error: null }); })
+      .catch((e) => { if (!cancelled) setState({ loading: false, content: null, error: e }); });
+    return () => { cancelled = true; };
+  }, [path, isHtml]);
+  if (!path) return null;
+  if (isHtml) {
+    return (
+      <Box component="iframe" title="deliverable" src={`/api/view/${path}`} sx={{ flex: 1, width: '100%', border: 0 }} />
+    );
+  }
+  if (state.loading) {
+    return <Typography variant="body2" sx={{ px: 3, py: 2, color: 'text.secondary' }}>Loading deliverable…</Typography>;
+  }
+  if (state.error) {
+    return (
+      <Typography variant="body2" sx={{ px: 3, py: 2, color: 'text.secondary' }}>
+        Deliverable: {path} (could not load inline: {String(state.error.message || state.error)})
+      </Typography>
+    );
+  }
+  return <Box sx={{ overflow: 'auto', px: 3, py: 2 }}><MarkdownRenderer content={state.content || ''} /></Box>;
+}
+
 export function TaskPanel({ task, onBack, graphState }) {
   const theme = useTheme();
   const bottomRef = useRef(null);
@@ -70,10 +112,44 @@ export function TaskPanel({ task, onBack, graphState }) {
   const [graphCollapsed, setGraphCollapsed] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState('in');
 
+  // Fix 4 — request the graph on task-open when it's missing (a completed task
+  // reopened after the in-memory TTL / a server restart, or a legacy pre-fix
+  // task). The backend resolves it via the 3-tier get_or_load (in-memory → disk
+  // → reconstruct-from-disk). Uses an IN-FLIGHT guard (pendingReplayTidRef),
+  // NOT a permanent per-tid flag, so a WS reconnect (which rebuilds task.graph as
+  // undefined again) correctly re-requests.
+  const [replayPending, setReplayPending] = useState(false);
+  const pendingReplayTidRef = useRef(null);
+  const replayTimerRef = useRef(null);
+  // Fix 4.3 — gate the auto-collapse to a LIVE completion (running→complete)
+  // watched in THIS view. A graph that ARRIVES already-complete (reopen / restore
+  // / reconstruct) must stay expanded — else it would re-hide 1.5s after loading.
+  const collapseGateRef = useRef({ tid: null, sawRunning: false });
+
+  // Fix 5 (default-select) — for a terminal task opened with no live/user/sticky
+  // selection, default to the LAST completed leaf that produced a deliverable so
+  // the detail pane shows a real output on open, not the root container.
+  // autoSelectedNodeId is set ONLY on a running→ transition (useGraphState), so a
+  // replayed / reconstructed completed graph has none and would otherwise fall to
+  // nodes[0] (the root container). Leaves = non-container nodes; prefer ones with
+  // an outputPath (a real deliverable), newest first (topology/aggregator order).
+  const lastCompletedLeafId = useMemo(() => {
+    if (!task?.graph) return null;
+    const all = [
+      ...(task.graph.nodes || []),
+      ...Object.values(task.subGraphs || {}).flatMap(sg => sg?.nodes || []),
+    ];
+    const leaves = all.filter(n => !n.is_container && n.status === 'completed');
+    const withDeliverable = leaves.filter(n => n.outputPath);
+    const pool = withDeliverable.length ? withDeliverable : leaves;
+    return pool.length ? pool[pool.length - 1].id : null;
+  }, [task?.graph, task?.subGraphs]);
+
   // Effective selected node
   const effectiveNodeId = userSelectedNodeId
     || selectedLeafId
     || task?.autoSelectedNodeId
+    || lastCompletedLeafId
     || activeGraph?.nodes?.[0]?.id;
 
   // For focus-context: find selected node across all graphs.
@@ -154,15 +230,70 @@ export function TaskPanel({ task, onBack, graphState }) {
     document.addEventListener('mouseup', onUp);
   }, [splitRatio]);
 
-  // Auto-collapse when all complete
+  // Fix 4.1 — request the graph on open for a terminal task that has none. Fires
+  // exactly once per (tid, in-flight window); clears on graph arrival or a ~4s
+  // timeout (→ falls through to the deliverable fallback). Re-fires after a
+  // reconnect because task.graph transitions back to undefined.
   useEffect(() => {
-    if (allComplete && activeGraph?.nodes?.length) {
+    const hasGraph = !!task?.graph;
+    if (hasGraph) {
+      if (pendingReplayTidRef.current === tid) {
+        pendingReplayTidRef.current = null;
+        setReplayPending(false);
+        if (replayTimerRef.current) {
+          clearTimeout(replayTimerRef.current);
+          replayTimerRef.current = null;
+        }
+      }
+      return;
+    }
+    const terminal = task?.status === 'completed' || task?.status === 'error';
+    if (
+      tid &&
+      terminal &&
+      graphState?.requestGraphReplay &&
+      pendingReplayTidRef.current !== tid
+    ) {
+      pendingReplayTidRef.current = tid;
+      setReplayPending(true);
+      graphState.requestGraphReplay(tid);
+      if (replayTimerRef.current) clearTimeout(replayTimerRef.current);
+      replayTimerRef.current = setTimeout(() => {
+        if (pendingReplayTidRef.current === tid) {
+          pendingReplayTidRef.current = null;
+          setReplayPending(false);
+        }
+      }, 4000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tid, task?.status, !!task?.graph, graphState]);
+
+  // Clear any pending replay timer on unmount.
+  useEffect(() => () => {
+    if (replayTimerRef.current) clearTimeout(replayTimerRef.current);
+  }, []);
+
+  // Auto-collapse when all complete — Fix 4.3: ONLY on a LIVE completion
+  // transition (running→complete) watched in THIS view. A graph that arrived
+  // already-complete (reopen / restore / reconstruct) stays expanded so the user
+  // sees the graph structure they opened the task to inspect.
+  useEffect(() => {
+    const hasNodes = !!activeGraph?.nodes?.length;
+    if (collapseGateRef.current.tid !== tid) {
+      collapseGateRef.current = { tid, sawRunning: false };
+    }
+    if (!hasNodes) return;
+    if (!allComplete) {
+      collapseGateRef.current.sawRunning = true;  // observed it running here
+      setGraphCollapsed(false);
+      return;
+    }
+    if (collapseGateRef.current.sawRunning) {
       const timer = setTimeout(() => setGraphCollapsed(true), 1500);
       return () => clearTimeout(timer);
-    } else if (activeGraph?.nodes?.length) {
-      setGraphCollapsed(false);
     }
-  }, [allComplete, activeGraph?.nodes?.length]);
+    // Arrived already-complete (reopen) → keep expanded.
+  }, [allComplete, activeGraph?.nodes?.length, tid]);
 
   // Reset selections on topology change
   const graphVersion = activeGraph?.version ?? activeGraph?.nodes?.length ?? 0;
@@ -302,7 +433,7 @@ export function TaskPanel({ task, onBack, graphState }) {
   const hasSubGraphs = task?.subGraphs && Object.keys(task.subGraphs).length > 0;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', mx: -3, mt: -3, mb: -3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'background.paper', flexShrink: 0 }}>
         <IconButton onClick={onBack} size="small" sx={{ color: 'text.secondary' }}>
@@ -424,18 +555,28 @@ export function TaskPanel({ task, onBack, graphState }) {
           </Box>
         </Box>
       ) : (
-        /* Simple streaming view */
-        <Box sx={{ flexGrow: 1, overflow: 'auto', px: 3, py: 2 }}>
-          {task.streamContent ? (
-            <Box sx={{ '& p': { m: 0 }, '& pre': { overflow: 'auto' } }}><MarkdownRenderer content={task.streamContent} /></Box>
+        /* No graph: loading (replay in flight, Fix 4.2), live token stream,
+           deliverable fallback (Fix 5.1), or a clean terminal message. */
+        <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {replayPending && !task.streamContent ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 3, py: 2, color: 'text.secondary' }}>
+              <CircularProgress size={14} />
+              <Typography variant="body2">Loading task graph…</Typography>
+            </Box>
+          ) : task.streamContent ? (
+            <Box sx={{ overflow: 'auto', px: 3, py: 2, '& p': { m: 0 }, '& pre': { overflow: 'auto' } }}><MarkdownRenderer content={task.streamContent} /></Box>
           ) : task.status === 'starting' || task.status === 'running' ? (
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 0.4 }, '50%': { opacity: 1 } } }}>
+            <Typography variant="body2" sx={{ px: 3, py: 2, color: 'text.secondary', fontStyle: 'italic', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 0.4 }, '50%': { opacity: 1 } } }}>
               {task.toolName || 'Task'} is running…
             </Typography>
           ) : task.error ? (
-            <Typography variant="body2" sx={{ color: 'error.main' }}>Error: {task.error}</Typography>
+            <Typography variant="body2" sx={{ px: 3, py: 2, color: 'error.main' }}>
+              Error{task.errorType ? ` (${task.errorType})` : ''}: {task.error}
+            </Typography>
+          ) : task.documentPath ? (
+            <DeliverableView path={task.documentPath} />
           ) : (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Task completed.</Typography>
+            <Typography variant="body2" sx={{ px: 3, py: 2, color: 'text.secondary' }}>Task completed — no graph or deliverable was produced.</Typography>
           )}
           <div ref={bottomRef} />
         </Box>

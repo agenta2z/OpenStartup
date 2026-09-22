@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_TEST_ROOT = Path(__file__).resolve().parents[3]   # .../OpenStartup/test
+_TEST_ROOT = Path(__file__).resolve().parents[3]  # .../OpenStartup/test
 # Ensure test/ wins regardless of pre-existing entries (insert at index 0).
 while str(_TEST_ROOT) in sys.path:
     sys.path.remove(str(_TEST_ROOT))

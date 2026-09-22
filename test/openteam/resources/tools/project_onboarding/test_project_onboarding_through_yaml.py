@@ -92,22 +92,58 @@ def _run_async_with_forced_cleanup(coro, cleanup_timeout: float = 15.0):
 
 
 @click.command()
-@click.option("--project-document", "-p", required=True, type=click.Path(exists=True),
-              help="Path to the project description markdown file.")
-@click.option("--role-setup-path", "-r", default=None, type=click.Path(exists=True),
-              help="Path to the role_setup output directory with pre-onboarding artifacts.")
-@click.option("--artifacts-path", "-a", default=None, type=click.Path(exists=True),
-              help="Path to additional project/team artifacts directory.")
-@click.option("--max-facets", default=None, type=int,
-              help="Max outer subtasks (overrides yaml max_breakdown).")
-@click.option("--max-inner-facets", default=None, type=int,
-              help="Max inner research facets per subtask.")
-@click.option("--output-dir", default=str(Path(__file__).resolve().parent / "_runtime"),
-              type=click.Path())
-@click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-              default="INFO")
-def main(project_document, role_setup_path, artifacts_path,
-         max_facets, max_inner_facets, output_dir, log_level):
+@click.option(
+    "--project-document",
+    "-p",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the project description markdown file.",
+)
+@click.option(
+    "--role-setup-path",
+    "-r",
+    default=None,
+    type=click.Path(exists=True),
+    help="Path to the role_setup output directory with pre-onboarding artifacts.",
+)
+@click.option(
+    "--artifacts-path",
+    "-a",
+    default=None,
+    type=click.Path(exists=True),
+    help="Path to additional project/team artifacts directory.",
+)
+@click.option(
+    "--max-facets",
+    default=None,
+    type=int,
+    help="Max outer subtasks (overrides yaml max_breakdown).",
+)
+@click.option(
+    "--max-inner-facets",
+    default=None,
+    type=int,
+    help="Max inner research facets per subtask.",
+)
+@click.option(
+    "--output-dir",
+    default=str(Path(__file__).resolve().parent / "_runtime"),
+    type=click.Path(),
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    default="INFO",
+)
+def main(
+    project_document,
+    role_setup_path,
+    artifacts_path,
+    max_facets,
+    max_inner_facets,
+    output_dir,
+    log_level,
+):
     """Run /project_onboarding via executor.execute() — real command path."""
 
     logging.basicConfig(
@@ -156,9 +192,7 @@ def main(project_document, role_setup_path, artifacts_path,
     start_time = time.time()
 
     try:
-        result = _run_async_with_forced_cleanup(
-            execute(arguments, session_context)
-        )
+        result = _run_async_with_forced_cleanup(execute(arguments, session_context))
     except Exception:
         logger.exception("execute() failed")
         click.echo("ERROR: execute() failed.", err=True)
@@ -197,16 +231,22 @@ def main(project_document, role_setup_path, artifacts_path,
     # Save summary
     artifacts_out_dir = workspace / "artifacts"
     artifacts_out_dir.mkdir(parents=True, exist_ok=True)
-    (artifacts_out_dir / "summary.json").write_text(json.dumps({
-        "mode": "real_execute",
-        "elapsed_seconds": round(elapsed, 1),
-        "output_length": len(str(result.result)),
-        "context_updates": result.context_updates,
-        "deliverable_count": len(deliverable_files),
-        "workspace": str(workspace),
-        "role_setup_path": role_setup_path,
-        "artifacts_path": artifacts_path,
-    }, indent=2), encoding="utf-8")
+    (artifacts_out_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "mode": "real_execute",
+                "elapsed_seconds": round(elapsed, 1),
+                "output_length": len(str(result.result)),
+                "context_updates": result.context_updates,
+                "deliverable_count": len(deliverable_files),
+                "workspace": str(workspace),
+                "role_setup_path": role_setup_path,
+                "artifacts_path": artifacts_path,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     click.echo("")
     click.echo("=" * 60)

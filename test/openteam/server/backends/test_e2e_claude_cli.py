@@ -65,7 +65,9 @@ def _wait_for_health(port: int, timeout: float = 30.0) -> None:
     raise RuntimeError(f"Server on :{port} never became healthy within {timeout}s")
 
 
-async def _drive_chat(port: int, session_id: str, message: str, timeout: float = 120.0) -> str:
+async def _drive_chat(
+    port: int, session_id: str, message: str, timeout: float = 120.0
+) -> str:
     """Connect to /ws/manager and send a single message; return assembled response.
 
     The WebSocket protocol mirrors useManagerChat.js:
@@ -124,20 +126,27 @@ def main() -> int:
     port = _free_port()
     server_dir = _OPENSTARTUP / "src" / "openteam" / "server"
     env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join([
-        str(_OPENSTARTUP / "src"),
-        str(_REPO_ROOT / "AgentFoundation" / "src"),
-        str(_REPO_ROOT / "RichPythonUtils" / "src"),
-        env.get("PYTHONPATH", ""),
-    ])
+    env["PYTHONPATH"] = os.pathsep.join(
+        [
+            str(_OPENSTARTUP / "src"),
+            str(_REPO_ROOT / "AgentFoundation" / "src"),
+            str(_REPO_ROOT / "RichPythonUtils" / "src"),
+            env.get("PYTHONPATH", ""),
+        ]
+    )
     cmd = [
         sys.executable,
         "run_server.py",
-        "--host", "127.0.0.1",
-        "--port", str(port),
-        "--real-sessions", str(runtime_dir),
-        "--llm-backend", "claude_cli",
-        "--llm-model", "sonnet",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--real-sessions",
+        str(runtime_dir),
+        "--llm-backend",
+        "claude_cli",
+        "--llm-model",
+        "sonnet",
     ]
     print(f"[boot] {cmd}", flush=True)
     proc = subprocess.Popen(

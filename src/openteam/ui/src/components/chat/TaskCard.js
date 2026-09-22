@@ -9,12 +9,15 @@
  *   taskId    - unique task ID (e.g. "task-a3f9")
  *   label     - human-readable task label (role description / request snippet)
  *   status    - 'starting' | 'running' | 'completed' | 'error'
+ *   error     - optional error message (surfaced in Tooltip when status='error')
+ *   errorType - optional error class name or 'interrupted' for reconcile-healed rows
  *   onOpenTask(taskId) - called when user clicks "Open Task"
  */
 
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -30,9 +33,12 @@ const STATUS_CONFIG = {
   error:    { label: 'Error',     color: 'error',   showSpinner: false },
 };
 
-export function TaskCard({ taskId, label, status, onOpenTask }) {
+export function TaskCard({ taskId, label, status, error, errorType, onOpenTask }) {
   const theme = useTheme();
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.starting;
+  const tooltip = status === 'error' && error
+    ? (errorType ? `${errorType}: ${error}` : error)
+    : '';
 
   return (
     <Box
@@ -69,13 +75,25 @@ export function TaskCard({ taskId, label, status, onOpenTask }) {
         >
           {label || taskId}
         </Typography>
-        <Chip
-          label={cfg.label}
-          color={cfg.color}
-          size="small"
-          variant="outlined"
-          sx={{ height: 18, fontSize: '0.7rem' }}
-        />
+        {tooltip ? (
+          <Tooltip title={tooltip} arrow placement="top">
+            <Chip
+              label={cfg.label}
+              color={cfg.color}
+              size="small"
+              variant="outlined"
+              sx={{ height: 18, fontSize: '0.7rem' }}
+            />
+          </Tooltip>
+        ) : (
+          <Chip
+            label={cfg.label}
+            color={cfg.color}
+            size="small"
+            variant="outlined"
+            sx={{ height: 18, fontSize: '0.7rem' }}
+          />
+        )}
       </Box>
 
       {/* Open Task button */}

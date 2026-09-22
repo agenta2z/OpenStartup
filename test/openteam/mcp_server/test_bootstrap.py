@@ -1,4 +1,5 @@
 """Tests for openteam.bootstrap — sibling-repo path resolution."""
+
 from __future__ import annotations
 
 import logging
@@ -81,12 +82,13 @@ class TestEnsureSiblingsOnPath:
         af_src.mkdir(parents=True)
         rpu_src.mkdir(parents=True)
 
-        from openteam.bootstrap import _find_siblings_root
-
         # _find_siblings_root walks up from the openteam package itself,
         # so we cannot easily redirect it without the env var.
         # Instead, verify the env-var path takes precedence over walk-up.
         import os
+
+        from openteam.bootstrap import _find_siblings_root
+
         old = os.environ.get("OPENTEAM_SIBLINGS_ROOT")
         try:
             os.environ["OPENTEAM_SIBLINGS_ROOT"] = str(workspace)
@@ -142,6 +144,7 @@ class TestEnsureSiblingsOnPath:
         ensure_siblings_on_path() call site should trigger those imports.
         """
         import importlib
+
         # Re-import to verify the module loads cleanly on its own.
         # If bootstrap.py had top-level imports from siblings, this would
         # fail when siblings are not on sys.path.
