@@ -13,14 +13,14 @@ Covers:
 Mirrors the construction style of the sibling test_websocket_interactive.py:
 a fake async send callback that captures emitted messages.
 """
+
 from __future__ import annotations
 
 import asyncio
 from typing import Any, AsyncIterator
 
 import pytest
-
-from agent_foundation.ui.input_modes import ChoiceOption, InputModeConfig, InputMode
+from agent_foundation.ui.input_modes import ChoiceOption, InputMode, InputModeConfig
 from openteam.server.services.websocket_interactive import WebSocketInteractive
 
 
@@ -111,9 +111,7 @@ class TestTokenStamping:
     @pytest.mark.asyncio
     async def test_tokens_unstamped_without_round_context(self):
         interactive, sent = _make_interactive()
-        await interactive.stream_token_batches(
-            _token_stream(["hi"]), session_id="s"
-        )
+        await interactive.stream_token_batches(_token_stream(["hi"]), session_id="s")
         token_msgs = [m for m in sent if m["type"] == "token"]
         assert token_msgs
         for m in token_msgs:

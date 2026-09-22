@@ -34,10 +34,10 @@ Run **after** the Common A1-A15 checks pass. Replace `$WS` with the workspace pa
 | **R1** | Nested-BTA outer worker shape | `ls $WS/children/worker_*` shows ≥ 2 outer dirs (one per skill facet) | O-R1 |
 | **R2** | Nested-BTA inner worker shape | Each creation `$WS/children/worker_N` (inner BTA, not the association leaf) contains its own `children/worker_*` subdirs | O-R2 |
 | **R3** | Inner BTA isolation | Each outer worker's inner workers write to **their own** outputs, not shared paths | O-R3 (would reproduce as cross-worker symlinks, see common O-1) |
-| **R4** | Canonical deliverable filename | `$WS/outputs/final_deliverables/role_setup_report.md` exists (NOT `role_document.md`) | O-R4 |
+| **R4** | Canonical deliverable filename | `$WS/outputs/role_setup_report.md` exists (NOT `role_document.md`) | O-R4 |
 | **R5** | Role doc content was actually consumed | The outer aggregator's `$WS/children/aggregator/.../InferenceInput/*.txt` contains snippets / references from the user-supplied role doc (not just generic boilerplate) | O-R5 |
 | **R6** | Skill decomposition matches role doc | The breakdown output's facet names (or `(See file: ...)` paths to outer worker outputs) reference skills/tools mentioned in the user's role doc | O-R6 |
-| **R7** | Inner aggregators created actual skill/tool deliverables | `find $WS -name SKILL.md -type f` returns ≥ 1 AND `find $WS -name tool.json -type f` returns ≥ 1; `$WS/outputs/final_deliverables/` contains `skills/` and/or `tools/` subdirectories with structured deliverables, not just flat catalog documents | O-R7 |
+| **R7** | Inner aggregators created actual skill/tool deliverables | `find $WS -name SKILL.md -type f` returns ≥ 1 AND `find $WS -name tool.json -type f` returns ≥ 1; `$WS/outputs/` contains `skills/` and/or `tools/` subdirectories with structured deliverables, not just flat catalog documents | O-R7 |
 
 ## Quick One-Liner
 
@@ -51,7 +51,7 @@ for w in $WS/children/worker_*; do
   echo "  $(basename $w): $inner inner workers"
 done
 echo "=== R4: canonical deliverable filename ==="
-ls -la $WS/outputs/final_deliverables/role_setup_report.md 2>&1 | head -1
+ls -la $WS/outputs/role_setup_report.md 2>&1 | head -1
 echo "=== R5: role-doc content in aggregator input ==="
 grep -ci "machine learning\|MLE\|ML Engineer" \
   $WS/children/aggregator/logs/session/*.jsonl.parts/InferenceInput/*.txt \
@@ -59,7 +59,7 @@ grep -ci "machine learning\|MLE\|ML Engineer" \
 echo "=== R7: inner aggregators created actual skill/tool files ==="
 echo "SKILL.md: $(find $WS -name SKILL.md -type f 2>/dev/null | wc -l | tr -d ' ')"
 echo "tool.json: $(find $WS -name tool.json -type f 2>/dev/null | wc -l | tr -d ' ')"
-ls -d $WS/outputs/final_deliverables/skills $WS/outputs/final_deliverables/tools 2>/dev/null
+ls -d $WS/outputs/skills $WS/outputs/tools 2>/dev/null
 ```
 
 ---
@@ -80,7 +80,7 @@ ls -d $WS/outputs/final_deliverables/skills $WS/outputs/final_deliverables/tools
 - **Note**: This is the same class of bug as Common O-1 but at the nested-BTA layer (twice the surface area to inspect)
 
 ### O-R4 — Canonical deliverable has wrong filename
-- **Look for**: `$WS/outputs/final_deliverables/role_document.md` exists (create_role filename leaked) instead of `role_setup_report.md`
+- **Look for**: `$WS/outputs/role_document.md` exists (create_role filename leaked) instead of `role_setup_report.md`
 - **Distinguishes from healthy**: Filename matches the `output_path` declared in `role_setup.yaml` (i.e., `role_setup_report.md`)
 - **Why this matters**: A wrong filename here means BTA's `output_path` is being shadowed by another inferencer's, exactly the kind of A10/O-10 confusion the surfacing fix addresses
 
@@ -94,8 +94,8 @@ ls -d $WS/outputs/final_deliverables/skills $WS/outputs/final_deliverables/tools
 - **Distinguishes from healthy**: At least some breakdown facets correspond directly to skills/tools in the role doc; the inner subtasks dive into those specific skills
 
 ### O-R7 — Inner aggregators produced catalog documents instead of skill/tool files
-- **Look for**: `$WS/outputs/final_deliverables/` contains only flat `.md` report files (e.g., `MASTER_INVENTORY.md`, `ml_lifecycle_execution_stack.md`) but no `skills/` or `tools/` subdirectories. `find $WS -name SKILL.md` returns 0. Inner aggregator outputs are large consolidated catalog documents describing what skills/tools *should* be created, rather than the actual `SKILL.md`, `tool.json`, and `executor.py` files.
-- **Distinguishes from healthy**: A healthy run has `outputs/final_deliverables/skills/<name>/SKILL.md` and `outputs/final_deliverables/tools/<name>/tool.json` subdirectories with structured deliverable files. The inner aggregator's `InferenceInput` contains the `skill_tool_creation` task_instructions (not the generic aggregation default).
+- **Look for**: `$WS/outputs/` contains only flat `.md` report files (e.g., `MASTER_INVENTORY.md`, `ml_lifecycle_execution_stack.md`) but no `skills/` or `tools/` subdirectories. `find $WS -name SKILL.md` returns 0. Inner aggregator outputs are large consolidated catalog documents describing what skills/tools *should* be created, rather than the actual `SKILL.md`, `tool.json`, and `executor.py` files.
+- **Distinguishes from healthy**: A healthy run has `outputs/skills/<name>/SKILL.md` and `outputs/tools/<name>/tool.json` subdirectories with structured deliverable files. The inner aggregator's `InferenceInput` contains the `skill_tool_creation` task_instructions (not the generic aggregation default).
 - **Root causes** (both contributed in the observed failure):
   1. **Template cascade fallback**: `task_instructions/aggregation/skill_tool_creation.jinja2` did not exist. With `master_version=aggregation`, the cascade found `aggregation/default.jinja2` (generic "consolidate") before reaching the flat `skill_tool_creation.jinja2` (which has SKILL.md/tool.json writing instructions). Fix: moved `skill_tool_creation.jinja2` into the `aggregation/` subdirectory.
   2. **Preamble framing**: The implementation aggregation preamble said "Each input artifact is the outcome of one **execution** subtask... they should **compose, not compete**" — but inputs were research reports, not execution results. The aggregator interpreted this as "consolidate finished products" rather than "synthesize research into new deliverables." Fix: updated preamble to flexible wording matching the plan space.

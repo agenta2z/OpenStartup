@@ -1,4 +1,5 @@
 """TIER-1 tests for openteam.client.discovery — schema + read helpers."""
+
 from __future__ import annotations
 
 import json
@@ -7,28 +8,38 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-
 from openteam.client.discovery import (
-    DISCOVERY_DIR,
-    SCHEMA_VERSION,
-    SERVICE_NAME,
-    ServerHandle,
     compute_server_id,
     discover_servers,
+    DISCOVERY_DIR,
     find_server,
     health_check,
     pid_alive,
+    SCHEMA_VERSION,
+    ServerHandle,
+    SERVICE_NAME,
 )
 
 
 # ── Helper for crafting registry files ───────────────────────────────────────
-def _write_registry_entry(reg_dir: Path, *, server_id: str, pid: int,
-                          host: str = "127.0.0.1", port: int = 8000,
-                          runtime_root: str = "/tmp/rt") -> Path:
+def _write_registry_entry(
+    reg_dir: Path,
+    *,
+    server_id: str,
+    pid: int,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    runtime_root: str = "/tmp/rt",
+) -> Path:
     handle = ServerHandle(
-        server_id=server_id, pid=pid, host=host, port=port,
-        runtime_root=runtime_root, server_dir_name="server_test",
-        started_at="2026-05-18T00:00:00.000Z", version="0.1.0",
+        server_id=server_id,
+        pid=pid,
+        host=host,
+        port=port,
+        runtime_root=runtime_root,
+        server_dir_name="server_test",
+        started_at="2026-05-18T00:00:00.000Z",
+        version="0.1.0",
         process_command=["openteam-server", "--port", str(port)],
     )
     target = reg_dir / f"{server_id}.json"
@@ -65,7 +76,7 @@ class TestComputeServerId:
         assert sid.startswith("server_")
         # 12 hex chars after "server_"
         assert len(sid) == len("server_") + 12
-        assert all(c in "0123456789abcdef" for c in sid[len("server_"):])
+        assert all(c in "0123456789abcdef" for c in sid[len("server_") :])
 
 
 # ── pid_alive ────────────────────────────────────────────────────────────────
@@ -154,12 +165,24 @@ class TestServerHandle:
         assert h.service == SERVICE_NAME
         # process_command defaults to empty list — NOT same shared object
         a = ServerHandle(
-            server_id="a", pid=1, host="x", port=1, runtime_root="/", server_dir_name="x",
-            started_at="x", version="x",
+            server_id="a",
+            pid=1,
+            host="x",
+            port=1,
+            runtime_root="/",
+            server_dir_name="x",
+            started_at="x",
+            version="x",
         )
         b = ServerHandle(
-            server_id="b", pid=2, host="y", port=2, runtime_root="/", server_dir_name="y",
-            started_at="y", version="y",
+            server_id="b",
+            pid=2,
+            host="y",
+            port=2,
+            runtime_root="/",
+            server_dir_name="y",
+            started_at="y",
+            version="y",
         )
         a.process_command.append("a")
         assert b.process_command == []
@@ -189,11 +212,14 @@ class TestDiscoverServers:
     def test_empty_when_no_dir(self, isolated_registry, monkeypatch):
         # Remove the registry dir entirely
         import shutil
+
         shutil.rmtree(isolated_registry)
         assert discover_servers() == []
 
     def test_returns_live_entries(self, isolated_registry):
-        _write_registry_entry(isolated_registry, server_id="server_aaa", pid=os.getpid())
+        _write_registry_entry(
+            isolated_registry, server_id="server_aaa", pid=os.getpid()
+        )
         handles = discover_servers()
         assert len(handles) == 1
         assert handles[0].server_id == "server_aaa"
@@ -224,15 +250,22 @@ class TestDiscoverServers:
         assert not (isolated_registry / "server_bad.json").exists()
 
     def test_skips_newer_schema(self, isolated_registry):
-        (isolated_registry / "server_future.json").write_text(json.dumps({
-            "server_id": "server_future",
-            "pid": os.getpid(),
-            "host": "127.0.0.1", "port": 8000,
-            "runtime_root": "/tmp", "server_dir_name": "x",
-            "started_at": "x", "version": "x",
-            "schema_version": SCHEMA_VERSION + 1,  # newer
-            "service": "openteam",
-        }))
+        (isolated_registry / "server_future.json").write_text(
+            json.dumps(
+                {
+                    "server_id": "server_future",
+                    "pid": os.getpid(),
+                    "host": "127.0.0.1",
+                    "port": 8000,
+                    "runtime_root": "/tmp",
+                    "server_dir_name": "x",
+                    "started_at": "x",
+                    "version": "x",
+                    "schema_version": SCHEMA_VERSION + 1,  # newer
+                    "service": "openteam",
+                }
+            )
+        )
         # Skipped silently (forward-compat), NOT reaped (live newer server)
         assert discover_servers() == []
         assert (isolated_registry / "server_future.json").exists()
@@ -242,19 +275,29 @@ class TestDiscoverServers:
         rt1.mkdir()
         rt2 = tmp_path / "rt2"
         rt2.mkdir()
-        _write_registry_entry(isolated_registry, server_id="server_1", pid=os.getpid(),
-                              runtime_root=str(rt1))
-        _write_registry_entry(isolated_registry, server_id="server_2", pid=os.getpid(),
-                              runtime_root=str(rt2))
+        _write_registry_entry(
+            isolated_registry,
+            server_id="server_1",
+            pid=os.getpid(),
+            runtime_root=str(rt1),
+        )
+        _write_registry_entry(
+            isolated_registry,
+            server_id="server_2",
+            pid=os.getpid(),
+            runtime_root=str(rt2),
+        )
         only_rt1 = discover_servers(runtime_root=rt1)
         assert len(only_rt1) == 1
         assert only_rt1[0].server_id == "server_1"
 
     def test_filters_by_host(self, isolated_registry):
-        _write_registry_entry(isolated_registry, server_id="server_a", pid=os.getpid(),
-                              host="127.0.0.1")
-        _write_registry_entry(isolated_registry, server_id="server_b", pid=os.getpid(),
-                              host="0.0.0.0")
+        _write_registry_entry(
+            isolated_registry, server_id="server_a", pid=os.getpid(), host="127.0.0.1"
+        )
+        _write_registry_entry(
+            isolated_registry, server_id="server_b", pid=os.getpid(), host="0.0.0.0"
+        )
         only_loopback = discover_servers(host="127.0.0.1")
         assert len(only_loopback) == 1
         assert only_loopback[0].host == "127.0.0.1"
@@ -266,17 +309,20 @@ class TestFindServer:
         assert find_server() is None
 
     def test_returns_first_matching(self, isolated_registry):
-        _write_registry_entry(isolated_registry, server_id="server_p1", pid=os.getpid(),
-                              port=8000)
+        _write_registry_entry(
+            isolated_registry, server_id="server_p1", pid=os.getpid(), port=8000
+        )
         h = find_server(port=8000)
         assert h is not None
         assert h.port == 8000
 
     def test_port_filter(self, isolated_registry):
-        _write_registry_entry(isolated_registry, server_id="server_p8000", pid=os.getpid(),
-                              port=8000)
-        _write_registry_entry(isolated_registry, server_id="server_p8001", pid=os.getpid(),
-                              port=8001)
+        _write_registry_entry(
+            isolated_registry, server_id="server_p8000", pid=os.getpid(), port=8000
+        )
+        _write_registry_entry(
+            isolated_registry, server_id="server_p8001", pid=os.getpid(), port=8001
+        )
         h = find_server(port=8001)
         assert h is not None
         assert h.port == 8001

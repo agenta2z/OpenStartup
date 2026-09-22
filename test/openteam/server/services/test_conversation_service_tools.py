@@ -33,6 +33,7 @@ _TEMPLATE_FILE = _TEMPLATES_DIR / "conversation" / "main" / "initial.jinja2"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_whitelist() -> list[str]:
     """Return enabled_action_tools from .initial.config.yaml (empty list if absent)."""
     data = yaml.safe_load(_CONFIG_FILE.read_text(encoding="utf-8"))
@@ -80,6 +81,7 @@ def _render_prompt_with_tools(tool_names: list[str]) -> str:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def whitelist() -> list[str]:
     return _load_whitelist()
@@ -93,6 +95,7 @@ def tool_json_map() -> dict[str, Path]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestWhitelistConfig:
     """The whitelist config file is well-formed and non-empty."""
@@ -120,7 +123,10 @@ class TestToolJsonRegistry:
         missing = [name for name in whitelist if name not in tool_json_map]
         assert not missing, (
             f"Whitelisted tool(s) have no tool.json and will NOT be loaded into the prompt:\n"
-            + "\n".join(f"  - {name}  (expected a tool.json under {_TOOLS_DIR}/{name}/)" for name in missing)
+            + "\n".join(
+                f"  - {name}  (expected a tool.json under {_TOOLS_DIR}/{name}/)"
+                for name in missing
+            )
         )
 
     def test_tool_json_names_match_directory(self, whitelist, tool_json_map):
@@ -152,18 +158,22 @@ class TestFilterToolsByConfig:
 
     def _make_mock_registry(self, names: list[str]) -> dict:
         """Build a minimal mock tool registry with the given tool names."""
+
         class _MockTool:
             def __init__(self, name):
                 self.name = name
                 self.aliases = []
+
         return {name: _MockTool(name) for name in names}
 
     def _make_mock_renderer(self, whitelist: list[str]):
         """Build a mock prompt renderer whose template_config returns the given whitelist."""
+
         class _MockRenderer:
             @property
             def template_config(self):
                 return {"tools": {"enabled_action_tools": whitelist}}
+
         return _MockRenderer()
 
     def test_whitelisted_tools_are_kept(self, whitelist):
@@ -219,7 +229,9 @@ class TestFilterToolsByConfig:
         all_names = ["tool_a", "tool_b"]
         registry = self._make_mock_registry(all_names)
 
-        filtered = ConversationService._filter_tools_by_config(registry, _NoConfigRenderer())
+        filtered = ConversationService._filter_tools_by_config(
+            registry, _NoConfigRenderer()
+        )
 
         assert filtered == registry, (
             "Absent whitelist config should return the full registry unchanged"

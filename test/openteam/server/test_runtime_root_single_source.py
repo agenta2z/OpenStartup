@@ -9,6 +9,7 @@ AST scan: ``apply_runtime_root`` must contain ``os.environ[...] = ...`` for
 the ``OPENTEAM_RUNTIME_DIR`` key. Any future refactor that stores the value
 in a private module global would silently break the single-source guarantee.
 """
+
 from __future__ import annotations
 
 import ast
@@ -17,6 +18,7 @@ from pathlib import Path
 
 def _module_path() -> Path:
     import openteam.server.runtime_root as mod
+
     return Path(mod.__file__)
 
 

@@ -9,9 +9,10 @@ To bump the schema:
   2. Update _EXPECTED_FIELDS below to match the new field set.
   3. Document the migration in docs/SERVER_DISCOVERY.md.
 """
+
 from __future__ import annotations
 
-from openteam.client.discovery import SCHEMA_VERSION, SERVICE_NAME, ServerHandle
+from openteam.client.discovery import SCHEMA_VERSION, ServerHandle, SERVICE_NAME
 
 
 # ── Schema version sentinel ─────────────────────────────────────────────────

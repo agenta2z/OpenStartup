@@ -258,7 +258,9 @@ def promote_to_artifacts(ws: SingleShotRunWorkspace) -> Path:
         "source_call_dir": str(ws.call_dir),
         "schema": "artifact_provenance_v1",
     }
-    (dst / "_provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+    (dst / "_provenance.json").write_text(
+        json.dumps(provenance, indent=2), encoding="utf-8"
+    )
 
     logger.info("Promoted artifacts: %s -> %s", src, dst)
     return dst

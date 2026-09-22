@@ -34,6 +34,7 @@ import { useServerStatus } from '../../hooks/useServerStatus';
 import { useManagerChat } from '../../hooks/useManagerChat';
 import { usePromptViewer } from '../../hooks/usePromptViewer';
 import { LoadingIndicator } from '../../shared';
+import { DashboardPanel } from '@agent-foundation/shared-ui';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { StreamingMessage } from '../chat/StreamingMessage';
 import { ChatInput } from '../chat/ChatInput';
@@ -44,8 +45,10 @@ import { useFileViewer } from '../../hooks/useFileViewer';
 import { FileViewer } from '../layout/FileViewer';
 import ConnectionStatusBar from '../layout/ConnectionStatusBar';
 import { TaskCard } from '../chat/TaskCard';
+import { DashboardCard } from '../chat/DashboardCard';
 import { TaskPanel } from '../chat/TaskPanel';
 import { BackendSelector } from '../chat/BackendSelector';
+import { useHubApiClient } from '../../hooks/useHubApiClient';
 import { useUiPreferences } from '../../preferences/UiPreferencesProvider';
 
 
@@ -522,7 +525,7 @@ async function pathAutocompleteProvider({ prefix, partial = '', dirsOnly = false
   }
 }
 
-export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onActiveTaskChanged, onSwitchTabRef, onSessionsShouldRefresh }) {
+export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onActiveTaskChanged, onDashboardsChanged, onActiveDashboardChanged, onSwitchTabRef, onSessionsShouldRefresh }) {
   // Load session metadata (title etc.) via REST
   const { data: sessionMeta, loading } = useApiData(
     sessionId ? `/sessions/${sessionId}` : null
@@ -543,6 +546,9 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     sendPendingInputResponse,
     isConnected,
     resumeFromTurn,
+    resumeFromRound,
+    isResuming,
+    resumeStage,
     fetchCheckpoints,
     restoreCheckpoint,
     sessionsRefreshTick,
@@ -551,7 +557,23 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     activeTaskId,
     switchTab,
     graphState,
+    dashboards,
+    activeDashboardId,
+    sendHubCommand,
+    openDashboardFromWidget,
   } = useManagerChat(sessionId);
+
+  // HubApiClient for the active dashboard. DashboardPanel is context-free, so
+  // this is threaded purely via the `apiClient` prop. The long-running actions
+  // ride the existing manager socket through `sendHubCommand`; switchTab focuses
+  // the hub subtab. Built unconditionally (hook rules) — only used when a
+  // dashboard tab is active.
+  const hubApiClient = useHubApiClient({
+    sessionId,
+    hubId: activeDashboardId,
+    sendHubCommand,
+    switchTab,
+  });
 
   const promptViewer = usePromptViewer();
   const {
@@ -613,11 +635,32 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
   }, [inputValue, isConnected, sendMessage]);
 
   // Resume the conversation from a chosen human turn (optionally dropping the
-  // tasks created after it). The hook truncates history at message.id, the
-  // server re-sends session_init, and the turn's text is auto-replayed.
+  // tasks created after it). The hook truncates history AFTER message.id
+  // (keeping that turn); the server re-sends session_init and re-runs the kept
+  // turn server-side (no client replay).
   const handleResumeFromTurn = useCallback((message, dropTasks) => {
-    resumeFromTurn?.(message.id, dropTasks, message.content);
+    resumeFromTurn?.(message.id, dropTasks);
   }, [resumeFromTurn]);
+
+  // Resume from a chosen assistant ROUND — regenerate that round onward. The
+  // server rewinds to the round + auto-forwards the loop (no client replay).
+  const handleResumeFromRound = useCallback((message, dropTasks) => {
+    resumeFromRound?.(message.id, dropTasks);
+  }, [resumeFromRound]);
+
+  // Back-out (R2/G7). Leaving the hub for the session view. When a Phase-2b
+  // pending input is STILL open (the user opened the hub via "Go To Experiment
+  // Hub" but never confirmed), R1 no longer resolves it on open — so the chat
+  // composer is disabled (`disabled={... || !!pendingInput}`). Cancel the pending
+  // widget on the way out (reusing the existing cancelRequest, which nulls
+  // pendingInput + emits {type:'cancel'}; the server leaves the SOP at 2b) so
+  // returning to chat re-enables the composer. No pending input → plain switch.
+  const handleDashboardBack = useCallback(() => {
+    if (pendingInput) {
+      cancelRequest?.();
+    }
+    switchTab(null, 'session');
+  }, [pendingInput, cancelRequest, switchTab]);
 
   const theme = useTheme();
   const widgetMaxWidth = theme.custom?.layout?.widgetMaxWidth || '75%';
@@ -632,6 +675,16 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
   useEffect(() => {
     onActiveTaskChanged?.(activeTaskId);
   }, [activeTaskId, onActiveTaskChanged]);
+
+  // Sync dashboards up to App so Sidebar can render dashboard subtabs
+  useEffect(() => {
+    onDashboardsChanged?.(dashboards);
+  }, [dashboards, onDashboardsChanged]);
+
+  // Sync activeDashboardId so Sidebar can highlight the active dashboard subtab
+  useEffect(() => {
+    onActiveDashboardChanged?.(activeDashboardId);
+  }, [activeDashboardId, onActiveDashboardChanged]);
 
   // Expose switchTab to App so Sidebar clicks can drive it
   useEffect(() => {
@@ -658,10 +711,32 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
     );
   }
 
+  // Dashboard panel view — replaces conversation when a dashboard tab is open.
+  // Sibling panel-swap to the task branch above. DashboardPanel is context-free:
+  // everything goes via props. The manifest + seed come from the stored hub
+  // entry (delivered at runtime in dashboard_open / rehydrated from
+  // dashboard_ref) so the panel renders even before the experiment_hub registry
+  // entry is built in. wsEvents$ is the hub's per-hub live-update bus.
+  if (activeTabType === 'dashboard' && activeDashboardId) {
+    const dash = (dashboards || {})[activeDashboardId] || {};
+    return (
+      <DashboardPanel
+        dashboardId="experiment_hub"
+        manifest={dash.manifest || undefined}
+        initialState={dash.seed || undefined}
+        sessionId={sessionId}
+        hubId={activeDashboardId}
+        apiClient={hubApiClient}
+        wsEvents$={dash.wsEvents$}
+        onBack={handleDashboardBack}
+      />
+    );
+  }
+
   const sessionTitle = sessionMeta?.title || 'Session';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', mx: -3, mt: -3, mb: -3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0 }}>
       {/* Connection Status */}
       <ConnectionStatusBar status={serverStatus} serverInfo={serverInfo} />
 
@@ -708,7 +783,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
       </Box>
 
       {/* Messages */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', px: 3, py: 2 }}>
+      <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'auto', px: 3, py: 2 }}>
         {messages.map((msg) => {
           // Hide auto-advance messages (server-driven continuation, not user-visible)
           if (msg.metadata?.is_auto_advance) return null;
@@ -745,7 +820,22 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
                   taskId={msg.taskId}
                   label={msg.label}
                   status={msg.status}
+                  error={msg.error}
+                  errorType={msg.errorType}
                   onOpenTask={(id) => switchTab(id, 'task')}
+                />
+              </Box>
+            );
+          }
+          if (msg.role === 'dashboard_ref') {
+            return (
+              <Box key={msg.id} sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2, ml: 5 }}>
+                <DashboardCard
+                  hubId={msg.hubId}
+                  label={msg.label}
+                  icon={msg.icon}
+                  status={msg.status}
+                  onOpenDashboard={(id) => switchTab(id, 'dashboard')}
                 />
               </Box>
             );
@@ -756,6 +846,8 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
               message={msg}
               onViewPrompt={() => handleViewPrompt(msg)}
               onViewFullResponse={promptViewer.openFullResponse}
+              onResumeFromRound={isRealSessions ? handleResumeFromRound : undefined}
+              disabled={!isConnected || isStreaming || isResuming}
             />
           );
         })}
@@ -773,16 +865,54 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
           />
         )}
 
-        {/* Conversation tool widget — inside scroll area, aligned with AI messages */}
-        {pendingInput && (
-          <Box sx={{ mb: 2, ml: 5, maxWidth: widgetMaxWidth }}>
-            <ConversationToolWidget
-              pendingInput={pendingInput}
-              onSubmit={sendPendingInputResponse}
-              onView={openFileViewer}
-              onViewFolder={openFolderViewer}
-              pathAutocompleteProvider={pathAutocompleteProvider}
-            />
+        {/* Conversation tool widget — inside scroll area, aligned with AI messages.
+            G5 — proposal_selection is a rich grid widget that needs full width
+            (~46 hypothesis cards across 5 phase tabs); other widgets
+            (confirmation/single-choice/text) keep the narrow 75%-indented mount. */}
+        {pendingInput && (() => {
+          // The widget type lives on the input_mode metadata (set in
+          // useManagerChat from the `pending_input` frame), not as a top-level
+          // `widget_type`/`widget.type` on pendingInput — the old paths were
+          // always undefined, so the full-width branch never applied.
+          const isProposalSelection =
+            pendingInput?.inputMode?.metadata?.widget_type === 'proposal_selection';
+          const boxSx = isProposalSelection
+            ? { mb: 2, maxWidth: '100%' }  // full width for rich grid
+            : { mb: 2, ml: 5, maxWidth: widgetMaxWidth };  // narrow default
+          return (
+            <Box sx={boxSx}>
+              <ConversationToolWidget
+                pendingInput={pendingInput}
+                onSubmit={sendPendingInputResponse}
+                onOpenDashboard={openDashboardFromWidget}
+                onView={openFileViewer}
+                onViewFolder={openFolderViewer}
+                pathAutocompleteProvider={pathAutocompleteProvider}
+              />
+            </Box>
+          );
+        })()}
+
+        {/* Non-blocking "Resuming…" banner during a round/turn resume prep.
+            Sibling to the "Connecting…" block — keeps the conversation usable
+            (scroll/menus), never a blocking overlay. Hands off to the normal
+            streaming indicator once regeneration begins (message_start). */}
+        {isResuming && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2, ml: 5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                fontStyle: 'italic',
+                animation: 'pulse 1.5s ease-in-out infinite',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 0.4 },
+                  '50%': { opacity: 1 },
+                },
+              }}
+            >
+              {resumeStage ? `Resuming… (${resumeStage})` : 'Resuming…'}
+            </Typography>
           </Box>
         )}
 
@@ -813,12 +943,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
       <Box
         sx={{
           px: 2,
-          // Asymmetric padding: keep top breathing room (separation from
-          // messages), but shrink bottom so the input doesn't appear to
-          // float away from the window edge. (Was py: 1.5 — symmetric 12px
-          // top/bottom — which left a noticeable gap below the input.)
-          pt: 1.5,
-          pb: 0.5,
+          py: 1.5,
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           backgroundColor: 'background.paper',
           flexShrink: 0,
@@ -829,7 +954,7 @@ export default function ManagerChatView({ sessionId, onBack, onTasksChanged, onA
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            disabled={!isConnected || isStreaming || !!pendingInput}
+            disabled={!isConnected || isStreaming || isResuming || !!pendingInput}
           />
         ) : (
           <ChatInput

@@ -1,11 +1,11 @@
 """TIER-2 smoke tests: each wrapper calls its executor and returns rendered output."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from openteam.mcp_server.server import (
     openteam_create_role,
     openteam_project_onboarding,

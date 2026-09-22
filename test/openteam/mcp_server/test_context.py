@@ -1,4 +1,5 @@
 """TIER-1 tests for openteam.mcp_server.context."""
+
 from __future__ import annotations
 
 from openteam.mcp_server.context import build_session_context
@@ -30,5 +31,11 @@ class TestBuildSessionContext:
         assert "task_id" in ctx
         assert ctx["interactive"] is None
         # None of the env-mapped keys should be present
-        for mapped_key in ("working_dir", "server_dir", "cloud_id", "uct_token", "email"):
+        for mapped_key in (
+            "working_dir",
+            "server_dir",
+            "cloud_id",
+            "uct_token",
+            "email",
+        ):
             assert mapped_key not in ctx

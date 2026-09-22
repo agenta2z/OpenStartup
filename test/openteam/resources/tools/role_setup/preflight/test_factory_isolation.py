@@ -26,7 +26,7 @@ from ._common import OUTER_YAML_PATH, set_template_root_env
 def _yaml_bta(tmp_path, monkeypatch, overrides=None):
     set_template_root_env(monkeypatch)
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
     base_overrides = {"_params": {"workspace_root": str(tmp_path)}}
     if overrides:

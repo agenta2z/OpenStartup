@@ -328,8 +328,8 @@ fi
 # -----------------------------------------------------------------------------
 # Step 5: Resolve log file (output goes into workspace, not a tmp path)
 # -----------------------------------------------------------------------------
-# Per 2026-05-18 surfacing fix, role_setup writes its deliverable under:
-#   <workspace>/outputs/final_deliverables/role_setup_output.md
+# role_setup writes its deliverable under:
+#   <workspace>/outputs/role_setup_output.md
 # where <workspace> = <REPO_ROOT>/_runtime/tasks/role_setup/role_setup_<TS>_<UUID>/
 if [ -z "${LOG_DIR}" ]; then
     LOG_DIR="${REPO_ROOT}/_runtime/tasks/role_setup"
@@ -352,7 +352,7 @@ _move_log_to_workspace() {
 
 log_ok "Log file:    ${LOG_FILE}"
 log_ok "Workspace:   ${REPO_ROOT}/_runtime/tasks/role_setup/role_setup_<TS>_<UUID>/"
-log_ok "Deliverable: <workspace>/outputs/final_deliverables/role_setup_output.md"
+log_ok "Deliverable: <workspace>/outputs/role_setup_output.md"
 
 # -----------------------------------------------------------------------------
 # Step 6: Sanity check role_setup module is importable
@@ -440,7 +440,7 @@ else
         _move_log_to_workspace "${LOG_FILE}"
         log_ok "Run completed successfully"
         log_ok "Log: ${LOG_FILE}"
-        log_ok "Deliverable: see <workspace>/outputs/final_deliverables/role_setup_output.md"
+        log_ok "Deliverable: see <workspace>/outputs/role_setup_output.md"
         log_ok "  (workspace path is printed early in the log; grep for 'workspace')"
         exit 0
     else

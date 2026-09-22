@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Bootstrap sys.path
@@ -52,9 +52,7 @@ class PerSessionOverrideTests(unittest.TestCase):
         svc = _service(backend="claude_cli")
         sentinel_a = object()
         sentinel_b = object()
-        with patch(
-            "openteam.server.backends.get_registry"
-        ) as fake_get_registry:
+        with patch("openteam.server.backends.get_registry") as fake_get_registry:
             reg = MagicMock()
             # First create() call returns sentinel_a, second sentinel_b.
             reg.create.side_effect = [sentinel_a, sentinel_b]
@@ -80,9 +78,7 @@ class PerSessionOverrideTests(unittest.TestCase):
         svc = _service(backend="claude_cli")
         sentinel_a = object()
         sentinel_b = object()
-        with patch(
-            "openteam.server.backends.get_registry"
-        ) as fake_get_registry:
+        with patch("openteam.server.backends.get_registry") as fake_get_registry:
             reg = MagicMock()
             reg.create.side_effect = [sentinel_a, sentinel_b]
             reg.list_backends.return_value = {
@@ -102,16 +98,12 @@ class PerSessionOverrideTests(unittest.TestCase):
             )
 
             # Cache evicted; next call rebuilds
-            r2 = svc._get_session_inferencer(
-                "s1", session={"llm_backend": "rovodev"}
-            )
+            r2 = svc._get_session_inferencer("s1", session={"llm_backend": "rovodev"})
             self.assertIs(r2, sentinel_b)
 
     def test_set_session_backend_unknown_raises(self):
         svc = _service(backend="claude_cli")
-        with patch(
-            "openteam.server.backends.get_registry"
-        ) as fake_get_registry:
+        with patch("openteam.server.backends.get_registry") as fake_get_registry:
             reg = MagicMock()
             reg.list_backends.return_value = {
                 "claude_cli": MagicMock(),

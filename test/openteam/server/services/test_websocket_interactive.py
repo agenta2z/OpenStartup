@@ -28,7 +28,6 @@ async def _noop_send(msg: dict) -> None:  # pragma: no cover - trivial
 
 
 class TestForBackgroundTask:
-
     def test_registers_and_returns_task_child(self):
         """Returns a TaskWebSocketInteractive with its own registered queue."""
         registry: dict = {}
@@ -93,7 +92,9 @@ class TestForBackgroundTask:
 
     def test_raises_without_registry(self):
         """No routing table wired -> RuntimeError so callers fall back to yolo."""
-        parent = WebSocketInteractive(_noop_send, asyncio.Queue())  # no task_input_queues
+        parent = WebSocketInteractive(
+            _noop_send, asyncio.Queue()
+        )  # no task_input_queues
         with pytest.raises(RuntimeError):
             parent.for_background_task("t1")
 

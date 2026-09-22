@@ -1,10 +1,10 @@
 """TIER-1: render_result surfaces _path/_dir keys as Artifacts and ignores others."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-
 from openteam.mcp_server._helpers import render_result
 
 # Representative context_updates per tool, using known _path / _dir suffixes.
@@ -44,7 +44,11 @@ class TestRenderArtifactsDiscovery:
         text = render_result(obj)
 
         for key, value in ctx.items():
-            if (key.endswith("_path") or key.endswith("_dir")) and isinstance(value, str) and value:
+            if (
+                (key.endswith("_path") or key.endswith("_dir"))
+                and isinstance(value, str)
+                and value
+            ):
                 assert f"{key}: {value}" in text, (
                     f"Expected artifact '{key}: {value}' in rendered output "
                     f"for tool '{tool_name}'"

@@ -13,6 +13,7 @@ SKIP CONDITIONS:
   not, the test SKIPs rather than failing (consoles scripts only land after
   ``pip install -e .``, which CI may not do for every workflow).
 """
+
 from __future__ import annotations
 
 import json
@@ -24,12 +25,7 @@ import time
 from pathlib import Path
 
 import pytest
-
-from openteam.client import (
-    AttachFailed,
-    attach_session_via_http,
-    find_server,
-)
+from openteam.client import attach_session_via_http, AttachFailed, find_server
 
 
 def _pick_free_port() -> int:
@@ -67,23 +63,30 @@ def server_proc(tmp_path, monkeypatch):
     # Prefer the console script; fall back to python -m so the test works
     # whether or not the package was installed editable.
     import shutil
+
     cmd = shutil.which("openteam-server")
     if cmd is None:
         argv = [sys.executable, "-m", "openteam.server.run_server"]
     else:
         argv = [cmd]
     argv += [
-        "--host", "127.0.0.1",
-        "--port", str(port),
-        "--runtime-root", str(runtime_root),
-        "--real-sessions", str(runtime_root),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--runtime-root",
+        str(runtime_root),
+        "--real-sessions",
+        str(runtime_root),
     ]
 
     log_file = tmp_path / "server.log"
     with open(log_file, "w") as logf:
         proc = subprocess.Popen(
-            argv, env=env,
-            stdout=logf, stderr=subprocess.STDOUT,
+            argv,
+            env=env,
+            stdout=logf,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
 
@@ -153,10 +156,14 @@ class TestUnifiedFrontendSessionE2E:
     def test_attach_is_idempotent_over_http(self, server_proc):
         handle = server_proc["handle"]
         r1 = attach_session_via_http(
-            handle, external_id="rovodev-e2e-idem", frontend_id="rovodev",
+            handle,
+            external_id="rovodev-e2e-idem",
+            frontend_id="rovodev",
         )
         r2 = attach_session_via_http(
-            handle, external_id="rovodev-e2e-idem", frontend_id="rovodev",
+            handle,
+            external_id="rovodev-e2e-idem",
+            frontend_id="rovodev",
         )
         assert r1.created is True
         assert r2.created is False
@@ -167,7 +174,9 @@ class TestUnifiedFrontendSessionE2E:
         handle = server_proc["handle"]
         with pytest.raises(AttachFailed):
             attach_session_via_http(
-                handle, external_id="bogus-prefix-abc", frontend_id="bogus",
+                handle,
+                external_id="bogus-prefix-abc",
+                frontend_id="bogus",
             )
 
     def test_registry_is_cleaned_on_graceful_shutdown(self, server_proc):

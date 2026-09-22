@@ -5,6 +5,7 @@ in a fresh subprocess with only src/ on PYTHONPATH (no sibling repos).
 This catches missing bootstrap calls or accidental hard imports from
 AgentFoundation / RichPythonUtils at module level.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,7 +43,9 @@ def _clean_env() -> dict[str, str]:
 class TestToolCliImport:
     """Verify each tool's cli module is importable with only src/ on PYTHONPATH."""
 
-    @pytest.mark.parametrize("module", _TOOL_MODULES, ids=[m.split(".")[-1] for m in _TOOL_MODULES])
+    @pytest.mark.parametrize(
+        "module", _TOOL_MODULES, ids=[m.split(".")[-1] for m in _TOOL_MODULES]
+    )
     def test_each_tool_cli_imports_in_fresh_subprocess(self, module):
         """``python -c 'import {module}.cli'`` must exit 0 in a clean env.
 
@@ -67,7 +70,9 @@ class TestToolCliImport:
 class TestToolCliHelp:
     """Verify each tool's ``--help`` works in a minimal environment."""
 
-    @pytest.mark.parametrize("module", _TOOL_MODULES, ids=[m.split(".")[-1] for m in _TOOL_MODULES])
+    @pytest.mark.parametrize(
+        "module", _TOOL_MODULES, ids=[m.split(".")[-1] for m in _TOOL_MODULES]
+    )
     def test_each_tool_cli_help_in_fresh_subprocess(self, module):
         """``python -m {module} --help`` must exit 0 with minimal PYTHONPATH.
 

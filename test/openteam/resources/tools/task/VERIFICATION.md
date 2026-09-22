@@ -27,7 +27,7 @@
 | **Per-MFDual flow inferencers** | leaves rendered with `plan/main/initial.jinja2` / `followup.jinja2` |
 | **Outer Dual fixer** | **LEAF** (lightweight; uses `plan/main/followup.jinja2`) — explicitly NOT the full BTA{MFDual} re-decomposition |
 | **Canonical deliverable** | `output.md` |
-| **Worker artifact** | `output.md` (per worker MFDual's `final_deliverables/`) |
+| **Worker artifact** | `output.md` (in each worker MFDual's `outputs/`) |
 | **Default `--max-breakdown`** | 3 (`_params.plan_max_breakdown`) |
 | **Default `flow_max_dynamic_steps`** | 3 |
 | **Default `consensus_max_iterations`** | 3 |
@@ -37,10 +37,9 @@
 
 ```
 task_<YYYYMMDD_HHMMSS>_<uuid>/
-├── outputs/
-│   ├── output.md                       ← symlink → propose/outputs/final_deliverables/output.md
+├── outputs/                            ← the deliverable set (no final_deliverables/ subfolder)
+│   ├── output.md                       ← symlink → propose/outputs/output.md
 │   ├── output_manifest.json
-│   ├── final_deliverables/             ← contains the final symlink target
 │   └── round_log.jsonl
 ├── logs/
 ├── artifacts/
@@ -93,7 +92,7 @@ These rows extend the common audit with task-only structural concerns (multi-agg
 | TK-A-1 | Aggregator count matches topology contract | Exactly `1 outer BTA aggregator + N_workers inner MFDual aggregators` exist with non-empty `InferenceInput/` | TK-O-1 |
 | TK-A-2 | Round-numbered subdirs are populated and consecutive | For each `worker_N/.../jsonl.parts/Round<NN>/` directory, the next-lower `Round<NN-1>/` ALSO exists; no gaps; max round ≤ `flow_max_dynamic_steps` | TK-O-1 |
 | TK-A-3 | Outer Dual fixer ran as LEAF, not full re-decomposition | If `round_01/` (or later round) exists at TOP level, the fixer's session log shows ONE inferencer call site (leaf path), NOT a nested `children/propose/children/{breakdown,worker_0,..}/` tree | TK-O-2 |
-| TK-A-4 | Deliverable promotion chain intact (each hop has canonical content) | For each level `flow_N → MFDual worker → outer BTA aggregator → outer Dual → top` the corresponding `outputs/final_deliverables/output.md` (or symlink target) is non-empty AND content size is non-decreasing through the chain (synthesis grows or preserves) | TK-O-3 |
+| TK-A-4 | Deliverable promotion chain intact (each hop has canonical content) | For each level `flow_N → MFDual worker → outer BTA aggregator → outer Dual → top` the corresponding `outputs/output.md` (or symlink target) is non-empty AND content size is non-decreasing through the chain (synthesis grows or preserves) | TK-O-3 |
 | TK-A-5 | `--plan` mode loaded plan-only YAML (not plan-then-implement) | When CLI used `--plan`, the workspace's `artifacts/topology_source.yaml` (or equivalent) resolves to `breakdown-multiflow-plan.yaml`, NOT `breakdown-multiflow-plan-then-implement.yaml` | TK-O-4 |
 | TK-A-6 | Inner aggregators reference peer flows via `(See file: ...)` | For each `worker_N/children/propose/children/aggregator/.../InferenceInput/*.txt`, the prompt contains `(See file: ...)` references pointing to `flow_0/.../output.md` AND `flow_1/.../output.md` of the SAME worker_N subtree | (Common A7 extension) |
 | TK-A-7 | No iteration runaway | `worker_N/.../jsonl.parts/Round<NN>/` count ≤ `flow_max_dynamic_steps`; top-level `round_NN/` count ≤ `consensus_max_iterations` | (Cost guard) |
@@ -134,8 +133,8 @@ fi
 
 # TK-A-4: promotion chain — count canonical output.md sizes at each level
 for level in \
-  "$WS/outputs/final_deliverables/output.md" \
-  "$WS/children/propose/outputs/final_deliverables/output.md" \
+  "$WS/outputs/output.md" \
+  "$WS/children/propose/outputs/output.md" \
   "$WS/children/propose/children/aggregator/outputs/output.md"; do
   if [ -e "$level" ]; then
     size=$(wc -c < "$level" 2>/dev/null | tr -d ' ')
@@ -180,9 +179,9 @@ echo "TK-A-7 outer Dual rounds: $top_rounds (cap = consensus_max_iterations, def
 - **Distinguishes from healthy**: A healthy fixer round is a single leaf inferencer that takes `plan/main/followup.jinja2` + prior plan + reviewer feedback and emits a refined plan; its session log contains a SINGLE inferencer call site without nested `children/` subtree.
 
 ### TK-O-3 — Deliverable promotion chain drops content at a hop
-- **Look for**: The top-level `$WS/outputs/output.md` exists but its content is a tiny BTA "summary text" wrapper instead of being a symlink (or copy) of the substantive aggregator output; OR one of the intermediate hops (`worker_N/.../outputs/final_deliverables/output.md`, `outer aggregator/outputs/output.md`, etc.) is missing or empty despite later/earlier hops being populated.
+- **Look for**: The top-level `$WS/outputs/output.md` exists but its content is a tiny BTA "summary text" wrapper instead of being a symlink (or copy) of the substantive aggregator output; OR one of the intermediate hops (`worker_N/.../outputs/output.md`, `outer aggregator/outputs/output.md`, etc.) is missing or empty despite later/earlier hops being populated.
 - **Source**: `AgentFoundation/_docs/_plan/mfdual_bug_fixes/mfdual_hollow_workspace_anomaly_7_fix_plan.md` (Anomaly 7: hollow MFDual subtree + Bug 1 / unified_finalize_output work — `outputs/output.md` was summary text instead of symlinked canonical).
-- **Distinguishes from healthy**: Each hop in the chain `flow_N → worker MFDual final_deliverables → outer BTA aggregator → outer Dual top` has a non-empty `output.md`, and the top-level `outputs/output.md` is either the canonical content or a symlink to it.
+- **Distinguishes from healthy**: Each hop in the chain `flow_N → worker MFDual outputs → outer BTA aggregator → outer Dual top` has a non-empty `output.md`, and the top-level `outputs/output.md` is either the canonical content or a symlink to it.
 
 ### TK-O-4 — `--plan` mode loaded plan-then-implement YAML by mistake
 - **Look for**: Run was invoked with `--plan` but execution proceeds into the implementation stage; OR the outer Dual reviews an empty PTI implementation deliverable using `template_root_space=implementation` criteria (wrong review semantics, wasted iterations).

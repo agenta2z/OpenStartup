@@ -1,4 +1,5 @@
 """TIER-1 tests for openteam.server._register — discovery write hook."""
+
 from __future__ import annotations
 
 import json
@@ -10,12 +11,7 @@ import time
 from pathlib import Path
 
 import pytest
-
-from openteam.server._register import (
-    ConflictError,
-    register_server,
-    unregister_server,
-)
+from openteam.server._register import ConflictError, register_server, unregister_server
 
 
 @pytest.fixture
@@ -49,8 +45,11 @@ class TestRegisterServer:
 
     def test_no_tmp_files_left_behind(self, isolated_registry, tmp_path):
         register_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8000,
-            server_dir_name="server_x", process_command=["x"],
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8000,
+            server_dir_name="server_x",
+            process_command=["x"],
         )
         leftovers = list(isolated_registry.glob("*.tmp"))
         assert leftovers == [], f"tmp files leaked: {leftovers}"
@@ -58,20 +57,30 @@ class TestRegisterServer:
     def test_overwrites_stale_pid_entry(self, isolated_registry, tmp_path):
         # Pre-write an entry with a dead PID
         sid_file = isolated_registry / "server_zzz.json"
-        sid_file.write_text(json.dumps({
-            "server_id": "server_zzz",
-            "pid": 99999999,  # dead
-            "host": "127.0.0.1", "port": 8000,
-            "runtime_root": str(tmp_path), "server_dir_name": "x",
-            "started_at": "x", "version": "x",
-            "schema_version": 1, "service": "openteam",
-            "process_command": [],
-        }))
+        sid_file.write_text(
+            json.dumps(
+                {
+                    "server_id": "server_zzz",
+                    "pid": 99999999,  # dead
+                    "host": "127.0.0.1",
+                    "port": 8000,
+                    "runtime_root": str(tmp_path),
+                    "server_dir_name": "x",
+                    "started_at": "x",
+                    "version": "x",
+                    "schema_version": 1,
+                    "service": "openteam",
+                    "process_command": [],
+                }
+            )
+        )
         # New registration on the same (rt,host,port) — different server_id since
         # the deterministic id is based on the triple. Compute it ourselves
         # to verify overwrite.
         handle = register_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8000,
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8000,
             server_dir_name="server_alive",
             process_command=["x"],
         )
@@ -80,17 +89,28 @@ class TestRegisterServer:
         # pre-write a stale entry at THAT exact filename:
         sid_file.unlink()  # clean up our distractor
         stale_target = handle.registry_file
-        stale_target.write_text(json.dumps({
-            "server_id": handle.server_id, "pid": 99999999,
-            "host": "127.0.0.1", "port": 8000,
-            "runtime_root": str(tmp_path), "server_dir_name": "old",
-            "started_at": "old", "version": "old",
-            "schema_version": 1, "service": "openteam",
-            "process_command": [],
-        }))
+        stale_target.write_text(
+            json.dumps(
+                {
+                    "server_id": handle.server_id,
+                    "pid": 99999999,
+                    "host": "127.0.0.1",
+                    "port": 8000,
+                    "runtime_root": str(tmp_path),
+                    "server_dir_name": "old",
+                    "started_at": "old",
+                    "version": "old",
+                    "schema_version": 1,
+                    "service": "openteam",
+                    "process_command": [],
+                }
+            )
+        )
         # Re-register — should overwrite, not raise
         handle2 = register_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8000,
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8000,
             server_dir_name="server_alive",
             process_command=["x"],
         )
@@ -100,12 +120,16 @@ class TestRegisterServer:
     def test_overwrites_corrupt_entry(self, isolated_registry, tmp_path):
         # Compute the deterministic id first
         from openteam.client.discovery import compute_server_id
+
         sid = compute_server_id(tmp_path, "127.0.0.1", 8000)
         (isolated_registry / f"{sid}.json").write_text("not json{{{")
         # Should NOT raise; should overwrite
         handle = register_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8000,
-            server_dir_name="server_x", process_command=["x"],
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8000,
+            server_dir_name="server_x",
+            process_command=["x"],
         )
         data = json.loads(handle.registry_file.read_text())
         assert data["pid"] == os.getpid()
@@ -115,23 +139,38 @@ class TestRegisterServer:
         # *different* live pid to actually trigger ConflictError.
         # We can't easily reserve another live pid without spawning, so spawn
         # a sleep subprocess.
-        sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        sleeper = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"]
+        )
         try:
             # Pre-write registry entry claiming the sleeper owns this triple.
             from openteam.client.discovery import compute_server_id
+
             sid = compute_server_id(tmp_path, "127.0.0.1", 8000)
-            (isolated_registry / f"{sid}.json").write_text(json.dumps({
-                "server_id": sid, "pid": sleeper.pid,
-                "host": "127.0.0.1", "port": 8000,
-                "runtime_root": str(tmp_path), "server_dir_name": "x",
-                "started_at": "x", "version": "x",
-                "schema_version": 1, "service": "openteam",
-                "process_command": [],
-            }))
+            (isolated_registry / f"{sid}.json").write_text(
+                json.dumps(
+                    {
+                        "server_id": sid,
+                        "pid": sleeper.pid,
+                        "host": "127.0.0.1",
+                        "port": 8000,
+                        "runtime_root": str(tmp_path),
+                        "server_dir_name": "x",
+                        "started_at": "x",
+                        "version": "x",
+                        "schema_version": 1,
+                        "service": "openteam",
+                        "process_command": [],
+                    }
+                )
+            )
             with pytest.raises(ConflictError, match="already registered"):
                 register_server(
-                    runtime_root=tmp_path, host="127.0.0.1", port=8000,
-                    server_dir_name="server_y", process_command=["x"],
+                    runtime_root=tmp_path,
+                    host="127.0.0.1",
+                    port=8000,
+                    server_dir_name="server_y",
+                    process_command=["x"],
                 )
         finally:
             sleeper.terminate()
@@ -141,8 +180,11 @@ class TestRegisterServer:
 class TestUnregisterServer:
     def test_idempotent(self, isolated_registry, tmp_path):
         h = register_server(
-            runtime_root=tmp_path, host="127.0.0.1", port=8002,
-            server_dir_name="x", process_command=["x"],
+            runtime_root=tmp_path,
+            host="127.0.0.1",
+            port=8002,
+            server_dir_name="x",
+            process_command=["x"],
         )
         unregister_server(h.registry_file)
         assert not h.registry_file.exists()
@@ -165,7 +207,7 @@ class TestSignalHandlerCleanup:
         child_script = f"""
 import os, signal, sys, time
 os.environ["OPENTEAM_REGISTRY_DIR"] = {str(reg)!r}
-sys.path.insert(0, {str(Path(__file__).parent.parent.parent.parent.parent / 'src')!r})
+sys.path.insert(0, {str(Path(__file__).parent.parent.parent.parent.parent / "src")!r})
 from openteam.server._register import register_server
 h = register_server(
     runtime_root={str(rt)!r}, host="127.0.0.1", port=8123,
@@ -176,7 +218,9 @@ time.sleep(30)
 """
         proc = subprocess.Popen(
             [sys.executable, "-c", child_script],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         try:
             # Wait for the child to print its registry path (signals it's ready)
@@ -189,7 +233,9 @@ time.sleep(30)
                     break
                 time.sleep(0.05)
             assert registry_path, "child did not print registry path"
-            assert Path(registry_path).is_file(), f"registry file not created: {registry_path}"
+            assert Path(registry_path).is_file(), (
+                f"registry file not created: {registry_path}"
+            )
 
             # Send SIGTERM
             proc.send_signal(signal.SIGTERM)

@@ -91,16 +91,35 @@ def _run_async_with_forced_cleanup(coro, cleanup_timeout: float = 15.0):
 
 
 @click.command()
-@click.option("--role-document", "-r", required=True, type=click.Path(exists=True),
-              help="Path to the role document markdown file.")
-@click.option("--max-facets", default=None, type=int,
-              help="Max outer subtasks (overrides yaml max_breakdown).")
-@click.option("--max-inner-facets", default=None, type=int,
-              help="Max inner research facets per subtask.")
-@click.option("--output-dir", default=str(Path(__file__).resolve().parent / "_runtime"),
-              type=click.Path())
-@click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-              default="INFO")
+@click.option(
+    "--role-document",
+    "-r",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the role document markdown file.",
+)
+@click.option(
+    "--max-facets",
+    default=None,
+    type=int,
+    help="Max outer subtasks (overrides yaml max_breakdown).",
+)
+@click.option(
+    "--max-inner-facets",
+    default=None,
+    type=int,
+    help="Max inner research facets per subtask.",
+)
+@click.option(
+    "--output-dir",
+    default=str(Path(__file__).resolve().parent / "_runtime"),
+    type=click.Path(),
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    default="INFO",
+)
 def main(role_document, max_facets, max_inner_facets, output_dir, log_level):
     """Run /role_setup via executor.execute() — real command path."""
 
@@ -142,9 +161,7 @@ def main(role_document, max_facets, max_inner_facets, output_dir, log_level):
     start_time = time.time()
 
     try:
-        result = _run_async_with_forced_cleanup(
-            execute(arguments, session_context)
-        )
+        result = _run_async_with_forced_cleanup(execute(arguments, session_context))
     except Exception:
         logger.exception("execute() failed")
         click.echo("ERROR: execute() failed.", err=True)
@@ -161,8 +178,9 @@ def main(role_document, max_facets, max_inner_facets, output_dir, log_level):
 
     # Check deliverables
     outputs_dir = workspace / "outputs"
-    deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + \
-                       list(outputs_dir.rglob("tools/**/*"))
+    deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + list(
+        outputs_dir.rglob("tools/**/*")
+    )
     if deliverable_files:
         click.echo(f"Deliverables: {len(deliverable_files)} files")
         for f in sorted(deliverable_files):
@@ -175,14 +193,20 @@ def main(role_document, max_facets, max_inner_facets, output_dir, log_level):
     # Save summary
     artifacts_dir = workspace / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
-    (artifacts_dir / "summary.json").write_text(json.dumps({
-        "mode": "real_execute",
-        "elapsed_seconds": round(elapsed, 1),
-        "output_length": len(str(result.result)),
-        "context_updates": result.context_updates,
-        "deliverable_count": len(deliverable_files),
-        "workspace": str(workspace),
-    }, indent=2), encoding="utf-8")
+    (artifacts_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "mode": "real_execute",
+                "elapsed_seconds": round(elapsed, 1),
+                "output_length": len(str(result.result)),
+                "context_updates": result.context_updates,
+                "deliverable_count": len(deliverable_files),
+                "workspace": str(workspace),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     click.echo("")
     click.echo("=" * 60)

@@ -14,21 +14,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from rich_python_utils.string_utils.formatting.template_manager import (
-    TemplateManager,
-)
-from rich_python_utils.string_utils.formatting.template_manager.template_manager import (
-    _OriginTaggedStr,
-)
-
 # ---------------------------------------------------------------------------
 # Resolve the two template roots from installed packages
 # ---------------------------------------------------------------------------
 
 import agent_foundation.resources as _af_res
 import openteam.server.resources as _os_res
+import pytest
+from rich_python_utils.string_utils.formatting.template_manager import TemplateManager
+from rich_python_utils.string_utils.formatting.template_manager.template_manager import (
+    _OriginTaggedStr,
+)
 
 OS_TEMPLATES_ROOT = str(Path(_os_res.__file__).parent / "prompt_templates")
 AF_TEMPLATES_ROOT = str(Path(_af_res.__file__).parent / "prompt_templates")
@@ -92,9 +88,7 @@ class TestWrapperResolvesVariablesFromOpenStartup:
         tm = _make_2root_tm()
 
         # load_variables should find the default task_preamble from OpenStartup
-        result = tm.load_variables(
-            {"task_preamble": "default"}, root_space="plan"
-        )
+        result = tm.load_variables({"task_preamble": "default"}, root_space="plan")
         preamble = result["task_preamble"]
         assert len(preamble.strip()) > 0, "task_preamble/default should not be empty"
 
@@ -176,9 +170,7 @@ class TestSpecializedVariantResolution:
         OpenStartup's ``plan/main/_variables/``."""
         tm = _make_2root_tm()
 
-        result = tm.load_variables(
-            {"task_preamble": "aggregation"}, root_space="plan"
-        )
+        result = tm.load_variables({"task_preamble": "aggregation"}, root_space="plan")
         assert len(result["task_preamble"].strip()) > 0, (
             "task_preamble/aggregation should resolve from OpenStartup"
         )

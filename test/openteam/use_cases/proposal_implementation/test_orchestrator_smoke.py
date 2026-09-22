@@ -18,7 +18,6 @@ import logging
 import os
 
 import pytest
-
 from openteam.use_cases.proposal_implementation import orchestrator, state, tasks
 
 
@@ -39,7 +38,9 @@ def state_path(tmp_path) -> str:
 
 
 @pytest.mark.asyncio
-async def test_monitor_epic_constantly_re_enqueues(monkeypatch, fresh_state, state_path):
+async def test_monitor_epic_constantly_re_enqueues(
+    monkeypatch, fresh_state, state_path
+):
     """Successful epic poll → returns at least the self-re-enqueue."""
     call_count = {"n": 0}
 
@@ -50,12 +51,18 @@ async def test_monitor_epic_constantly_re_enqueues(monkeypatch, fresh_state, sta
     monkeypatch.setattr(tasks, "_run_inferencer", fake_infer)
 
     orch = orchestrator.Orchestrator(
-        state=fresh_state, state_path=state_path,
-        workspace_path="/tmp", num_workers=1, max_parallel_inferencers=1,
+        state=fresh_state,
+        state_path=state_path,
+        workspace_path="/tmp",
+        num_workers=1,
+        max_parallel_inferencers=1,
     )
     seed = tasks.MonitorEpicTask(
-        epic_key="AI-236", assignee_hint="Tony Chen", assignee_account_id="abc",
-        workspace_path="/tmp", delay_seconds=0,
+        epic_key="AI-236",
+        assignee_hint="Tony Chen",
+        assignee_account_id="abc",
+        workspace_path="/tmp",
+        delay_seconds=0,
     )
     await orch.start([seed])
     await asyncio.sleep(2.0)
@@ -70,7 +77,9 @@ async def test_monitor_epic_constantly_re_enqueues(monkeypatch, fresh_state, sta
 
 
 @pytest.mark.asyncio
-async def test_safety_reenqueue_on_inferencer_crash(monkeypatch, fresh_state, state_path):
+async def test_safety_reenqueue_on_inferencer_crash(
+    monkeypatch, fresh_state, state_path
+):
     """A crashing inferencer must NOT silently kill the monitor loop."""
 
     async def crashing_infer(prompt, ws, orch, **kwargs):
@@ -79,12 +88,18 @@ async def test_safety_reenqueue_on_inferencer_crash(monkeypatch, fresh_state, st
     monkeypatch.setattr(tasks, "_run_inferencer", crashing_infer)
 
     orch = orchestrator.Orchestrator(
-        state=fresh_state, state_path=state_path,
-        workspace_path="/tmp", num_workers=1, max_parallel_inferencers=1,
+        state=fresh_state,
+        state_path=state_path,
+        workspace_path="/tmp",
+        num_workers=1,
+        max_parallel_inferencers=1,
     )
     seed = tasks.MonitorEpicTask(
-        epic_key="AI-236", assignee_hint="Tony Chen", assignee_account_id="abc",
-        workspace_path="/tmp", delay_seconds=0,
+        epic_key="AI-236",
+        assignee_hint="Tony Chen",
+        assignee_account_id="abc",
+        workspace_path="/tmp",
+        delay_seconds=0,
     )
     await orch.start([seed])
     await asyncio.sleep(2.0)
@@ -106,7 +121,9 @@ async def test_safety_reenqueue_on_inferencer_crash(monkeypatch, fresh_state, st
 
 
 @pytest.mark.asyncio
-async def test_trigger_create_pr_enqueues_create_pr_task(monkeypatch, fresh_state, state_path):
+async def test_trigger_create_pr_enqueues_create_pr_task(
+    monkeypatch, fresh_state, state_path
+):
     """When the inferencer emits TRIGGER_CREATE_PR: lines, the orchestrator
     must enqueue corresponding CreatePRTasks."""
 
@@ -120,6 +137,7 @@ async def test_trigger_create_pr_enqueues_create_pr_task(monkeypatch, fresh_stat
         if "senior Atlassian engineer" in prompt:
             # Extract issue key from prompt
             import re
+
             m = re.search(r"\*\*Jira issue:\*\* (\S+)", prompt)
             if m:
                 create_calls.append(m.group(1))
@@ -134,12 +152,18 @@ async def test_trigger_create_pr_enqueues_create_pr_task(monkeypatch, fresh_stat
     monkeypatch.setattr(tasks, "_run_inferencer", fake_infer)
 
     orch = orchestrator.Orchestrator(
-        state=fresh_state, state_path=state_path,
-        workspace_path="/tmp", num_workers=4, max_parallel_inferencers=2,
+        state=fresh_state,
+        state_path=state_path,
+        workspace_path="/tmp",
+        num_workers=4,
+        max_parallel_inferencers=2,
     )
     seed = tasks.MonitorEpicTask(
-        epic_key="AI-236", assignee_hint="Tony Chen", assignee_account_id="abc",
-        workspace_path="/tmp", delay_seconds=0,
+        epic_key="AI-236",
+        assignee_hint="Tony Chen",
+        assignee_account_id="abc",
+        workspace_path="/tmp",
+        delay_seconds=0,
     )
     await orch.start([seed])
     # Give time for Epic poll + 2 CreatePR runs
@@ -154,7 +178,9 @@ async def test_trigger_create_pr_enqueues_create_pr_task(monkeypatch, fresh_stat
 
 
 @pytest.mark.asyncio
-async def test_resume_monitor_pr_enqueues_monitor_pr_task(monkeypatch, fresh_state, state_path):
+async def test_resume_monitor_pr_enqueues_monitor_pr_task(
+    monkeypatch, fresh_state, state_path
+):
     """When the inferencer emits RESUME_MONITOR_PR: lines (Enhancement 1:
     PR-presence reconciliation for stranded PRs), the orchestrator must
     enqueue MonitorPRTask without going through CreatePR — and must record
@@ -178,6 +204,7 @@ async def test_resume_monitor_pr_enqueues_monitor_pr_task(monkeypatch, fresh_sta
         if "PR custodian" in prompt:
             # MonitorPR — extract the (issue_key, pr_url) inputs
             import re
+
             issue_m = re.search(r"\*\*Jira issue:\*\* (\S+)", prompt)
             pr_m = re.search(r"\*\*PR URL:\*\* (\S+)", prompt)
             if issue_m and pr_m:
@@ -193,12 +220,18 @@ async def test_resume_monitor_pr_enqueues_monitor_pr_task(monkeypatch, fresh_sta
     monkeypatch.setattr(tasks, "_run_inferencer", fake_infer)
 
     orch = orchestrator.Orchestrator(
-        state=fresh_state, state_path=state_path,
-        workspace_path="/tmp", num_workers=4, max_parallel_inferencers=2,
+        state=fresh_state,
+        state_path=state_path,
+        workspace_path="/tmp",
+        num_workers=4,
+        max_parallel_inferencers=2,
     )
     seed = tasks.MonitorEpicTask(
-        epic_key="AI-236", assignee_hint="Tony Chen", assignee_account_id="abc",
-        workspace_path="/tmp", delay_seconds=0,
+        epic_key="AI-236",
+        assignee_hint="Tony Chen",
+        assignee_account_id="abc",
+        workspace_path="/tmp",
+        delay_seconds=0,
     )
     await orch.start([seed])
     await asyncio.wait_for(epic_call_done.wait(), timeout=5.0)
@@ -207,7 +240,10 @@ async def test_resume_monitor_pr_enqueues_monitor_pr_task(monkeypatch, fresh_sta
     await asyncio.sleep(1.5)
 
     # Verify the resume MonitorPR ran with the right (issue_key, pr_url)
-    expected = ("AI-243", "https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/12345")
+    expected = (
+        "AI-243",
+        "https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/12345",
+    )
     assert expected in monitor_pr_calls, (
         f"Expected MonitorPR call for AI-243 with stranded PR url; got {monitor_pr_calls}"
     )
@@ -215,7 +251,11 @@ async def test_resume_monitor_pr_enqueues_monitor_pr_task(monkeypatch, fresh_sta
     rec = fresh_state.issue_to_pr.get("AI-243")
     assert rec is not None, f"issue_to_pr missing AI-243; got {fresh_state.issue_to_pr}"
     assert rec.pr_url == expected[1], f"pr_url mismatch: {rec.pr_url} vs {expected[1]}"
-    assert rec.pr_id == 12345 and rec.workspace == "atlassian" and rec.repo == "conversational-ai-platform"
+    assert (
+        rec.pr_id == 12345
+        and rec.workspace == "atlassian"
+        and rec.repo == "conversational-ai-platform"
+    )
 
 
 def test_load_state_purges_stale_one_shot_markers(tmp_path):
@@ -223,13 +263,14 @@ def test_load_state_purges_stale_one_shot_markers(tmp_path):
     left over from a prior crashed run must be removed on startup, so
     MonitorEpic does not falsely skip the issue as 'already in flight'."""
     import json
+
     state_path = str(tmp_path / "queue.json")
     # Write a state file simulating a crashed prior run
     initial = {
         "in_flight": [
-            "CreatePR:AI-243",          # one-shot — should be purged
-            "RescueIssue:AI-244",       # one-shot — should be purged
-            "MonitorEpic:AI-236",       # round-based — should survive
+            "CreatePR:AI-243",  # one-shot — should be purged
+            "RescueIssue:AI-244",  # one-shot — should be purged
+            "MonitorEpic:AI-236",  # round-based — should survive
             "MonitorPR:AI-243#https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/9999",  # round-based
         ],
         "issue_to_pr": {
@@ -276,13 +317,17 @@ def test_resume_monitor_pr_regex_parses_valid_lines():
     """The RESUME_MONITOR_PR sentinel regex must accept canonical lines
     and reject malformed ones."""
     from openteam.use_cases.proposal_implementation.tasks import _RESUME_MONITOR_RE
+
     valid = (
         "RESUME_MONITOR_PR: AI-243 https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/12345\n"
-        "RESUME_MONITOR_PR: PROJ-7  https://example.com/pr/1\n"   # extra space ok
+        "RESUME_MONITOR_PR: PROJ-7  https://example.com/pr/1\n"  # extra space ok
     )
     matches = _RESUME_MONITOR_RE.findall(valid)
     assert matches == [
-        ("AI-243", "https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/12345"),
+        (
+            "AI-243",
+            "https://bitbucket.org/atlassian/conversational-ai-platform/pull-requests/12345",
+        ),
         ("PROJ-7", "https://example.com/pr/1"),
     ]
     # Missing PR url
@@ -301,22 +346,31 @@ def test_resume_monitor_pr_regex_parses_valid_lines():
 # Hard backstop: RunWorkspace.G-3 (1000 disk dirs → quarantine) is still in
 # place for any edge case that bypasses the gap floor.
 
+
 def _make_orch_for_defense_test(fresh_state, state_path):
     from openteam.use_cases.proposal_implementation.orchestrator import Orchestrator
+
     return Orchestrator(state=fresh_state, state_path=state_path, workspace_path="/tmp")
 
 
 def _make_monitor_epic_task(key: str = "AI-T", steady: int = 600):
     return tasks.MonitorEpicTask(
-        epic_key=key, assignee_hint="", assignee_account_id="",
-        workspace_path="/tmp", delay_seconds=0, steady_state_delay_seconds=steady,
+        epic_key=key,
+        assignee_hint="",
+        assignee_account_id="",
+        workspace_path="/tmp",
+        delay_seconds=0,
+        steady_state_delay_seconds=steady,
     )
 
 
 def _make_monitor_pr_task(key: str = "AI-T", steady: int = 1800):
     return tasks.MonitorPRTask(
-        issue_key=key, pr_url=f"https://example.com/pr/{key}",
-        workspace_path="/tmp", delay_seconds=0, steady_state_delay_seconds=steady,
+        issue_key=key,
+        pr_url=f"https://example.com/pr/{key}",
+        workspace_path="/tmp",
+        delay_seconds=0,
+        steady_state_delay_seconds=steady,
     )
 
 
@@ -390,24 +444,29 @@ def test_defense_g3_disk_hard_cap(tmp_path):
     """Defense G-3 — RunWorkspace.begin_call refuses to create more than
     max_call_dirs per-call directories. Above the cap, returns a quarantine
     context whose call_dir is shared across all subsequent calls (no disk growth)."""
-    from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
     import asyncio
+
+    from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
 
     async def _run():
         ws = RunWorkspace.create(tmp_path, max_call_dirs=3)
         # First 3 calls succeed with real per-call dirs
         for i in range(3):
             ctx = await ws.begin_call(
-                task_type="MonitorEpic", primary_key=f"I-{i}", is_round_based=True,
+                task_type="MonitorEpic",
+                primary_key=f"I-{i}",
+                is_round_based=True,
             )
             assert "epic_monitor_I-" in ctx.call_dir.name, ctx.call_dir.name
         # Subsequent 100 calls all funnel into the shared quarantine dir
         for j in range(100):
             ctx = await ws.begin_call(
-                task_type="MonitorEpic", primary_key=f"I-EX-{j}", is_round_based=True,
+                task_type="MonitorEpic",
+                primary_key=f"I-EX-{j}",
+                is_round_based=True,
             )
             assert ctx.call_dir.name == "_runaway_quarantine", (
-                f"Defense G-3 regression: call #{j+4} should be quarantined, "
+                f"Defense G-3 regression: call #{j + 4} should be quarantined, "
                 f"got {ctx.call_dir.name}"
             )
         total = sum(1 for p in ws.run_dir.iterdir() if p.is_dir())

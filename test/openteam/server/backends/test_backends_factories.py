@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 # Bootstrap sys.path
@@ -31,7 +31,9 @@ from openteam.server.backends.registry import BackendBuildContext
 
 def _real_templates_dir() -> Path:
     """Use the actual templates dir so JinjaPromptRenderer wiring works."""
-    return _OPENSTARTUP / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    return (
+        _OPENSTARTUP / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    )
 
 
 class MockGuardTests(unittest.TestCase):
@@ -56,11 +58,14 @@ class RovodevModelWarningTests(unittest.TestCase):
             model_name="opus[1m]",
         )
         # Mock RovoDevCliInferencer + the conversational wrap so we don't spawn acli.
-        with patch.object(
-            factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
-        ), patch(
-            "agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.RovoDevCliInferencer"
-        ) as fake_base:
+        with (
+            patch.object(
+                factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
+            ),
+            patch(
+                "agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.RovoDevCliInferencer"
+            ) as fake_base,
+        ):
             fake_base.return_value.acli_path = "/fake/acli"
             with self.assertLogs(factories_mod.logger, level="INFO") as cap:
                 result = factories_mod._rovodev_factory(ctx)
@@ -68,11 +73,14 @@ class RovodevModelWarningTests(unittest.TestCase):
         # First call emits the warning; second call should NOT (warned-once guard).
         self.assertTrue(any("ignores model_name" in m for m in cap.output))
 
-        with patch.object(
-            factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
-        ), patch(
-            "agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.RovoDevCliInferencer"
-        ) as fake_base:
+        with (
+            patch.object(
+                factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
+            ),
+            patch(
+                "agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.RovoDevCliInferencer"
+            ) as fake_base,
+        ):
             fake_base.return_value.acli_path = "/fake/acli"
             with self.assertLogs(factories_mod.logger, level="INFO") as cap2:
                 factories_mod._rovodev_factory(ctx)
@@ -89,12 +97,15 @@ class ClaudeCliFactoryTests(unittest.TestCase):
             cache_dir="/tmp/cache",
             model_name="haiku",
         )
-        with patch.object(
-            factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
-        ), patch(
-            "agent_foundation.common.inferencers.agentic_inferencers.external."
-            "claude_code.claude_code_cli_inferencer.ClaudeCodeCliInferencer"
-        ) as fake_base:
+        with (
+            patch.object(
+                factories_mod, "_wrap_in_conversational", return_value="WRAPPED"
+            ),
+            patch(
+                "agent_foundation.common.inferencers.agentic_inferencers.external."
+                "claude_code.claude_code_cli_inferencer.ClaudeCodeCliInferencer"
+            ) as fake_base,
+        ):
             fake_base.return_value.model_name = "haiku"
             result = factories_mod._claude_cli_factory(ctx)
         self.assertEqual(result, "WRAPPED")
@@ -111,36 +122,41 @@ class ClaudeCliFactoryTests(unittest.TestCase):
             templates_dir=_real_templates_dir(),
             working_dir=str(Path.cwd()),
         )
-        with patch.object(
-            factories_mod, "_wrap_in_conversational", return_value="W"
-        ), patch(
-            "agent_foundation.common.inferencers.agentic_inferencers.external."
-            "claude_code.claude_code_cli_inferencer.ClaudeCodeCliInferencer"
-        ) as fake_base:
+        with (
+            patch.object(factories_mod, "_wrap_in_conversational", return_value="W"),
+            patch(
+                "agent_foundation.common.inferencers.agentic_inferencers.external."
+                "claude_code.claude_code_cli_inferencer.ClaudeCodeCliInferencer"
+            ) as fake_base,
+        ):
             factories_mod._claude_cli_factory(ctx)
         self.assertEqual(fake_base.call_args.kwargs["model_name"], "opus[1m]")
 
 
 class AvailabilityProbeTests(unittest.TestCase):
     def test_claude_cli_available_when_which_returns_path(self):
-        with patch("openteam.server.backends.factories.shutil.which",
-                   return_value="/path/to/claude"):
+        with patch(
+            "openteam.server.backends.factories.shutil.which",
+            return_value="/path/to/claude",
+        ):
             self.assertIn(
                 "claude found at /path/to/claude",
                 factories_mod._claude_cli_status_message(),
             )
 
     def test_claude_cli_unavailable_when_which_returns_none(self):
-        with patch("openteam.server.backends.factories.shutil.which",
-                   return_value=None):
+        with patch(
+            "openteam.server.backends.factories.shutil.which", return_value=None
+        ):
             self.assertIn(
                 "claude binary not found",
                 factories_mod._claude_cli_status_message(),
             )
 
     def test_rovodev_unavailable_when_which_returns_none(self):
-        with patch("openteam.server.backends.factories.shutil.which",
-                   return_value=None):
+        with patch(
+            "openteam.server.backends.factories.shutil.which", return_value=None
+        ):
             self.assertIn(
                 "acli binary not found",
                 factories_mod._rovodev_status_message(),

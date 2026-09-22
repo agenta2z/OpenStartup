@@ -63,16 +63,30 @@ function App() {
   const [activeTaskId, setActiveTaskId] = useState(null);
   const switchTabRef = useRef(null);
 
+  // Dashboard bridge — mirror of the task bridge. The dashboards map (keyed by
+  // hubId) is owned by useManagerChat; ManagerChatView syncs it up so the
+  // Sidebar can render dashboard subtabs and clicks can drive switchTab.
+  const [sessionDashboardsMap, setSessionDashboardsMap] = useState({});
+  const sessionDashboards = sessionDashboardsMap[selectedSessionId] || {};
+  const [activeDashboardId, setActiveDashboardId] = useState(null);
+
   const handleTasksChanged = useCallback((tasks) => {
     setSessionTasksMap(prev => ({ ...prev, [selectedSessionId]: tasks }));
   }, [selectedSessionId]);
   const handleActiveTaskChanged = useCallback((taskId) => setActiveTaskId(taskId), []);
+  const handleDashboardsChanged = useCallback((dashboards) => {
+    setSessionDashboardsMap(prev => ({ ...prev, [selectedSessionId]: dashboards }));
+  }, [selectedSessionId]);
+  const handleActiveDashboardChanged = useCallback((hubId) => setActiveDashboardId(hubId), []);
   const handleSwitchTabRef = useCallback((fn) => { switchTabRef.current = fn; }, []);
   const handleSidebarTaskClick = useCallback((taskId) => {
     switchTabRef.current?.(taskId, 'task');
   }, []);
+  const handleSidebarDashboardClick = useCallback((hubId) => {
+    switchTabRef.current?.(hubId, 'dashboard');
+  }, []);
   const handleSidebarSessionClick = useCallback((sessionId) => {
-    // Reset to session view first (clears task panel if open)
+    // Reset to session view first (clears task/dashboard panel if open)
     switchTabRef.current?.(null, 'session');
     // Then navigate (clears drilldown state and sets the new session)
     setSelectedProjectId(null); setSelectedEmployeeId(null);
@@ -93,6 +107,8 @@ function App() {
         onBack={handleBack}
         onTasksChanged={handleTasksChanged}
         onActiveTaskChanged={handleActiveTaskChanged}
+        onDashboardsChanged={handleDashboardsChanged}
+        onActiveDashboardChanged={handleActiveDashboardChanged}
         onSwitchTabRef={handleSwitchTabRef}
         onSessionsShouldRefresh={refetchSessions}
       />
@@ -109,19 +125,24 @@ function App() {
     }
   };
 
+  const isSessionView = !!selectedSessionId;
+
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100dvh', overflow: 'hidden' }}>
       <Sidebar
         onSessionClick={handleSidebarSessionClick}
         activeSessionId={selectedSessionId}
         tasks={sessionTasks}
         activeTaskId={activeTaskId}
         onTaskClick={handleSidebarTaskClick}
+        dashboards={sessionDashboards}
+        activeDashboardId={activeDashboardId}
+        onDashboardClick={handleSidebarDashboardClick}
         sessions={sessions}
         loading={sessionsLoading}
         onRefresh={refetchSessions}
       />
-      <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, minHeight: 0 }}>
         <AppBar position="static" elevation={0} sx={{ backgroundColor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
           <Toolbar variant="dense" sx={{ gap: 1.5, minHeight: 48 }}>
             <RocketLaunchIcon sx={{ color: 'primary.main', fontSize: 22 }} />
@@ -139,9 +160,9 @@ function App() {
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3 }}>{renderContent()}</Box>
+        <Box sx={{ flexGrow: 1, minHeight: 0, ...(isSessionView ? { display: 'flex', flexDirection: 'column', overflow: 'hidden', p: 0 } : { overflow: 'auto', p: 3 }) }}>{renderContent()}</Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 3, py: 1.5, borderTop: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 3, py: 1.5, borderTop: '1px solid', borderColor: 'divider', backgroundColor: 'background.paper', flexShrink: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', '&:hover': { '& .MuiTypography-root': { color: 'text.primary' } } }}>
             <SettingsIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
             <Typography variant="caption" sx={{ color: 'text.secondary', transition: 'color 0.15s' }}>Settings</Typography>

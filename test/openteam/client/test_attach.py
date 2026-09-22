@@ -4,6 +4,7 @@ Tests the wrapper in isolation by spinning up a minimal HTTPServer in a
 background thread. Avoids the FastAPI dep here so the client package's
 test surface stays as stdlib-only as the package itself.
 """
+
 from __future__ import annotations
 
 import http.server
@@ -13,8 +14,7 @@ import threading
 from contextlib import contextmanager
 
 import pytest
-
-from openteam.client.attach import AttachFailed, AttachResult, attach_session_via_http
+from openteam.client.attach import attach_session_via_http, AttachFailed, AttachResult
 from openteam.client.discovery import ServerHandle
 
 
@@ -59,9 +59,14 @@ def _running_server():
 
 def _handle(port: int) -> ServerHandle:
     return ServerHandle(
-        server_id="server_test", pid=1, host="127.0.0.1", port=port,
-        runtime_root="/tmp", server_dir_name="x",
-        started_at="2026-05-18T00:00:00.000Z", version="0.1.0",
+        server_id="server_test",
+        pid=1,
+        host="127.0.0.1",
+        port=port,
+        runtime_root="/tmp",
+        server_dir_name="x",
+        started_at="2026-05-18T00:00:00.000Z",
+        version="0.1.0",
     )
 
 
@@ -69,11 +74,13 @@ class TestAttachSuccess:
     def test_returns_attach_result_on_200(self):
         with _running_server() as (port, H):
             H.response_status = 200
-            H.response_body = json.dumps({
-                "session_id": "rovodev-abc",
-                "session_root": "/tmp/srv/sessions/rovodev-abc_20260518",
-                "created": True,
-            }).encode()
+            H.response_body = json.dumps(
+                {
+                    "session_id": "rovodev-abc",
+                    "session_root": "/tmp/srv/sessions/rovodev-abc_20260518",
+                    "created": True,
+                }
+            ).encode()
             result = attach_session_via_http(
                 _handle(port),
                 external_id="rovodev-abc",
@@ -107,7 +114,9 @@ class TestAttachSuccess:
             H.response_status = 200
             H.response_body = b'{"session_id":"x","session_root":"/x","created":false}'
             attach_session_via_http(
-                _handle(port), external_id="rovodev-x", frontend_id="rovodev",
+                _handle(port),
+                external_id="rovodev-x",
+                frontend_id="rovodev",
             )
             assert "title" not in H.received_body
 
@@ -119,7 +128,9 @@ class TestAttachFailures:
             H.response_body = b'{"detail":"bad prefix"}'
             with pytest.raises(AttachFailed, match="failed"):
                 attach_session_via_http(
-                    _handle(port), external_id="x-y", frontend_id="x",
+                    _handle(port),
+                    external_id="x-y",
+                    frontend_id="x",
                 )
 
     def test_raises_on_connection_refused(self):
@@ -127,17 +138,20 @@ class TestAttachFailures:
         with pytest.raises(AttachFailed):
             attach_session_via_http(
                 _handle(1),
-                external_id="rovodev-x", frontend_id="rovodev",
+                external_id="rovodev-x",
+                frontend_id="rovodev",
                 timeout_s=0.5,
             )
 
     def test_raises_on_invalid_json(self):
         with _running_server() as (port, H):
             H.response_status = 200
-            H.response_body = b'not json{{{'
+            H.response_body = b"not json{{{"
             with pytest.raises(AttachFailed, match="invalid JSON"):
                 attach_session_via_http(
-                    _handle(port), external_id="rovodev-x", frontend_id="rovodev",
+                    _handle(port),
+                    external_id="rovodev-x",
+                    frontend_id="rovodev",
                 )
 
     def test_raises_on_missing_required_field(self):
@@ -146,5 +160,7 @@ class TestAttachFailures:
             H.response_body = b'{"session_id":"x"}'  # missing session_root, created
             with pytest.raises(AttachFailed, match="missing required field"):
                 attach_session_via_http(
-                    _handle(port), external_id="rovodev-x", frontend_id="rovodev",
+                    _handle(port),
+                    external_id="rovodev-x",
+                    frontend_id="rovodev",
                 )

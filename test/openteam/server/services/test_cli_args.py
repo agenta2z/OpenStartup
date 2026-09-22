@@ -43,11 +43,13 @@ class _ToolDef:
 
 
 # understand_codebase: positional `target` + value flags + bool flags
-_UC = _ToolDef([
-    _Param("target", "path"),
-    _Param("--docs-only", "flag"),
-    _Param("--investigation-only", "flag"),
-])
+_UC = _ToolDef(
+    [
+        _Param("target", "path"),
+        _Param("--docs-only", "flag"),
+        _Param("--investigation-only", "flag"),
+    ]
+)
 
 
 class TestParseCliArgs:
@@ -73,7 +75,9 @@ class TestParseCliArgs:
 
 class TestBoolFlagsForTool:
     def test_derives_flag_params(self):
-        assert bool_flags_for_tool(_UC) == frozenset({"docs_only", "investigation_only"})
+        assert bool_flags_for_tool(_UC) == frozenset(
+            {"docs_only", "investigation_only"}
+        )
 
     def test_handles_none_and_empty(self):
         assert bool_flags_for_tool(None) == frozenset()
@@ -89,7 +93,9 @@ class TestCoerceToolArguments:
         assert out["request"].endswith("generative_recommenders")
         assert out["template_version"] == "modeling"
         # The line that previously crashed (_dispatch_as_task request_label):
-        label = out.get("role_description") or out.get("request") or "understand_codebase"
+        label = (
+            out.get("role_description") or out.get("request") or "understand_codebase"
+        )
         assert label.endswith("generative_recommenders")
 
     def test_dict_passes_through_unchanged(self):

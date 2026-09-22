@@ -3,13 +3,13 @@
 Covers Invariants I1 (idempotency), I2 (prefix whitelist + remainder regex),
 and I3 (whitelist immutability sentinel — the whitelist itself is type-checked).
 """
+
 from __future__ import annotations
 
 import pytest
-
 from openteam.server.services.session_store import (
-    SessionStore,
     _VALID_FRONTEND_PREFIXES,
+    SessionStore,
     validate_external_id,
 )
 
@@ -46,7 +46,9 @@ class TestValidateExternalId:
             validate_external_id("rovodev-" + "x" * 129)
 
     def test_accepts_uuid_remainder(self):
-        prefix, remainder = validate_external_id("rovodev-550e8400-e29b-41d4-a716-446655440000")
+        prefix, remainder = validate_external_id(
+            "rovodev-550e8400-e29b-41d4-a716-446655440000"
+        )
         assert prefix == "rovodev"
         assert remainder == "550e8400-e29b-41d4-a716-446655440000"
 
@@ -58,9 +60,16 @@ class TestValidateExternalId:
     def test_whitelist_contains_v6_prefixes(self):
         # CI-preflight sentinel: any change to the whitelist requires explicit review.
         # If this set changes, you must also update docs/SERVER_DISCOVERY.md.
-        assert _VALID_FRONTEND_PREFIXES == frozenset({
-            "rovodev", "webui", "mcp", "session", "slack", "vscode",
-        })
+        assert _VALID_FRONTEND_PREFIXES == frozenset(
+            {
+                "rovodev",
+                "webui",
+                "mcp",
+                "session",
+                "slack",
+                "vscode",
+            }
+        )
 
 
 class TestAttachOrCreate:
@@ -81,8 +90,11 @@ class TestAttachOrCreate:
         assert s1["created_at"] == s2["created_at"]
         # Same dir on disk, no duplicate
         sessions_dir = store._dir
-        matches = [d for d in sessions_dir.iterdir()
-                   if d.is_dir() and d.name.startswith("rovodev-deadbeef_")]
+        matches = [
+            d
+            for d in sessions_dir.iterdir()
+            if d.is_dir() and d.name.startswith("rovodev-deadbeef_")
+        ]
         assert len(matches) == 1
 
     def test_attach_does_not_overwrite_metadata(self, store):

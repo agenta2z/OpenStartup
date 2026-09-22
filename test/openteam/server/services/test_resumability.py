@@ -263,6 +263,139 @@ class TestReconcileTaskRef:
         )
         assert m["status"] == "completed"
 
+    # ── Liveness-aware reconcile (v4 fix) ───────────────────────────────
+
+    def test_live_task_id_skipped(self, store, session):
+        """A running task whose task_id is in ``live_task_ids`` MUST be
+        left alone — the background _run is still executing, its own
+        success/error branch will terminalize. This is the fix for the
+        WS-reconnect false-positive."""
+        sid, sdir = session
+        ws = _make_workspace(sdir, "uc_live", {"task_id": "t_live"})
+        store.append_message(
+            sid,
+            {
+                "id": "task-ref-t_live",
+                "taskId": "t_live",
+                "role": "task_ref",
+                "status": "running",
+                "workspace": str(ws),
+            },
+        )
+        store.reconcile_task_ref_statuses(sid, live_task_ids={"t_live"})
+        m = next(
+            m
+            for m in store.get_session(sid)["messages"]
+            if m["id"] == "task-ref-t_live"
+        )
+        assert m["status"] == "running"
+        assert "errorType" not in m
+        assert "error" not in m
+
+    def test_orphan_healed_to_interrupted(self, store, session):
+        """A running task NOT in ``live_task_ids`` with no completion markers
+        is genuinely orphaned (crash/restart) and gets healed to error with
+        ``errorType='interrupted'`` (distinct from a runtime exception)."""
+        sid, sdir = session
+        ws = _make_workspace(sdir, "uc_dead", {"task_id": "t_dead"})
+        store.append_message(
+            sid,
+            {
+                "id": "task-ref-t_dead",
+                "taskId": "t_dead",
+                "role": "task_ref",
+                "status": "running",
+                "workspace": str(ws),
+            },
+        )
+        store.reconcile_task_ref_statuses(sid, live_task_ids=set())
+        m = next(
+            m
+            for m in store.get_session(sid)["messages"]
+            if m["id"] == "task-ref-t_dead"
+        )
+        assert m["status"] == "error"
+        assert m["errorType"] == "interrupted"
+        assert "interrupted" in m["error"].lower()
+
+    def test_completed_workspace_still_heals_with_live_task_ids(self, store, session):
+        """When live_task_ids is provided but the workspace ALSO has completion
+        markers, the task can be healed to ``completed`` (edge case: task
+        finished writing markers but its Task object wasn't done yet — the
+        markers win when the task is not in the live set)."""
+        sid, sdir = session
+        ws = _make_workspace(sdir, "uc_done", {"task_id": "t_done"})
+        _mark_complete(ws)
+        store.append_message(
+            sid,
+            {
+                "id": "task-ref-t_done",
+                "taskId": "t_done",
+                "role": "task_ref",
+                "status": "running",
+                "workspace": str(ws),
+            },
+        )
+        store.reconcile_task_ref_statuses(sid, live_task_ids=set())
+        m = next(
+            m
+            for m in store.get_session(sid)["messages"]
+            if m["id"] == "task-ref-t_done"
+        )
+        assert m["status"] == "completed"
+        assert "errorType" not in m
+        assert "error" not in m
+
+    def test_fallback_to_message_id_when_taskId_missing(self, store, session):
+        """Defensive: if a legacy task_ref lacks ``taskId``, derive the id
+        from ``id='task-ref-<tid>'`` and still honor the live check."""
+        sid, sdir = session
+        ws = _make_workspace(sdir, "uc_legacy", {"task_id": "t_legacy"})
+        store.append_message(
+            sid,
+            {
+                "id": "task-ref-t_legacy",
+                # NO "taskId" field — legacy record
+                "role": "task_ref",
+                "status": "running",
+                "workspace": str(ws),
+            },
+        )
+        store.reconcile_task_ref_statuses(sid, live_task_ids={"t_legacy"})
+        m = next(
+            m
+            for m in store.get_session(sid)["messages"]
+            if m["id"] == "task-ref-t_legacy"
+        )
+        assert m["status"] == "running"  # skipped via message-id fallback
+
+    def test_none_live_task_ids_preserves_legacy_behavior(self, store, session):
+        """Passing ``live_task_ids=None`` explicitly (or omitting it) heals
+        every not-complete chip to error — the same behavior as before v4."""
+        sid, sdir = session
+        ws = _make_workspace(sdir, "uc_bcompat", {"task_id": "t_bcompat"})
+        store.append_message(
+            sid,
+            {
+                "id": "task-ref-t_bcompat",
+                "taskId": "t_bcompat",
+                "role": "task_ref",
+                "status": "running",
+                "workspace": str(ws),
+            },
+        )
+        store.reconcile_task_ref_statuses(sid, live_task_ids=None)
+        m = next(
+            m
+            for m in store.get_session(sid)["messages"]
+            if m["id"] == "task-ref-t_bcompat"
+        )
+        # With live_task_ids=None (legacy path), every not-complete chip is
+        # healed to interrupted (the v4 default enrichment applies to any
+        # non-live not-complete row).
+        assert m["status"] == "error"
+        assert m["errorType"] == "interrupted"
+
 
 # ── find_reusable_workspace ─────────────────────────────────────────────
 
@@ -661,8 +794,9 @@ class TestDrainBackgroundTasks:
                 await asyncio.sleep(60)
 
             t = asyncio.create_task(_long())
-            conv_svc._register_bg_task("sid1", t)
-            assert t in conv_svc._bg_tasks["sid1"]
+            # v4: signature is (session_id, task_id, task) — registry keyed by task_id.
+            conv_svc._register_bg_task("sid1", "tid1", t)
+            assert conv_svc._bg_tasks["sid1"]["tid1"] is t
             await conv_svc.drain_session_background_tasks("sid1")
             assert t.cancelled()
             assert "sid1" not in conv_svc._bg_tasks
@@ -675,12 +809,125 @@ class TestDrainBackgroundTasks:
                 return 1
 
             t = asyncio.create_task(_quick())
-            conv_svc._register_bg_task("sid2", t)
+            conv_svc._register_bg_task("sid2", "tid2", t)
             await t  # let it finish → add_done_callback should evict it
             await asyncio.sleep(0)  # let callbacks run
-            assert not conv_svc._bg_tasks.get("sid2")
+            # Bucket is empty → removed entirely.
+            assert "sid2" not in conv_svc._bg_tasks
 
         asyncio.run(_scenario())
 
     def test_drain_empty_is_noop(self, conv_svc):
         asyncio.run(conv_svc.drain_session_background_tasks("never-seen"))
+
+
+# ── v4: liveness-aware reconcile depends on get_live_task_ids ──────────
+
+
+class TestGetLiveTaskIds:
+    @pytest.fixture
+    def conv_svc(self, tmp_path):
+        from openteam.server.services.conversation_service import ConversationService
+
+        return ConversationService(tmp_path)
+
+    def test_empty_when_session_never_registered(self, conv_svc):
+        assert conv_svc.get_live_task_ids("no-such-session") == set()
+
+    def test_returns_alive_task_ids(self, conv_svc):
+        async def _scenario():
+            async def _long():
+                await asyncio.sleep(60)
+
+            t1 = asyncio.create_task(_long())
+            t2 = asyncio.create_task(_long())
+            conv_svc._register_bg_task("sidA", "t1", t1)
+            conv_svc._register_bg_task("sidA", "t2", t2)
+            live = conv_svc.get_live_task_ids("sidA")
+            assert live == {"t1", "t2"}
+            # Cleanup: cancel and wait.
+            t1.cancel()
+            t2.cancel()
+            await asyncio.gather(t1, t2, return_exceptions=True)
+
+        asyncio.run(_scenario())
+
+    def test_excludes_done_tasks(self, conv_svc):
+        async def _scenario():
+            async def _quick():
+                return 1
+
+            async def _long():
+                await asyncio.sleep(60)
+
+            t_done = asyncio.create_task(_quick())
+            t_live = asyncio.create_task(_long())
+            conv_svc._register_bg_task("sidB", "t_done", t_done)
+            conv_svc._register_bg_task("sidB", "t_live", t_live)
+            await t_done
+            await asyncio.sleep(0)  # let done-callback fire
+            live = conv_svc.get_live_task_ids("sidB")
+            assert live == {"t_live"}
+            # Cleanup.
+            t_live.cancel()
+            await asyncio.gather(t_live, return_exceptions=True)
+
+        asyncio.run(_scenario())
+
+    def test_evict_pops_bucket_without_cancelling(self, conv_svc):
+        """This is the pre-existing contract Site 2's ordering fix depends on:
+        evict_session_inferencer pops _bg_tasks but does NOT cancel the tasks
+        themselves. So a post-evict get_live_task_ids returns empty even
+        though tasks may still be running (they become orphans, but alive).
+        This is why callers on the resume path MUST capture live_task_ids
+        BEFORE evict."""
+
+        async def _scenario():
+            async def _long():
+                await asyncio.sleep(60)
+
+            t = asyncio.create_task(_long())
+            conv_svc._register_bg_task("sidC", "tid", t)
+            assert conv_svc.get_live_task_ids("sidC") == {"tid"}
+            conv_svc.evict_session_inferencer("sidC")
+            # Bucket popped → get_live_task_ids returns empty ...
+            assert conv_svc.get_live_task_ids("sidC") == set()
+            # ... but the Task itself is NOT cancelled — orphaned but alive.
+            assert not t.done()
+            # Cleanup.
+            t.cancel()
+            await asyncio.gather(t, return_exceptions=True)
+
+        asyncio.run(_scenario())
+
+    def test_identity_guard_on_evict(self, conv_svc):
+        """If a task_id is re-registered with a fresh Task before the old
+        Task's done-callback fires, the old callback must NOT pop the new
+        Task from the registry."""
+
+        async def _scenario():
+            async def _quick():
+                return 1
+
+            async def _long():
+                await asyncio.sleep(60)
+
+            # Register first task, complete it (callback will fire).
+            t_old = asyncio.create_task(_quick())
+            conv_svc._register_bg_task("sidD", "tid_reused", t_old)
+            await t_old  # completes
+            # BEFORE the callback fires, register a NEW task under the same tid.
+            # (In practice, the callback should fire almost immediately after,
+            # but the guard protects against this race.)
+            t_new = asyncio.create_task(_long())
+            conv_svc._register_bg_task("sidD", "tid_reused", t_new)
+            await asyncio.sleep(0)  # let old-task callback fire
+            # New task must still be in registry (identity guard prevented eviction).
+            live = conv_svc.get_live_task_ids("sidD")
+            assert "tid_reused" in live
+            assert conv_svc._bg_tasks["sidD"]["tid_reused"] is t_new
+            # Cleanup.
+            t_new.cancel()
+            await asyncio.gather(t_new, return_exceptions=True)
+
+        asyncio.run(_scenario())

@@ -43,8 +43,8 @@ In addition to common A1–A16, verify:
 
 | #    | Observation                                          | Pass criterion                                                                              | Ref  |
 |------|------------------------------------------------------|---------------------------------------------------------------------------------------------|------|
-| CR-1 | Canonical role document size + structure             | `$WS/outputs/final_deliverables/role_document.md` exists, >5 KB, has 8+ markdown headings (`grep -c '^#'`) | CR-O-1 |
-| CR-2 | Top-level summary naming convention                  | `$WS/outputs/run_summary.md` exists (small ~1–3 KB); NO top-level `$WS/outputs/role_document.md` (only under final_deliverables) | CR-O-2 |
+| CR-1 | Canonical role document size + structure             | `$WS/outputs/role_document.md` exists, >5 KB, has 8+ markdown headings (`grep -c '^#'`) | CR-O-1 |
+| CR-2 | Top-level summary naming convention                  | `$WS/outputs/run_summary.md` exists (small ~1–3 KB) alongside the canonical `$WS/outputs/role_document.md` | CR-O-2 |
 | CR-3 | Facet count matches `--max-facets`                   | Number of `worker_N/` subdirs == `--max-facets` value (default 3); breakdown JSON has exactly that many entries | CR-O-3 |
 | CR-4 | Each facet worker produced `facet.md`                | For each `worker_N/`, `worker_N/outputs/facet.md` exists, >1 KB                              | CR-O-4 |
 | CR-5 | RovoChat creds resolved                              | Log contains `ConversationCreated: id=<uuid>` for each RovoChat inferencer; no `RovoChatAuthError` | CR-O-5 |
@@ -63,7 +63,7 @@ echo "=== auditing $WS ==="
 # Then run tool-specifics:
 
 echo "=== CR-1 canonical role document ==="
-canonical="$WS/outputs/final_deliverables/role_document.md"
+canonical="$WS/outputs/role_document.md"
 [ -f "$canonical" ] && {
   ls -lh "$canonical"
   echo "  headings: $(grep -c '^#' "$canonical")"
@@ -71,7 +71,7 @@ canonical="$WS/outputs/final_deliverables/role_document.md"
 
 echo "=== CR-2 top-level naming convention ==="
 [ -f "$WS/outputs/run_summary.md" ] && echo "OK: run_summary.md present" || echo "WARN: run_summary.md missing"
-[ -f "$WS/outputs/role_document.md" ] && echo "WARN: ambiguous: top-level role_document.md present" || echo "OK: no top-level role_document.md"
+[ -f "$WS/outputs/role_document.md" ] && echo "OK: canonical role_document.md present" || echo "FAIL: missing role_document.md"
 
 echo "=== CR-3 facet count ==="
 n_workers=$(find "$WS/children" -maxdepth 1 -type d -name "worker_*" | wc -l | tr -d ' ')
@@ -119,13 +119,13 @@ echo "=== CR-7 no stale constant sections ==="
 ## §2 create_role-Specific Observation Catalog
 
 ### CR-O-1 — Canonical role document insubstantial
-- **Look for**: `$WS/outputs/final_deliverables/role_document.md` exists but <5 KB OR has fewer than 8 markdown headings (indicates placeholder/summary instead of full synthesis)
+- **Look for**: `$WS/outputs/role_document.md` exists but <5 KB OR has fewer than 8 markdown headings (indicates placeholder/summary instead of full synthesis)
 - **Distinguishes from healthy**: a healthy run produces a 20–40 KB role document with 10+ headings spanning multi-section structure (responsibilities, skills, tools, SOPs, KPIs, etc.)
 - **Cross-ref**: this is the create_role-specific size threshold for common O-9
 
-### CR-O-2 — Top-level deliverable name collision
-- **Look for**: BOTH `$WS/outputs/role_document.md` AND `$WS/outputs/final_deliverables/role_document.md` exist with different content; OR top-level `$WS/outputs/role_document.md` is a short summary
-- **Distinguishes from healthy**: top-level should have `run_summary.md` (the BTA's small summary, ~1–3 KB) as the only top-level deliverable; the canonical role document lives ONLY under `final_deliverables/`
+### CR-O-2 — Canonical deliverable missing or reduced to a summary
+- **Look for**: `$WS/outputs/role_document.md` is absent, OR is a short summary rather than the full synthesis (e.g., only `run_summary.md` was produced)
+- **Distinguishes from healthy**: `outputs/` holds BOTH the small `run_summary.md` (the BTA's ~1–3 KB summary) AND the substantive canonical `role_document.md` — the deliverable set IS `outputs/` (there is no separate subfolder)
 - **Cross-ref**: tool-specific manifestation of common O-10
 
 ### CR-O-3 — Facet count mismatch

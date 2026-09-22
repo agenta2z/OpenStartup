@@ -15,7 +15,7 @@ Exercises:
   * Workspace allocator (``_runtime/tasks/create_role/<TS>_<UUID>/``)
   * Real subprocess stdout/stderr capture
   * Exit code propagation
-  * Canonical deliverable surfacing via ``outputs/final_deliverables/``
+  * Canonical deliverable surfacing via ``outputs/`` (Part 2: two-axis model)
 
 Cost gate: SKIPPED unless ``acli`` available on PATH AND RovoChat credentials
 are set (``ROVOCHAT_EMAIL`` / ``ROVOCHAT_API_TOKEN``, or mappable from
@@ -59,13 +59,11 @@ def test_create_role_real_cli_subprocess(tmp_path):
     pythonpath = ":".join(pythonpath_parts)
 
     # Map JIRA_* → ROVOCHAT_* (the way the production launcher does)
-    rovochat_email = (
-        os.environ.get("ROVOCHAT_EMAIL")
-        or os.environ.get("JIRA_EMAIL", "")
+    rovochat_email = os.environ.get("ROVOCHAT_EMAIL") or os.environ.get(
+        "JIRA_EMAIL", ""
     )
-    rovochat_token = (
-        os.environ.get("ROVOCHAT_API_TOKEN")
-        or os.environ.get("JIRA_API_TOKEN", "")
+    rovochat_token = os.environ.get("ROVOCHAT_API_TOKEN") or os.environ.get(
+        "JIRA_API_TOKEN", ""
     )
 
     env = {
@@ -76,18 +74,19 @@ def test_create_role_real_cli_subprocess(tmp_path):
     }
 
     # No --output-path: canonical deliverable surfaces inside the workspace's
-    # outputs/final_deliverables/ folder (per 2026-05-18 surfacing fix).
+    # outputs/ folder (Part 2: final_deliverables/ retired).
     cmd = [
-        sys.executable, "-m", "openteam.server.resources.tools.create_role",
-        "--max-facets", "2",  # minimal facets to keep cost low
+        sys.executable,
+        "-m",
+        "openteam.server.resources.tools.create_role",
+        "--max-facets",
+        "2",  # minimal facets to keep cost low
         "hire a machine learning engineer (MLE)",  # role_description
     ]
 
     print(f"\n[real-cli-subprocess] cwd: {OPENSTARTUP_ROOT}")
     print(f"[real-cli-subprocess] PYTHONPATH parts: {len(pythonpath_parts)}")
-    print(
-        f"[real-cli-subprocess] cmd: {' '.join(cmd[:5])} ... (request elided)"
-    )
+    print(f"[real-cli-subprocess] cmd: {' '.join(cmd[:5])} ... (request elided)")
 
     log_path = tmp_path / "cli_subprocess.log"
     print(f"[real-cli-subprocess] log: {log_path}")
@@ -120,30 +119,30 @@ def test_create_role_real_cli_subprocess(tmp_path):
 
     # 2. Workspace was created under _runtime/tasks/create_role/
     runtime_dir = OPENSTARTUP_ROOT / "_runtime" / "tasks" / "create_role"
-    assert runtime_dir.is_dir(), (
-        f"Runtime workspace root missing: {runtime_dir}"
-    )
+    assert runtime_dir.is_dir(), f"Runtime workspace root missing: {runtime_dir}"
     workspaces = sorted(
-        [d for d in runtime_dir.iterdir() if d.is_dir()
-         and d.name.startswith("create_role_")],
+        [
+            d
+            for d in runtime_dir.iterdir()
+            if d.is_dir() and d.name.startswith("create_role_")
+        ],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    assert workspaces, (
-        f"No create_role_* workspace was created under {runtime_dir}"
-    )
+    assert workspaces, f"No create_role_* workspace was created under {runtime_dir}"
     latest = workspaces[0]
     print(f"[real-cli-subprocess] workspace: {latest}")
 
-    # 3. Canonical deliverable: outputs/final_deliverables/role_document.md
-    #    (auto-promoted by BTA when use_final_deliverables_folder=true
-    #     and aggregator has output_is_deliverable=true)
-    deliverable = latest / "outputs" / "final_deliverables" / "role_document.md"
+    # 3. Canonical deliverable: outputs/role_document.md
+    #    (Part 2 two-axis model: outputs/ IS the deliverable set; the
+    #     aggregator's role_document.md is promoted up the BTA boundary
+    #     because it lives in the canonical child's outputs/.)
+    deliverable = latest / "outputs" / "role_document.md"
     assert deliverable.is_file(), (
         f"Canonical role document was NOT promoted to {deliverable}. "
-        f"This is a regression in the deliverable surfacing chain (BTA's "
-        f"`use_final_deliverables_folder` or aggregator's "
-        f"`output_is_deliverable`). Log: {log_path}"
+        f"This is a regression in the deliverable surfacing chain "
+        f"(role-based promotion of the aggregator child's outputs/). "
+        f"Log: {log_path}"
     )
 
     # 4. Role document must have substantive content (real synthesis,

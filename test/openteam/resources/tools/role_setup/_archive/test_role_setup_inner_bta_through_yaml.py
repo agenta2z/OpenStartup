@@ -26,6 +26,7 @@ from pathlib import Path
 
 import click
 
+
 # ---------------------------------------------------------------------------
 # .env loading — stdlib only, no extra deps needed
 # ---------------------------------------------------------------------------
@@ -50,13 +51,13 @@ def _load_dotenv(*search_dirs) -> None:
                         os.environ[key] = val
             break  # stop at first .env found
 
+
 # Search: test script dir, then OpenStartup repo root
 _load_dotenv(Path(__file__).parent, Path(__file__).parents[5])  # parents[5] = repo root
 
 # Ensure registrations are loaded before instantiate()
 import agent_foundation.common.configs.registered_targets  # noqa: F401
-
-from rich_python_utils.config_utils import load_config, instantiate
+from rich_python_utils.config_utils import instantiate, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Reuse helpers from test_role_setup.py
 # ---------------------------------------------------------------------------
+
 
 def _run_async_with_forced_cleanup(coro, cleanup_timeout: float = 15.0):
     """Run an async coroutine with forced event loop cleanup."""
@@ -132,7 +134,11 @@ def _extract_aggregator_result(result) -> str:
             best_len = len(text)
     if best is None:
         return "(all results were None or empty)"
-    return str(best.output) if hasattr(best, "output") and best.output else str(best).strip()
+    return (
+        str(best.output)
+        if hasattr(best, "output") and best.output
+        else str(best).strip()
+    )
 
 
 def _extract_subtask(breakdown_file: str, subtask_index: int) -> str:
@@ -143,7 +149,9 @@ def _extract_subtask(breakdown_file: str, subtask_index: int) -> str:
     # so that escaped sequences (\\n, \") are resolved before regex matching.
     try:
         parsed = json.loads(raw_file)
-        text = parsed.get("raw_output", raw_file) if isinstance(parsed, dict) else raw_file
+        text = (
+            parsed.get("raw_output", raw_file) if isinstance(parsed, dict) else raw_file
+        )
     except json.JSONDecodeError:
         text = raw_file
 
@@ -154,16 +162,22 @@ def _extract_subtask(breakdown_file: str, subtask_index: int) -> str:
     # Find JSON
     json_match = re.search(r"```json.*?\n(.*?)```", search_text, re.DOTALL)
     if not json_match:
-        json_match = re.search(r'\{[^{}]*"subtasks"\s*:\s*\[.*?\]\s*[^{}]*\}', search_text, re.DOTALL)
+        json_match = re.search(
+            r'\{[^{}]*"subtasks"\s*:\s*\[.*?\]\s*[^{}]*\}', search_text, re.DOTALL
+        )
     if not json_match:
         raise ValueError(f"No subtasks found in breakdown file: {breakdown_file}")
 
-    json_str = json_match.group(1) if "```" in json_match.group(0) else json_match.group(0)
+    json_str = (
+        json_match.group(1) if "```" in json_match.group(0) else json_match.group(0)
+    )
     data = json.loads(json_str)
     subtasks = data.get("subtasks", data.get("decomposed_subtasks", []))
 
     if subtask_index < 1 or subtask_index > len(subtasks):
-        raise ValueError(f"Subtask index {subtask_index} out of range (1-{len(subtasks)})")
+        raise ValueError(
+            f"Subtask index {subtask_index} out of range (1-{len(subtasks)})"
+        )
 
     subtask = subtasks[subtask_index - 1]
     return subtask.get("description", subtask.get("subtask", ""))
@@ -173,39 +187,85 @@ def _extract_subtask(breakdown_file: str, subtask_index: int) -> str:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 @click.command()
-@click.option("--yaml-config", default=None, type=click.Path(exists=True),
-              help="Inner BTA YAML config. Default: src/.../role_setup/role_setup_skill_tool_creation.yaml")
-@click.option("--breakdown-file", "-b", required=True, type=click.Path(exists=True),
-              help="Outer breakdown output file.")
-@click.option("--subtask-index", default=1, type=int,
-              help="1-based subtask index from outer breakdown.")
-@click.option("--role-document", "-r", required=True, type=click.Path(exists=True),
-              help="Path to the role document markdown file.")
+@click.option(
+    "--yaml-config",
+    default=None,
+    type=click.Path(exists=True),
+    help="Inner BTA YAML config. Default: src/.../role_setup/role_setup_skill_tool_creation.yaml",
+)
+@click.option(
+    "--breakdown-file",
+    "-b",
+    required=True,
+    type=click.Path(exists=True),
+    help="Outer breakdown output file.",
+)
+@click.option(
+    "--subtask-index",
+    default=1,
+    type=int,
+    help="1-based subtask index from outer breakdown.",
+)
+@click.option(
+    "--role-document",
+    "-r",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the role document markdown file.",
+)
 @click.option("--cloud-id", envvar="ROVOCHAT_CLOUD_ID", default="")
 @click.option("--uct-token", envvar="ROVOCHAT_UCT_TOKEN", default=None)
 @click.option("--email", envvar="JIRA_EMAIL", default=None)
 @click.option("--api-token", envvar="JIRA_API_TOKEN", default=None)
 @click.option("--base-url", envvar="ROVOCHAT_BASE_URL", default=None)
-@click.option("--aggregator-type", type=click.Choice(["rovochat", "rovodev"]), default="rovochat")
-@click.option("--output-dir", default=str(Path(__file__).resolve().parent / "_runtime"), type=click.Path())
+@click.option(
+    "--aggregator-type", type=click.Choice(["rovochat", "rovodev"]), default="rovochat"
+)
+@click.option(
+    "--output-dir",
+    default=str(Path(__file__).resolve().parent / "_runtime"),
+    type=click.Path(),
+)
 @click.option("--breakdown-only", is_flag=True, default=False)
-@click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]), default="INFO")
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    default="INFO",
+)
 def main(
-    yaml_config, breakdown_file, subtask_index, role_document,
-    cloud_id, uct_token, email, api_token, base_url,
-    aggregator_type, output_dir, breakdown_only, log_level,
+    yaml_config,
+    breakdown_file,
+    subtask_index,
+    role_document,
+    cloud_id,
+    uct_token,
+    email,
+    api_token,
+    base_url,
+    aggregator_type,
+    output_dir,
+    breakdown_only,
+    log_level,
 ):
     """Run inner BTA for a single skill/tool creation subtask, loaded from YAML."""
 
-    logging.basicConfig(level=getattr(logging, log_level),
-                        format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
 
     # Default YAML config
     if yaml_config is None:
         yaml_config = str(
             Path(__file__).resolve().parents[5]
-            / "src" / "openteam" / "server" / "resources" / "tools" / "role_setup"
+            / "src"
+            / "openteam"
+            / "server"
+            / "resources"
+            / "tools"
+            / "role_setup"
             / "role_setup_skill_tool_creation.yaml"
         )
 
@@ -221,8 +281,11 @@ def main(
     # Available tools
     try:
         from openteam.server.resources.tools.role_setup.executor import (
-            format_available_tools_and_skills, _APP_TOOLS_DIR, _APP_SKILLS_DIR,
+            _APP_SKILLS_DIR,
+            _APP_TOOLS_DIR,
+            format_available_tools_and_skills,
         )
+
         available_tools_text = format_available_tools_and_skills(
             extra_tool_dirs=[_APP_TOOLS_DIR], extra_skill_dirs=[_APP_SKILLS_DIR]
         )
@@ -264,7 +327,10 @@ def main(
         auth_fields["base_url"] = base_url
 
     # Worker-level auth overrides
-    for worker_key in ["skill_tool_creation_research", "skill_tool_creation_investigation"]:
+    for worker_key in [
+        "skill_tool_creation_research",
+        "skill_tool_creation_investigation",
+    ]:
         if auth_fields:
             for k, v in auth_fields.items():
                 overrides[f"worker_factory.{worker_key}.{k}"] = v
@@ -282,7 +348,9 @@ def main(
     click.echo(f"BTA type: {type(bta).__name__}")
     click.echo(f"Breakdown inferencer: {type(bta.breakdown_inferencer).__name__}")
     click.echo(f"Aggregator inferencer: {type(bta.aggregator_inferencer).__name__}")
-    click.echo(f"Worker factory keys: {[k for k in bta.worker_factory if not k.startswith('_')]}")
+    click.echo(
+        f"Worker factory keys: {[k for k in bta.worker_factory if not k.startswith('_')]}"
+    )
 
     # logger and cache_folder are auto-configured via _logger: auto in YAML
     # and BTA._configure_child_workspace() for each child inferencer.
@@ -292,11 +360,13 @@ def main(
     #    Set on the BTA — _propagate_to_children() in InferencerBase
     #    automatically pushes to all children at inference time.
     # =====================================================================
-    bta.template_extra_feed.update({
-        "role_name": role_name,
-        "role_doc_path": role_doc_path,
-        "available_tools_skills": available_tools_text,
-    })
+    bta.template_extra_feed.update(
+        {
+            "role_name": role_name,
+            "role_doc_path": role_doc_path,
+            "available_tools_skills": available_tools_text,
+        }
+    )
 
     # =====================================================================
     # 4. Run
@@ -319,15 +389,21 @@ def main(
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     from agent_foundation.common.response_parsers import extract_delimited
-    clean_text = extract_delimited(result_text) if "<Response>" in result_text else result_text
 
-    output_file = artifacts_dir / ("breakdown_output.md" if breakdown_only else "inner_bta_output.md")
+    clean_text = (
+        extract_delimited(result_text) if "<Response>" in result_text else result_text
+    )
+
+    output_file = artifacts_dir / (
+        "breakdown_output.md" if breakdown_only else "inner_bta_output.md"
+    )
     output_file.write_text(clean_text, encoding="utf-8")
 
     if not breakdown_only:
         outputs_dir = workspace / "outputs"
-        deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + \
-                           list(outputs_dir.rglob("tools/**/*"))
+        deliverable_files = list(outputs_dir.rglob("skills/**/*.md")) + list(
+            outputs_dir.rglob("tools/**/*")
+        )
         if deliverable_files:
             logger.info(
                 "Agent created %d deliverable(s): %s",
@@ -337,16 +413,22 @@ def main(
         else:
             logger.info("No deliverable files found in %s", outputs_dir)
 
-    (artifacts_dir / "summary.json").write_text(json.dumps({
-        "mode": "yaml_driven",
-        "yaml_config": yaml_config,
-        "subtask_index": subtask_index,
-        "subtask_desc": subtask_desc[:200],
-        "breakdown_only": breakdown_only,
-        "elapsed_seconds": round(elapsed, 1),
-        "output_length": len(result_text),
-        "workspace": str(workspace),
-    }, indent=2), encoding="utf-8")
+    (artifacts_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "mode": "yaml_driven",
+                "yaml_config": yaml_config,
+                "subtask_index": subtask_index,
+                "subtask_desc": subtask_desc[:200],
+                "breakdown_only": breakdown_only,
+                "elapsed_seconds": round(elapsed, 1),
+                "output_length": len(result_text),
+                "workspace": str(workspace),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     click.echo("")
     click.echo("=" * 60)

@@ -1,4 +1,5 @@
 """Fixtures for openteam.client tests — registry isolation."""
+
 from __future__ import annotations
 
 import pytest

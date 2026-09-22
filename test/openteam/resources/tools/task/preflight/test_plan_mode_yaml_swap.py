@@ -19,9 +19,11 @@ same standalone YAML via `_import_:`, so there's no drift risk.
 
 These tests guard the swap logic in `executor._run_topology`.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -29,11 +31,17 @@ import pytest
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
-_TOPOLOGIES_DIR = _HERE.parents[1] / "configs"   # NOT used here; for reference
+_TOPOLOGIES_DIR = _HERE.parents[1] / "configs"  # NOT used here; for reference
 # The PRODUCTION topologies dir (where the executor's swap looks):
 _PROD_TOPOLOGIES = (
     _HERE.parents[5]  # OpenStartup/
-    / "src" / "openteam" / "server" / "resources" / "tools" / "task" / "topologies"
+    / "src"
+    / "openteam"
+    / "server"
+    / "resources"
+    / "tools"
+    / "task"
+    / "topologies"
 )
 _FULL_YAML = _PROD_TOPOLOGIES / "breakdown-multiflow-plan-then-implement.yaml"
 _STANDALONE_YAML = _PROD_TOPOLOGIES / "breakdown-multiflow-plan.yaml"
@@ -120,8 +128,14 @@ def test_PMS6_executor_swap_logic_present_for_plan_mode():
     swap logic (i.e. it doesn't accidentally regress to a single-line
     `enable_implementation = False` toggle without the YAML swap)."""
     executor_path = (
-        _HERE.parents[5] / "src" / "openteam" / "server"
-        / "resources" / "tools" / "task" / "executor.py"
+        _HERE.parents[5]
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "tools"
+        / "task"
+        / "executor.py"
     )
     src = executor_path.read_text()
     assert 'if mode == "plan":' in src
@@ -187,8 +201,13 @@ def test_PMS9_followup_template_exists():
     otherwise rendering crashes at the first fix iteration with
     TemplateNotFound."""
     followup_path = (
-        _HERE.parents[5] / "src" / ".."
-        / ".." / ".." / ".." / ".."  # arbitrary; we'll resolve via known-good path
+        _HERE.parents[5]
+        / "src"
+        / ".."
+        / ".."
+        / ".."
+        / ".."
+        / ".."  # arbitrary; we'll resolve via known-good path
     ).resolve()
     # Better: directly check the AgentFoundation prompt_templates
     af_followup = Path(
@@ -198,8 +217,15 @@ def test_PMS9_followup_template_exists():
     # Be tolerant of repo layout — check both standard locations
     candidates = [
         af_followup,
-        _HERE.parents[5] / "src" / "openteam" / "server" / "resources"
-        / "prompt_templates" / "plan" / "main" / "followup.jinja2",
+        _HERE.parents[5]
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "prompt_templates"
+        / "plan"
+        / "main"
+        / "followup.jinja2",
     ]
     found = [p for p in candidates if p.is_file()]
     assert found, (
@@ -222,6 +248,7 @@ def test_PMS10_run_topology_with_plan_mode_swaps_source(tmp_path, monkeypatch):
     and short-circuit before instantiation (which would need a real LLM).
     """
     import asyncio
+
     from openteam.server.resources.tools.task import executor
 
     captured = {}
@@ -277,6 +304,7 @@ def test_PMS11_run_topology_with_full_mode_does_NOT_swap(tmp_path, monkeypatch):
     """Inverse of PMS10: with mode='full' (or no mode), the source MUST
     remain the full PTI YAML — we shouldn't swap when --plan isn't set."""
     import asyncio
+
     from openteam.server.resources.tools.task import executor
 
     captured = {}
@@ -312,8 +340,14 @@ def test_PMS7_execute_mode_does_NOT_swap_yaml():
     and runs implementation. Verify the source still reflects this
     asymmetric design."""
     executor_path = (
-        _HERE.parents[5] / "src" / "openteam" / "server"
-        / "resources" / "tools" / "task" / "executor.py"
+        _HERE.parents[5]
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "tools"
+        / "task"
+        / "executor.py"
     )
     src = executor_path.read_text()
     # Find the --execute block
@@ -322,9 +356,7 @@ def test_PMS7_execute_mode_does_NOT_swap_yaml():
     # (verify by line-locality: within ~10 lines of `if mode == "execute":`,
     # there's no source = ... reassignment)
     lines = src.split("\n")
-    exec_idx = next(
-        i for i, ln in enumerate(lines) if 'if mode == "execute":' in ln
-    )
+    exec_idx = next(i for i, ln in enumerate(lines) if 'if mode == "execute":' in ln)
     block = "\n".join(lines[exec_idx : exec_idx + 10])
     assert "enable_planning" in block, "execute mode should toggle enable_planning"
     assert "source =" not in block, (

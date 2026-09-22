@@ -26,6 +26,7 @@ def test_dispatcher_arg_normalization(tmp_path):
         captured.update(arguments)
 
     import openteam.server.resources.tools.role_setup.executor as rs_exec
+
     real_execute = rs_exec.execute
     rs_exec.execute = stub_execute
     try:
@@ -35,12 +36,16 @@ def test_dispatcher_arg_normalization(tmp_path):
 
         # Create a fake role document for the positional arg
         fake_role_doc = tmp_path / "fake_role.md"
-        fake_role_doc.write_text("# Senior Engineer\nFake role document for arg-normalization test.\n")
+        fake_role_doc.write_text(
+            "# Senior Engineer\nFake role document for arg-normalization test.\n"
+        )
 
         # Run with argparse-style CLI args (mixed dash + positional)
         argv = [
-            "--max-facets", "8",
-            "--max-inner-facets", "5",
+            "--max-facets",
+            "8",
+            "--max-inner-facets",
+            "5",
             str(fake_role_doc),  # role_document_path (positional)
         ]
         try:
@@ -65,14 +70,10 @@ def test_dispatcher_arg_normalization(tmp_path):
                     f"{expected_key} should be {expected_value}, got {actual!r}"
                 )
             else:
-                assert actual == expected_value, (
-                    f"{expected_key} mismatch: {actual!r}"
-                )
+                assert actual == expected_value, f"{expected_key} mismatch: {actual!r}"
 
         # CRITICAL: verify NO dash-prefixed/dashed keys lingering
-        dash_keys = [
-            k for k in captured.keys() if k.startswith("-") or "-" in k
-        ]
+        dash_keys = [k for k in captured.keys() if k.startswith("-") or "-" in k]
         assert not dash_keys, (
             f"Dash-prefixed/dashed keys must not appear in arguments dict. "
             f"Got: {dash_keys}. All keys: {list(captured.keys())}"

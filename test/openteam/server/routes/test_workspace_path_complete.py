@@ -10,6 +10,7 @@ without the full server bootstrap.
 Also asserts the route is registered on the production app at the expected
 mount point.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,7 +18,6 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
 from openteam.server.routes.workspace_routes import router as workspace_router
 
 

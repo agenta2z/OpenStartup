@@ -13,7 +13,7 @@ Exercises:
   * Workspace allocator (``_runtime/tasks/role_setup/<TS>_<UUID>/``)
   * Real subprocess stdout/stderr capture
   * Exit code propagation
-  * Canonical deliverable surfacing via ``outputs/final_deliverables/``
+  * Canonical deliverable surfacing via ``outputs/`` (Part 2: two-axis model)
 
 Cost gate: SKIPPED unless ``acli`` available on PATH AND RovoChat credentials
 are set (``ROVOCHAT_EMAIL`` / ``ROVOCHAT_API_TOKEN``, or mappable from
@@ -58,13 +58,11 @@ def test_role_setup_real_cli_subprocess(tmp_path):
     pythonpath = ":".join(pythonpath_parts)
 
     # Map JIRA_* → ROVOCHAT_* (the way the production launcher does)
-    rovochat_email = (
-        os.environ.get("ROVOCHAT_EMAIL")
-        or os.environ.get("JIRA_EMAIL", "")
+    rovochat_email = os.environ.get("ROVOCHAT_EMAIL") or os.environ.get(
+        "JIRA_EMAIL", ""
     )
-    rovochat_token = (
-        os.environ.get("ROVOCHAT_API_TOKEN")
-        or os.environ.get("JIRA_API_TOKEN", "")
+    rovochat_token = os.environ.get("ROVOCHAT_API_TOKEN") or os.environ.get(
+        "JIRA_API_TOKEN", ""
     )
 
     env = {
@@ -104,9 +102,13 @@ def test_role_setup_real_cli_subprocess(tmp_path):
 
     # Minimal facets to keep cost low: 2 outer skills × 1 inner subtask each.
     cmd = [
-        sys.executable, "-m", "openteam.server.resources.tools.role_setup",
-        "--max-facets", "2",
-        "--max-inner-facets", "1",
+        sys.executable,
+        "-m",
+        "openteam.server.resources.tools.role_setup",
+        "--max-facets",
+        "2",
+        "--max-inner-facets",
+        "1",
         str(role_doc),  # role_document_path (positional)
     ]
 
@@ -146,32 +148,30 @@ def test_role_setup_real_cli_subprocess(tmp_path):
 
     # 2. Workspace was created under _runtime/tasks/role_setup/
     runtime_dir = OPENSTARTUP_ROOT / "_runtime" / "tasks" / "role_setup"
-    assert runtime_dir.is_dir(), (
-        f"Runtime workspace root missing: {runtime_dir}"
-    )
+    assert runtime_dir.is_dir(), f"Runtime workspace root missing: {runtime_dir}"
     workspaces = sorted(
-        [d for d in runtime_dir.iterdir() if d.is_dir()
-         and d.name.startswith("role_setup_")],
+        [
+            d
+            for d in runtime_dir.iterdir()
+            if d.is_dir() and d.name.startswith("role_setup_")
+        ],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    assert workspaces, (
-        f"No role_setup_* workspace was created under {runtime_dir}"
-    )
+    assert workspaces, f"No role_setup_* workspace was created under {runtime_dir}"
     latest = workspaces[0]
     print(f"[real-cli-subprocess] workspace: {latest}")
 
-    # 3. Canonical deliverable: outputs/final_deliverables/role_setup_output.md
-    #    (auto-promoted by BTA when use_final_deliverables_folder=true
-    #     and aggregator has output_is_deliverable=true)
-    deliverable = (
-        latest / "outputs" / "final_deliverables" / "role_setup_output.md"
-    )
+    # 3. Canonical deliverable: outputs/role_setup_output.md
+    #    (Part 2 two-axis model: outputs/ IS the deliverable set; the
+    #     aggregator's role_setup_output.md is promoted up the BTA boundary
+    #     because it lives in the canonical child's outputs/.)
+    deliverable = latest / "outputs" / "role_setup_output.md"
     assert deliverable.is_file(), (
         f"Canonical role-setup output was NOT promoted to {deliverable}. "
-        f"This is a regression in the deliverable surfacing chain (BTA's "
-        f"`use_final_deliverables_folder` or aggregator's "
-        f"`output_is_deliverable`). Log: {log_path}"
+        f"This is a regression in the deliverable surfacing chain "
+        f"(role-based promotion of the aggregator child's outputs/). "
+        f"Log: {log_path}"
     )
 
     # 4. Deliverable must have substantive content (real synthesis,

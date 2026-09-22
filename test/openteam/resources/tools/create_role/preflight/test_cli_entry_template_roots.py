@@ -21,8 +21,8 @@ from pathlib import Path
 from ._common import (
     AF_TEMPLATES_DIR,
     OPENSTARTUP_TEMPLATES_DIR,
-    YAML_PATH,
     set_template_root_env,
+    YAML_PATH,
 )
 
 
@@ -31,14 +31,22 @@ def test_cli_entry_point_has_both_template_roots(tmp_path, monkeypatch):
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
-    from omegaconf import OmegaConf
 
     # Replicate what execute() + _run_topology() do:
     # 1. Load YAML
     # 2. Apply the SAME overrides that _run_topology applies
     import agent_foundation.resources as _af_res
-    _os_templates = Path(__file__).resolve().parents[6] / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    from omegaconf import OmegaConf
+    from rich_python_utils.config_utils import instantiate, load_config
+
+    _os_templates = (
+        Path(__file__).resolve().parents[6]
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "prompt_templates"
+    )
     _af_templates = Path(_af_res.__file__).parent / "prompt_templates"
 
     overrides = {
@@ -86,11 +94,18 @@ def test_cli_entry_aggregator_resolves_aggregation_preamble(tmp_path, monkeypatc
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
-    from omegaconf import OmegaConf
-
     import agent_foundation.resources as _af_res
-    _os_templates = Path(__file__).resolve().parents[6] / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    from omegaconf import OmegaConf
+    from rich_python_utils.config_utils import instantiate, load_config
+
+    _os_templates = (
+        Path(__file__).resolve().parents[6]
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "prompt_templates"
+    )
     _af_templates = Path(_af_res.__file__).parent / "prompt_templates"
 
     overrides = {

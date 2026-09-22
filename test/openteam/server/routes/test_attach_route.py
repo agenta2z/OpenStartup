@@ -6,6 +6,7 @@ avoids dragging in the full server bootstrap (which loads fixtures, LLM
 backends, etc.) while still exercising the actual code path the production
 server uses.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,7 +14,6 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
 from openteam.server.routes.session_routes import router as session_router
 from openteam.server.services.data_service import RealSessionDataService
 from openteam.server.services.session_store import SessionStore
@@ -60,10 +60,13 @@ def mock_only_app(tmp_path):
 
 class TestAttachCreates:
     def test_creates_new_returns_created_true(self, client):
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-abc-123",
-            "frontend_id": "rovodev",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-abc-123",
+                "frontend_id": "rovodev",
+            },
+        )
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["session_id"] == "rovodev-abc-123"
@@ -71,17 +74,23 @@ class TestAttachCreates:
         assert body["session_root"]  # absolute path
 
     def test_idempotent_returns_created_false_second_time(self, client):
-        first = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-deadbeef",
-            "frontend_id": "rovodev",
-        })
+        first = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-deadbeef",
+                "frontend_id": "rovodev",
+            },
+        )
         assert first.status_code == 200
         assert first.json()["created"] is True
 
-        second = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-deadbeef",
-            "frontend_id": "rovodev",
-        })
+        second = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-deadbeef",
+                "frontend_id": "rovodev",
+            },
+        )
         assert second.status_code == 200
         assert second.json()["created"] is False
         assert second.json()["session_id"] == first.json()["session_id"]
@@ -89,11 +98,14 @@ class TestAttachCreates:
 
     def test_metadata_persisted(self, app_with_real_sessions, client):
         _, store = app_with_real_sessions
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-meta-1",
-            "frontend_id": "rovodev",
-            "frontend_metadata": {"workspace": "/tmp/proj", "tui_version": "1.0"},
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-meta-1",
+                "frontend_id": "rovodev",
+                "frontend_metadata": {"workspace": "/tmp/proj", "tui_version": "1.0"},
+            },
+        )
         assert r.status_code == 200
         # Verify metadata was persisted on disk
         session = store.get_session("rovodev-meta-1")
@@ -105,19 +117,25 @@ class TestAttachCreates:
 
     def test_frontend_id_defaults_to_prefix(self, app_with_real_sessions, client):
         _, store = app_with_real_sessions
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "webui-1700000000-abc",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "webui-1700000000-abc",
+            },
+        )
         assert r.status_code == 200
         session = store.get_session("webui-1700000000-abc")
         assert session["frontend_id"] == "webui"
 
     def test_title_propagates(self, app_with_real_sessions, client):
         _, store = app_with_real_sessions
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-titled",
-            "title": "My Workspace",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-titled",
+                "title": "My Workspace",
+            },
+        )
         assert r.status_code == 200
         session = store.get_session("rovodev-titled")
         assert session["title"] == "My Workspace"
@@ -125,17 +143,23 @@ class TestAttachCreates:
 
 class TestAttachValidation:
     def test_invalid_prefix_returns_400(self, client):
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "evil-prefix-abc",
-            "frontend_id": "evil",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "evil-prefix-abc",
+                "frontend_id": "evil",
+            },
+        )
         assert r.status_code == 400
         assert "whitelist" in r.text.lower()
 
     def test_unsafe_remainder_returns_400(self, client):
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-../etc/passwd",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-../etc/passwd",
+            },
+        )
         assert r.status_code == 400
         assert "regex" in r.text.lower()
 
@@ -150,9 +174,12 @@ class TestAttachMockMode:
 
     def test_mock_mode_returns_400(self, mock_only_app):
         client = TestClient(mock_only_app)
-        r = client.post("/api/sessions/attach", json={
-            "external_id": "rovodev-x",
-        })
+        r = client.post(
+            "/api/sessions/attach",
+            json={
+                "external_id": "rovodev-x",
+            },
+        )
         assert r.status_code == 400
         assert "mock mode" in r.text.lower()
 

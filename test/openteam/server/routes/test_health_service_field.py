@@ -5,14 +5,14 @@ distinguish a real OpenTeam server from an impostor process listening on
 port 8000 (R5 mitigation). Dropping the field would silently break the
 client-side service-match check.
 """
+
 from __future__ import annotations
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
 from openteam.client.discovery import SERVICE_NAME
-from openteam.server.routes.health_routes import SERVICE_MARKER, router as health_router
+from openteam.server.routes.health_routes import router as health_router, SERVICE_MARKER
 
 
 def test_marker_constants_agree():

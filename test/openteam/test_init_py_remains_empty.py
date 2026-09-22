@@ -5,6 +5,7 @@ openteam/__init__.py or openteam/server/__init__.py could transitively
 import from agent_foundation BEFORE bootstrap runs, silently breaking
 every console script.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

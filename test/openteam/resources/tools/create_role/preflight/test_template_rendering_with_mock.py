@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from ._common import (
-    YAML_PATH,
-    set_template_root_env,
-)
+from ._common import set_template_root_env, YAML_PATH
 
 
 @pytest.mark.asyncio
@@ -39,12 +36,15 @@ async def test_template_rendering_with_mock_inferencer(tmp_path, monkeypatch):
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
     # Instantiate BTA from YAML (must supply workspace_root)
-    cfg = load_config(str(YAML_PATH), overrides={
-        "_params": {"workspace_root": str(tmp_path)},
-    })
+    cfg = load_config(
+        str(YAML_PATH),
+        overrides={
+            "_params": {"workspace_root": str(tmp_path)},
+        },
+    )
     bta = instantiate(cfg)
 
     # Render the breakdown prompt using the actual code path.
@@ -81,7 +81,4 @@ async def test_template_rendering_with_mock_inferencer(tmp_path, monkeypatch):
     print(f"\n[template-rendering] raw input: {len(raw_request)} chars")
     print(f"[template-rendering] rendered:   {len(rendered)} chars")
     print(f"[template-rendering] template_key: {breakdown.template_key}")
-    print(
-        "[template-rendering] template_root_space: "
-        f"{breakdown.template_root_space}"
-    )
+    print(f"[template-rendering] template_root_space: {breakdown.template_root_space}")

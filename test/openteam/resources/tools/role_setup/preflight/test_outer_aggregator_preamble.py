@@ -28,13 +28,17 @@ def _instantiate_outer_bta(tmp_path, monkeypatch):
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
-    from omegaconf import OmegaConf
-
     import agent_foundation.resources as _af_res
+    from omegaconf import OmegaConf
+    from rich_python_utils.config_utils import instantiate, load_config
+
     _os_templates = (
         Path(__file__).resolve().parents[6]
-        / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+        / "src"
+        / "openteam"
+        / "server"
+        / "resources"
+        / "prompt_templates"
     )
     _af_templates = Path(_af_res.__file__).parent / "prompt_templates"
 

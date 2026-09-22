@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent / "src"
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_tool_def(name: str, source_path: str | None = None):
     """Create a minimal ToolDefinition-like object."""
     td = MagicMock()
@@ -59,14 +60,15 @@ from openteam.server.services.tool_dispatcher import ToolDispatcher
 # Tests: _load_executors
 # ---------------------------------------------------------------------------
 
-class TestLoadExecutors:
 
+class TestLoadExecutors:
     def test_loads_executor_from_tool_json(self, tmp_path):
         """ToolDispatcher discovers and imports executor from tool.json."""
         # Write a real tool.json pointing to a real module:execute function
         tool_json = _make_tool_json(
-            tmp_path, "create_role",
-            executor_ref="openteam.server.resources.tools.create_role.executor:execute"
+            tmp_path,
+            "create_role",
+            executor_ref="openteam.server.resources.tools.create_role.executor:execute",
         )
         tool_def = _make_tool_def("create_role", source_path=str(tool_json))
         integration = _make_integration_executor([])
@@ -83,8 +85,9 @@ class TestLoadExecutors:
     def test_loads_role_setup_executor(self, tmp_path):
         """ToolDispatcher discovers executor for role_setup."""
         tool_json = _make_tool_json(
-            tmp_path, "role_setup",
-            executor_ref="openteam.server.resources.tools.role_setup.executor:execute"
+            tmp_path,
+            "role_setup",
+            executor_ref="openteam.server.resources.tools.role_setup.executor:execute",
         )
         tool_def = _make_tool_def("role_setup", source_path=str(tool_json))
         integration = _make_integration_executor([])
@@ -133,16 +136,26 @@ class TestLoadExecutors:
         tool_dir = tmp_path / "understand_codebase"
         tool_dir.mkdir()
         tool_json = tool_dir / "tool.json"
-        tool_json.write_text(json.dumps({
-            "name": "understand_codebase",
-            "tool_type": "Action",
-            "derived_from": {
-                "tool": "task",
-                "arg_mappings": {"target": "request", "investigation_only": "no_implementation"},
-                "defaults": {"template_master_version": "understand_codebase", "full": True},
-                "target_path_arg": "target",
-            },
-        }))
+        tool_json.write_text(
+            json.dumps(
+                {
+                    "name": "understand_codebase",
+                    "tool_type": "Action",
+                    "derived_from": {
+                        "tool": "task",
+                        "arg_mappings": {
+                            "target": "request",
+                            "investigation_only": "no_implementation",
+                        },
+                        "defaults": {
+                            "template_master_version": "understand_codebase",
+                            "full": True,
+                        },
+                        "target_path_arg": "target",
+                    },
+                }
+            )
+        )
         tool_def = _make_tool_def("understand_codebase", source_path=str(tool_json))
         dispatcher = ToolDispatcher(
             tool_registry={"understand_codebase": tool_def},
@@ -158,17 +171,29 @@ class TestLoadExecutors:
         applies `defaults`/`target_path_arg` before delegating."""
         tool_dir = tmp_path / "understand_codebase"
         tool_dir.mkdir()
-        (tool_dir / "tool.json").write_text(json.dumps({
-            "name": "understand_codebase",
-            "tool_type": "Action",
-            "derived_from": {
-                "tool": "task",
-                "arg_mappings": {"target": "request", "investigation_only": "no_implementation"},
-                "defaults": {"template_master_version": "understand_codebase", "full": True},
-                "target_path_arg": "target",
-            },
-        }))
-        tool_def = _make_tool_def("understand_codebase", source_path=str(tool_dir / "tool.json"))
+        (tool_dir / "tool.json").write_text(
+            json.dumps(
+                {
+                    "name": "understand_codebase",
+                    "tool_type": "Action",
+                    "derived_from": {
+                        "tool": "task",
+                        "arg_mappings": {
+                            "target": "request",
+                            "investigation_only": "no_implementation",
+                        },
+                        "defaults": {
+                            "template_master_version": "understand_codebase",
+                            "full": True,
+                        },
+                        "target_path_arg": "target",
+                    },
+                }
+            )
+        )
+        tool_def = _make_tool_def(
+            "understand_codebase", source_path=str(tool_dir / "tool.json")
+        )
         dispatcher = ToolDispatcher(
             tool_registry={"understand_codebase": tool_def},
             integration_executor=_make_integration_executor([]),
@@ -176,6 +201,7 @@ class TestLoadExecutors:
         )
 
         import agent_foundation.resources.tools.task.executor as task_mod
+
         captured: dict = {}
 
         async def fake_task_execute(args, ctx):
@@ -184,7 +210,8 @@ class TestLoadExecutors:
 
         with patch.object(task_mod, "execute", fake_task_execute):
             await dispatcher._executor_map["understand_codebase"](
-                {"target": "/tmp/repo", "investigation_only": True}, {"working_dir": "/tmp"},
+                {"target": "/tmp/repo", "investigation_only": True},
+                {"working_dir": "/tmp"},
             )
 
         a = captured["args"]
@@ -196,8 +223,7 @@ class TestLoadExecutors:
     def test_handles_import_error_gracefully(self, tmp_path):
         """Bad executor ref logs warning and skips — no crash."""
         tool_json = _make_tool_json(
-            tmp_path, "bad_tool",
-            executor_ref="nonexistent.module.path:execute"
+            tmp_path, "bad_tool", executor_ref="nonexistent.module.path:execute"
         )
         tool_def = _make_tool_def("bad_tool", source_path=str(tool_json))
         integration = _make_integration_executor([])
@@ -213,7 +239,9 @@ class TestLoadExecutors:
 
     def test_handles_missing_tool_json_gracefully(self, tmp_path):
         """Non-existent source_path is skipped gracefully."""
-        tool_def = _make_tool_def("ghost_tool", source_path=str(tmp_path / "ghost" / "tool.json"))
+        tool_def = _make_tool_def(
+            "ghost_tool", source_path=str(tmp_path / "ghost" / "tool.json")
+        )
         integration = _make_integration_executor([])
 
         dispatcher = ToolDispatcher(
@@ -229,13 +257,14 @@ class TestLoadExecutors:
 # Tests: handles()
 # ---------------------------------------------------------------------------
 
-class TestHandles:
 
+class TestHandles:
     def test_handles_registry_tool(self, tmp_path):
         """handles() returns True for tools with executor in registry."""
         tool_json = _make_tool_json(
-            tmp_path, "create_role",
-            executor_ref="openteam.server.resources.tools.create_role.executor:execute"
+            tmp_path,
+            "create_role",
+            executor_ref="openteam.server.resources.tools.create_role.executor:execute",
         )
         tool_def = _make_tool_def("create_role", source_path=str(tool_json))
         integration = _make_integration_executor([])
@@ -275,8 +304,8 @@ class TestHandles:
 # Tests: __call__ dispatch priority
 # ---------------------------------------------------------------------------
 
-class TestDispatch:
 
+class TestDispatch:
     @pytest.mark.asyncio
     async def test_dispatches_to_registry_executor(self, tmp_path):
         """__call__ dispatches to registry executor for known tools."""
@@ -285,8 +314,7 @@ class TestDispatch:
         )
 
         tool_json = _make_tool_json(
-            tmp_path, "create_role",
-            executor_ref="some.module:execute"
+            tmp_path, "create_role", executor_ref="some.module:execute"
         )
         tool_def = _make_tool_def("create_role", source_path=str(tool_json))
         integration = _make_integration_executor(["create_role"])  # also handles it
@@ -324,7 +352,9 @@ class TestDispatch:
 
         result = await dispatcher("slack_send_message", {"channel": "#general"})
 
-        integration.assert_called_once_with("slack_send_message", {"channel": "#general"})
+        integration.assert_called_once_with(
+            "slack_send_message", {"channel": "#general"}
+        )
         assert result.result == "slack_ok"
 
     @pytest.mark.asyncio
@@ -349,7 +379,10 @@ class TestDispatch:
 
         async def mock_execute(arguments, session_context):
             received_context.update(session_context)
-            from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import ToolExecutionResult
+            from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+                ToolExecutionResult,
+            )
+
             return ToolExecutionResult(result="ok")
 
         tool_json = _make_tool_json(tmp_path, "my_tool", executor_ref="mod:fn")
@@ -374,8 +407,8 @@ class TestDispatch:
 # Tests: _import_callable
 # ---------------------------------------------------------------------------
 
-class TestImportCallable:
 
+class TestImportCallable:
     def test_imports_real_function(self):
         """_import_callable can import a real function from a real module."""
         fn = ToolDispatcher._import_callable(
@@ -383,6 +416,7 @@ class TestImportCallable:
         )
         assert callable(fn)
         import asyncio
+
         assert asyncio.iscoroutinefunction(fn)
 
     def test_imports_role_setup_execute(self):
@@ -414,12 +448,16 @@ class TestImportCallable:
 # Integration: tool.json files have executor field
 # ---------------------------------------------------------------------------
 
-class TestToolJsonExecutorField:
 
+class TestToolJsonExecutorField:
     def _read_tool_json(self, tool_name: str) -> dict:
         tools_dir = (
             Path(__file__).parent.parent.parent.parent.parent
-            / "src" / "openteam" / "server" / "resources" / "tools"
+            / "src"
+            / "openteam"
+            / "server"
+            / "resources"
+            / "tools"
         )
         tool_json = tools_dir / tool_name / "tool.json"
         assert tool_json.exists(), f"{tool_json} does not exist"
@@ -454,6 +492,7 @@ class TestToolJsonExecutorField:
 # Tests: _dispatch_as_task interactive plumbing (agent-dispatched async tools)
 # ---------------------------------------------------------------------------
 
+
 def _make_async_tool_def(name: str):
     """A registry tool def flagged asynchronous (triggers _dispatch_as_task)."""
     td = _make_tool_def(name)
@@ -464,6 +503,7 @@ def _make_async_tool_def(name: str):
 async def _wait_until(predicate, timeout: float = 2.0) -> None:
     """Poll predicate while the background _run task drains the event loop."""
     import asyncio as _asyncio
+
     elapsed = 0.0
     while not predicate() and elapsed < timeout:
         await _asyncio.sleep(0.01)
@@ -476,12 +516,12 @@ class TestDispatchAsTaskInteractive:
 
     @pytest.mark.asyncio
     async def test_async_path_uses_registered_child_and_sets_flag(self, tmp_path):
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
+            ToolExecutionResult,
+        )
         from openteam.server.services.websocket_interactive import (
             TaskWebSocketInteractive,
             WebSocketInteractive,
-        )
-        from agent_foundation.common.inferencers.agentic_inferencers.conversational.protocols import (
-            ToolExecutionResult,
         )
 
         registry: dict = {}
@@ -498,9 +538,7 @@ class TestDispatchAsTaskInteractive:
         async def mock_execute(arguments, session_context):
             captured["ctx"] = session_context
             # The queue must be registered while the task is actually running.
-            captured["registered_during_run"] = (
-                session_context["task_id"] in registry
-            )
+            captured["registered_during_run"] = session_context["task_id"] in registry
             return ToolExecutionResult(result="done", context_updates={})
 
         tool_def = _make_async_tool_def("task")

@@ -30,28 +30,29 @@ class PRRecord:
 
 @dataclass
 class OrchestratorState:
-    in_flight: Set[str] = field(default_factory=set)         # "task_type:primary_key"
+    in_flight: Set[str] = field(default_factory=set)  # "task_type:primary_key"
     issue_to_pr: Dict[str, PRRecord] = field(default_factory=dict)
-    completed: Set[str] = field(default_factory=set)         # issue keys
-    stuck: Set[str] = field(default_factory=set)             # issue keys whose
+    completed: Set[str] = field(default_factory=set)  # issue keys
+    stuck: Set[str] = field(default_factory=set)  # issue keys whose
     # rescue failed; we won't retry these — they need human intervention.
 
     def to_json(self) -> str:
-        return json.dumps({
-            "in_flight": sorted(self.in_flight),
-            "issue_to_pr": {k: asdict(v) for k, v in self.issue_to_pr.items()},
-            "completed": sorted(self.completed),
-            "stuck": sorted(self.stuck),
-        }, indent=2)
+        return json.dumps(
+            {
+                "in_flight": sorted(self.in_flight),
+                "issue_to_pr": {k: asdict(v) for k, v in self.issue_to_pr.items()},
+                "completed": sorted(self.completed),
+                "stuck": sorted(self.stuck),
+            },
+            indent=2,
+        )
 
     @classmethod
     def from_json(cls, text: str) -> "OrchestratorState":
         d = json.loads(text)
         return cls(
             in_flight=set(d.get("in_flight", [])),
-            issue_to_pr={
-                k: PRRecord(**v) for k, v in d.get("issue_to_pr", {}).items()
-            },
+            issue_to_pr={k: PRRecord(**v) for k, v in d.get("issue_to_pr", {}).items()},
             completed=set(d.get("completed", [])),
             stuck=set(d.get("stuck", [])),
         )
@@ -103,7 +104,8 @@ def load_state(state_path: str) -> OrchestratorState:
     if purged:
         logger.warning(
             "Purged %d stale one-shot in_flight marker(s) from prior run: %s",
-            len(purged), sorted(purged),
+            len(purged),
+            sorted(purged),
         )
     return state
 
