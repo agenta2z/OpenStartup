@@ -12,6 +12,7 @@ Multi-worker support is POST-4 (requires ``fcntl.flock`` around
 AST scan: load run_server.py source, walk for ``Call(func=Attribute(attr='run'))``
 on a ``Name('uvicorn')`` and assert none of them pass ``workers``.
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,6 +21,7 @@ from pathlib import Path
 
 def _run_server_path() -> Path:
     import openteam.server.run_server as mod
+
     return Path(mod.__file__)
 
 
@@ -41,10 +43,17 @@ def test_uvicorn_run_does_not_pass_workers():
                 if kw.arg == "workers":
                     # Try to extract the numeric literal for a friendlier message
                     val = None
-                    if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, int):
+                    if isinstance(kw.value, ast.Constant) and isinstance(
+                        kw.value.value, int
+                    ):
                         val = kw.value.value
                     if val is None or val > 1:
-                        offenders.append((node.lineno, f"workers={val if val is not None else ast.unparse(kw.value)}"))
+                        offenders.append(
+                            (
+                                node.lineno,
+                                f"workers={val if val is not None else ast.unparse(kw.value)}",
+                            )
+                        )
     assert not offenders, (
         "I20 violation: run_server.py passes workers=N>1 to uvicorn. "
         "Multi-worker uvicorn breaks the server-as-single-writer guarantee "

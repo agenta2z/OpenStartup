@@ -7,6 +7,7 @@ future ``openteam-sdk`` PyPI extraction. The only allowed reverse is
 
 This is an AST scan — does NOT actually execute the imports.
 """
+
 from __future__ import annotations
 
 import ast

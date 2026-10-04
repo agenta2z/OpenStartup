@@ -18,8 +18,8 @@ from __future__ import annotations
 from ._common import (  # noqa: F401  (used inside test body)
     COREPROJECTS_ROOT,
     OPENSTARTUP_ROOT,
-    YAML_PATH,
     set_template_root_env,
+    YAML_PATH,
 )
 
 
@@ -30,18 +30,22 @@ def test_create_role_yaml_smoke_instantiate(tmp_path, monkeypatch):
 
     # Ensure registry imports run (registers @lazy_target classes)
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
     # Load YAML and instantiate (must supply workspace_root — mandatory key)
-    cfg = load_config(str(YAML_PATH), overrides={
-        "_params": {"workspace_root": str(tmp_path)},
-    })
+    cfg = load_config(
+        str(YAML_PATH),
+        overrides={
+            "_params": {"workspace_root": str(tmp_path)},
+        },
+    )
     inst = instantiate(cfg)
 
     # Verify top-level is BTA
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
         BreakdownThenAggregateInferencer,
     )
+
     assert isinstance(inst, BreakdownThenAggregateInferencer), (
         f"Expected BTA, got {type(inst).__name__}"
     )
@@ -50,15 +54,16 @@ def test_create_role_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.agentic_inferencers.external.rovochat.rovochat_inferencer import (
         RovoChatInferencer,
     )
+
     assert isinstance(inst.breakdown_inferencer, RovoChatInferencer), (
-        f"Expected breakdown=RovoChat, got "
-        f"{type(inst.breakdown_inferencer).__name__}"
+        f"Expected breakdown=RovoChat, got {type(inst.breakdown_inferencer).__name__}"
     )
 
     # Verify aggregator is RovoDevCLI (default for aggregation role)
     from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
         RovoDevCliInferencer,
     )
+
     assert isinstance(inst.aggregator_inferencer, RovoDevCliInferencer), (
         f"Expected aggregator=RovoDevCLI, got "
         f"{type(inst.aggregator_inferencer).__name__}"
@@ -89,6 +94,7 @@ def test_create_role_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.templated_inferencer_base import (
         TemplatedInferencerBase,
     )
+
     assert isinstance(inst.breakdown_inferencer, TemplatedInferencerBase), (
         "RovoChatInferencer must inherit from TemplatedInferencerBase (MI fix)"
     )
@@ -100,32 +106,37 @@ def test_create_role_yaml_smoke_instantiate(tmp_path, monkeypatch):
     )
 
     # ------------------------------------------------------------------
-    # Surfacing-mechanism contract (added 2026-05-18 with --output-path removal)
+    # Surfacing-mechanism contract (Part 2: two-axis model)
     # ------------------------------------------------------------------
-    # The canonical role doc must surface inside the workspace via the
-    # final_deliverables mechanism, not via an external --output-path copy.
-    # This is a 3-attrib contract that must hold simultaneously.
+    # The canonical role doc surfaces inside the workspace by living directly
+    # in ``outputs/`` and being promoted up the BTA boundary. Part 2 retired
+    # the ``final_deliverables/`` folder and the deliverable flags
+    # (``use_final_deliverables_folder`` / ``output_is_deliverable``), so the
+    # topology must NOT set them and the workspace/attribs must not exist.
 
-    # 1) Workspace enables the final_deliverables/ promotion folder.
-    # NOTE: `use_final_deliverables_folder` is a WORKSPACE attrib, NOT a BTA
-    # attrib (a common confusion — putting it under `base_inferencer:` results
-    # in a silent "Removing YAML key" framework warning).
+    # 1) Workspace is bound and carries NO retired deliverable flags.
     assert inst._workspace is not None, (
         "BTA must have a workspace bound at construction time"
     )
-    assert getattr(inst._workspace, "use_final_deliverables_folder", False) is True, (
-        "workspace.use_final_deliverables_folder must be True for canonical "
-        "role_document.md to be promoted to outputs/final_deliverables/"
+    assert not hasattr(inst._workspace, "use_final_deliverables_folder"), (
+        "workspace.use_final_deliverables_folder is RETIRED (Part 2) — "
+        "``outputs/`` IS the deliverable set now."
+    )
+    assert not hasattr(inst._workspace, "deliverables_dir"), (
+        "workspace.deliverables_dir is RETIRED (Part 2) — use outputs_dir."
     )
 
-    # 2) Aggregator declares its output is a deliverable (triggers promotion)
-    assert inst.aggregator_inferencer.output_is_deliverable is True, (
-        "aggregator.output_is_deliverable must be True so the aggregator's "
-        "role_document.md is promoted up the BTA boundary"
+    # 2) The aggregator no longer carries the retired ``output_is_deliverable``
+    #    flag (promotion is role-based via _symlink_child_output).
+    assert not hasattr(inst.aggregator_inferencer, "output_is_deliverable"), (
+        "aggregator.output_is_deliverable is RETIRED (Part 2). The aggregator's "
+        "role_document.md is promoted because it lives in the canonical child's "
+        "``outputs/``, not because of a flag."
     )
 
     # 3) BTA's own top-level output uses a NON-conflicting filename so the
-    # summary text doesn't overwrite the real role_document.md
+    # summary text doesn't overwrite the real role_document.md that the
+    # aggregator writes to ``outputs/``.
     assert inst.output_path == "run_summary.md", (
         f"BTA.output_path should be 'run_summary.md' (not 'role_document.md') "
         f"to avoid the summary text overwriting the canonical aggregator "

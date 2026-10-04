@@ -23,7 +23,7 @@
 # Always restarts cleanly: kills anything on 8088/8089 first.
 #
 # Usage:
-#   ./run_devserver.sh                # real-sessions + claude_cli/sonnet
+#   ./run_devserver.sh                # real-sessions + claude_cli/opus[1m]
 #   ./run_devserver.sh --mock         # mock mode (no LLM)
 #   ./run_devserver.sh -- --rebuild   # pass extra flags through to run.sh
 #
@@ -38,7 +38,7 @@ API_PORT=8089
 VENV_PYTHON="${OPENSTARTUP_PYTHON:-/home/zgchen/openteam-venv/bin/python}"
 
 # ── Parse args ───────────────────────────────────────────────────────
-MODE_ARGS=(--real-sessions --llm-backend claude_cli --llm-model sonnet)
+MODE_ARGS=(--real-sessions --llm-backend claude_cli --llm-model 'opus[1m]')
 PASSTHROUGH=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,8 +48,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Kill anything on our ports ───────────────────────────────────────
+# ── Kill anything on our ports + inferencer leaf subprocesses ────────
 echo "[run_devserver] Killing any existing openteam processes on :${UI_PORT}/:${API_PORT}…"
+# First, kill leaf inferencer subprocesses (devmate/claude/codex) that are CHILDREN
+# of our run_server.py — leaving the user's VS Code MCP / Claude Code processes alone.
+for rsp in $(pgrep -f "run_server\.py.*--port ${API_PORT}" 2>/dev/null); do
+  # Kill all descendants (depth-first via pkill -P) before killing the parent.
+  for child in $(pgrep -P "$rsp" 2>/dev/null); do
+    pkill -P "$child" 2>/dev/null || true
+    kill "$child" 2>/dev/null || true
+  done
+done
 pkill -f "openteam/run\.sh"                     2>/dev/null || true
 pkill -f "openteam/ui.*react-scripts"           2>/dev/null || true
 pkill -f "run_server\.py.*--port ${API_PORT}"   2>/dev/null || true
@@ -81,6 +90,17 @@ echo "[run_devserver] URL: http://devvm984.ldc0.facebook.com:${UI_PORT}"
 echo ""
 
 cd "$SCRIPT_DIR"
+# ── Flow panel (3-way: Claude + Devmate + Codex) ─────────────────────
+# Devmate is RE-ENABLED. It now runs via the supported `dm`/devmate-core
+# harness (DevmateCliInferencer cli_mode="dm" default), NOT the legacy
+# `devmate run` Devmate Platform path that authenticated against the
+# RETIRED TIER:devmate_agent ACL (PERMISSION_DENIED). No ACL grant is
+# needed. Refs: D108827214 moved auth to TIER:agentic_coding_platform;
+# D107276072 allowlist-gates the old orchestrator. dm avoids both.
+#
+# CLAUDE_CODE_COMMAND pre-empts the AF inferencer's startup probe
+# (claude_code_cli_inferencer.py:246-249 checks this env first), so
+# the SOP instance never falls back to npx under cold-start load.
 exec env \
   PATH="/usr/bin:$PATH" \
   OPENSTARTUP_PYTHON="$VENV_PYTHON" \
@@ -88,6 +108,9 @@ exec env \
   PORT="$UI_PORT" \
   DANGEROUSLY_DISABLE_HOST_CHECK=true \
   WDS_SOCKET_HOST=0.0.0.0 \
+  TASK__FLOW_INFERENCERS=ClaudeCodeCLI,Devmate,CodexCLI \
+  RESEARCH_PROPOSE__FLOW_INFERENCERS=ClaudeCodeCLI,Devmate,CodexCLI \
+  CLAUDE_CODE_COMMAND=/usr/local/bin/claude \
   ./run.sh --host :: --port "$API_PORT" \
            "${MODE_ARGS[@]}" \
            "${PASSTHROUGH[@]}"

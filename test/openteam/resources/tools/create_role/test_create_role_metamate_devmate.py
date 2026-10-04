@@ -66,14 +66,12 @@ Or via the sibling bash wrapper:
     ./test/openteam/resources/tools/create_role/test_create_role_metamate_devmate.sh \
         "hire a machine learning engineer (MLE)"
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import os
-import sys
-from pathlib import Path
-
 
 # Devmate's CLI must be launched from inside a real Sapling/Git repo;
 # it looks for `.sl`/`.git` markers via "Failed to find repo root" otherwise.
@@ -81,6 +79,9 @@ from pathlib import Path
 # `workspace.root` fallback inside `effective_cwd` fails. Pin `target_path`
 # to the fbsource checkout on this devvm. Set DEVMATE_REPO_PATH to override.
 import os as _os
+import sys
+from pathlib import Path
+
 _DEVMATE_REPO_PATH = _os.environ.get("DEVMATE_REPO_PATH", "/data/users/zgchen/fbsource")
 
 
@@ -261,6 +262,7 @@ def _resolve_yaml_path() -> Path:
     file directly.
     """
     from openteam.server.resources.tools import create_role as create_role_pkg
+
     return Path(create_role_pkg.__file__).resolve().parent / "create_role_bta.yaml"
 
 
@@ -269,13 +271,13 @@ async def _run(role_description: str, max_facets: int, mode: str) -> None:
     # because the sibling repos aren't on the devvm-style disk layout
     # inside the .par bundle. In venv mode it's load-bearing.
     from openteam.bootstrap import ensure_siblings_on_path
+
     ensure_siblings_on_path()
 
     # Trigger alias registration BEFORE _run_topology imports it itself.
     # (It does the same, but importing here lets us early-fail on alias
     # registration regressions with a clear traceback.)
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-
     from openteam.server.resources.tools.task.executor import _run_topology
 
     overrides = dict(_MODES[mode])
@@ -289,6 +291,7 @@ async def _run(role_description: str, max_facets: int, mode: str) -> None:
     from openteam.server.resources.tools._shared.workspace_allocator import (
         allocate_tool_workspace,
     )
+
     tasks_base = runtime / "tasks"
     tasks_base.mkdir(parents=True, exist_ok=True)
     workspace = allocate_tool_workspace("create_role", base_dir=tasks_base)
@@ -314,7 +317,7 @@ async def _run(role_description: str, max_facets: int, mode: str) -> None:
 
     print(f"[driver] result.result.head={str(result.result)[:200]!r}", flush=True)
     print(f"[driver] result.context_updates={result.context_updates}", flush=True)
-    deliverable = Path(workspace) / "outputs" / "final_deliverables" / "role_document.md"
+    deliverable = Path(workspace) / "outputs" / "role_document.md"
     if deliverable.is_file():
         size = deliverable.stat().st_size
         head = deliverable.read_text(encoding="utf-8")[:500]
@@ -339,9 +342,7 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    asyncio.run(
-        _run(args.role_description, args.max_facets, args.mode)
-    )
+    asyncio.run(_run(args.role_description, args.max_facets, args.mode))
     return 0
 
 

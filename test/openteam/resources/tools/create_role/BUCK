@@ -29,8 +29,8 @@ python_library(
     base_module = "openteam.server.resources.tools.create_role._test_driver",
     typing = False,
     deps = [
-        "fbcode//_tony_dev/CoreProjects/OpenStartup/src:openteam",
         "fbcode//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "fbcode//_tony_dev/CoreProjects/OpenStartup/src:openteam",
         "fbcode//_tony_dev/CoreProjects/RichPythonUtils/src:rich_python_utils",
     ],
 )

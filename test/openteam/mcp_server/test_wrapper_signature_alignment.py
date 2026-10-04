@@ -1,4 +1,5 @@
 """TIER-1 CI preflight: wrapper function signatures stay aligned with tool.json schemas."""
+
 from __future__ import annotations
 
 import inspect
@@ -6,7 +7,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from openteam.mcp_server.server import _WRAPPERS
 
 # Locate the tool.json directory relative to the project source tree.

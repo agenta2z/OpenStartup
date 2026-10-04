@@ -5,6 +5,8 @@ These assert the run_context primitives OpenStartup relies on for the optional
 adoption (the wiring in ConversationService.run_conversation_turn). They use the
 AgentFoundation run_context package directly (no server stack needed)."""
 
+import asyncio
+
 import pytest
 
 rc = pytest.importorskip(
@@ -55,6 +57,7 @@ def test_run_id_provenance_flows_into_child():
 
 # --- ConversationService session-root wiring (the refactor under test) ----------
 
+
 def _bare_service():
     """A ConversationService with only the caches wired (skips the heavy __init__)."""
     from openteam.server.services.conversation_service import ConversationService
@@ -62,6 +65,12 @@ def _bare_service():
     svc = ConversationService.__new__(ConversationService)
     svc._session_roots = {}
     svc._inferencers = {}
+    svc._session_loggers = {}
+    svc._bg_tasks = {}
+    svc._turn_locks = {}
+    svc._turn_tasks = {}
+    svc._native_runtime = None
+    svc._retiring = set()
     return svc
 
 
@@ -89,7 +98,7 @@ def test_eviction_clears_session_root(tmp_path):
     """evict_session_inferencer drops the session root in lock-step with the CI."""
     svc = _bare_service()
     r1 = svc._get_session_root("sid", session_dir=tmp_path, cwd=str(tmp_path))
-    svc.evict_session_inferencer("sid")
+    asyncio.run(svc.evict_session_inferencer("sid"))
     assert "sid" not in svc._session_roots
     r2 = svc._get_session_root("sid", session_dir=tmp_path, cwd=str(tmp_path))
     assert r2 is not r1  # a fresh root after eviction
@@ -116,3 +125,40 @@ def test_store_loaded_once_across_turns(tmp_path, monkeypatch):
         root = svc._get_session_root("sid", session_dir=tmp_path, cwd=str(tmp_path))
         root.child(f"turn_{n}")
     assert calls["n"] == 1  # loaded once, not 3x
+
+
+def test_turns_of_one_session_run_one_at_a_time():
+    """A session's turns share its inferencer instances (one host invocation at a
+    time each) and its turn numbering, so a turn starts only after the previous one
+    — a cancelled one still unwinding included — has finished. Other sessions run
+    concurrently."""
+    import asyncio
+
+    svc = _bare_service()
+    events = []
+
+    async def fake_turn(
+        session, user_message, *, interactive, data_service=None, origin="user"
+    ):
+        events.append(("start", session["id"], user_message))
+        await asyncio.sleep(0.01)
+        events.append(("end", session["id"], user_message))
+
+    svc._run_user_turn = fake_turn
+
+    async def main():
+        await asyncio.gather(
+            svc.run_conversation_turn({"id": "s1"}, "first", interactive=None),
+            svc.run_conversation_turn({"id": "s1"}, "second", interactive=None),
+            svc.run_conversation_turn({"id": "s2"}, "other", interactive=None),
+        )
+
+    asyncio.run(main())
+    s1 = [event for event in events if event[1] == "s1"]
+    assert s1 == [
+        ("start", "s1", "first"),
+        ("end", "s1", "first"),
+        ("start", "s1", "second"),
+        ("end", "s1", "second"),
+    ]
+    assert events.index(("start", "s2", "other")) < events.index(("end", "s1", "first"))

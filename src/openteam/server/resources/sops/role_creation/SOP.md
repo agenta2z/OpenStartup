@@ -27,15 +27,15 @@ For other roles, different categories may be needed. For example, a Data Scienti
 DO NOT ask about autonomy, domain, systems, or integrations — these emerge from later phases.
 DO NOT list the choices as a plain-text question — always invoke the `multiple_choice` conversation tool so the user can click their selections.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - multiple_choice
 
 ## Phase 1 -- Role Creation with Research & Document:
 [__depends on__ Phase 0]
 
-Use `create-role` tool to conduct deep research and synthesize a comprehensive role responsibility document. Combine user's original request with user response to the multi-choice question from Phase 0 as the role description. 
+Use `create-role` tool to conduct deep research and synthesize a comprehensive role responsibility document. Combine user's original request with user response to the multi-choice question from Phase 0 as the role description.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - /create-role
 
 ### Phase 1b -- Role Document Review
@@ -60,7 +60,7 @@ This phase will:
 
 Use `/role-setup` to decompose the role and build its capabilities.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - /role-setup <role_document_path>
 
 ### Phase 2b -- Role Details Review [__depends on__ Phase 2; __requires user input__]

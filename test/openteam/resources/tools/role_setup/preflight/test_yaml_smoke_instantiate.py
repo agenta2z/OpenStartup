@@ -30,17 +30,21 @@ def test_role_setup_outer_yaml_smoke_instantiate(tmp_path, monkeypatch):
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
-    cfg = load_config(str(OUTER_YAML_PATH), overrides={
-        "_params": {"workspace_root": str(tmp_path)},
-    })
+    cfg = load_config(
+        str(OUTER_YAML_PATH),
+        overrides={
+            "_params": {"workspace_root": str(tmp_path)},
+        },
+    )
     inst = instantiate(cfg)
 
     # Top-level: BTA
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
         BreakdownThenAggregateInferencer,
     )
+
     assert isinstance(inst, BreakdownThenAggregateInferencer), (
         f"Expected outer BTA, got {type(inst).__name__}"
     )
@@ -49,6 +53,7 @@ def test_role_setup_outer_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
         RovoDevCliInferencer,
     )
+
     assert isinstance(inst.breakdown_inferencer, RovoDevCliInferencer), (
         f"Expected outer breakdown=RovoDevCLI, got "
         f"{type(inst.breakdown_inferencer).__name__}"
@@ -88,17 +93,21 @@ def test_role_setup_inner_yaml_smoke_instantiate(tmp_path, monkeypatch):
     set_template_root_env(monkeypatch)
 
     import agent_foundation.common.configs.registered_targets  # noqa: F401
-    from rich_python_utils.config_utils import load_config, instantiate
+    from rich_python_utils.config_utils import instantiate, load_config
 
-    cfg = load_config(str(INNER_YAML_PATH), overrides={
-        "_params": {"workspace_root": str(tmp_path)},
-    })
+    cfg = load_config(
+        str(INNER_YAML_PATH),
+        overrides={
+            "_params": {"workspace_root": str(tmp_path)},
+        },
+    )
     inst = instantiate(cfg)
 
     # Top-level: inner BTA
     from agent_foundation.common.inferencers.agentic_inferencers.flow_inferencers.breakdown_then_aggregate_inferencer import (
         BreakdownThenAggregateInferencer,
     )
+
     assert isinstance(inst, BreakdownThenAggregateInferencer), (
         f"Expected inner BTA, got {type(inst).__name__}"
     )
@@ -107,6 +116,7 @@ def test_role_setup_inner_yaml_smoke_instantiate(tmp_path, monkeypatch):
     from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
         RovoDevCliInferencer,
     )
+
     assert isinstance(inst.breakdown_inferencer, RovoDevCliInferencer), (
         f"Expected inner breakdown=RovoDevCLI, got "
         f"{type(inst.breakdown_inferencer).__name__}"

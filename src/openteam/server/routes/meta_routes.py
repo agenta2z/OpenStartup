@@ -59,14 +59,16 @@ async def list_backends(request: Request) -> dict:
     backends_payload = []
     for name in sorted(descriptors):
         desc = descriptors[name]
-        backends_payload.append({
-            "name": name,
-            "display_name": desc.display_name,
-            "description": desc.description,
-            "available": desc.is_available(),
-            "status_message": desc.status_message(),
-            "default_model": desc.default_model,
-        })
+        backends_payload.append(
+            {
+                "name": name,
+                "display_name": desc.display_name,
+                "description": desc.description,
+                "available": desc.is_available(),
+                "status_message": desc.status_message(),
+                "default_model": desc.default_model,
+            }
+        )
 
     return {
         "default_backend": default_backend,
@@ -82,7 +84,7 @@ async def set_session_backend(
     """Set the LLM backend for a specific session.
 
     Returns 400 with the available list if the backend name is unknown.
-    Evicts any cached inferencer so the next turn rebuilds.
+    Evicts the session (cancelling a running turn) so the next turn rebuilds.
     """
     svc = _conv_svc(request)
 
@@ -98,9 +100,12 @@ async def set_session_backend(
         )
 
     try:
-        updated = svc.set_session_backend(session_id, choice.backend, choice.model)
+        updated = await svc.set_session_backend(
+            session_id, choice.backend, choice.model
+        )
     except KeyError as e:
         from openteam.server.backends import get_registry
+
         available = sorted(get_registry().list_backends())
         raise HTTPException(
             status_code=400,

@@ -12,17 +12,17 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'responsible-ai-api'
+project = "responsible-ai-api"
 
 # No pyproject.toml is checked in alongside this docset, so we fall back to
 # the team-name string per the scaffold spec. If/when a pyproject.toml is
 # added, prefer reading [project].authors from it instead of hardcoding.
-author = 'Atlassian RAI Team'
+author = "Atlassian RAI Team"
 
 # Hardcoded version: there is no pyproject.toml [project].version available
 # at scaffold time. Bump this in lockstep with the package when one is
 # added, or replace with a tomllib-based read from pyproject.toml.
-version = '0.1.0'
+version = "0.1.0"
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -31,11 +31,11 @@ extensions = [
     # autosectionlabel is essential — every prose page links to others via
     # named ``:ref:`` anchors (e.g. ``:ref:`config-overview```), and many
     # also reference section headings on the destination page.
-    'sphinx.ext.autosectionlabel',
+    "sphinx.ext.autosectionlabel",
     # intersphinx is wired empty-by-default; populate ``intersphinx_mapping``
     # below when the docs need to link out to (e.g.) the Python stdlib or
     # Flask reference.
-    'sphinx.ext.intersphinx',
+    "sphinx.ext.intersphinx",
 ]
 
 # Prefix every auto-generated section label with the document name so that
@@ -95,56 +95,56 @@ nitpick_ignore = [
     # introduction.rst — page-top anchor; cited by configuration.rst:9,
     # 2052, 2111 and glossary.rst:220, 619 (term ``RAI`` and the
     # cross-references list).
-    ('std:ref','introduction'),
+    ("std:ref", "introduction"),
     # getting-started.rst — page-top anchor; cited 11× across
     # configuration.rst (180, 189, 352, 634, 2054, 2111) and
     # operations.rst (16, 405, 1004) and glossary.rst (620).
-    ('std:ref','getting-started'),
+    ("std:ref", "getting-started"),
     # getting-started.rst sub-anchor for the laptop-side feature-flag
     # workflow; cited from configuration.rst:2054 and glossary.rst:620.
-    ('std:ref','gs-feature-flags'),
+    ("std:ref", "gs-feature-flags"),
     # architecture.rst — the most-cited forward anchor (21 cites);
     # appears in every existing page (configuration, inference-models,
     # operations) plus glossary.rst.
-    ('std:ref','architecture'),
+    ("std:ref", "architecture"),
     # architecture.rst sub-anchor for the global handler chain that
     # propagates ``debug_trace``; required by glossary.rst's
     # ``debug trace`` term entry (lines 76, 624) and by the cross-refs
     # list at glossary.rst:638.
-    ('std:ref','arch-debug-trace'),
+    ("std:ref", "arch-debug-trace"),
     # service-layer.rst sub-anchor for the four moderation services;
     # cited 11× from configuration.rst (869, 1227, 1770, 1897, 2078),
     # inference-models.rst (9, 476, 1135), and glossary.rst (122, 628).
-    ('std:ref','svc-moderation'),
+    ("std:ref", "svc-moderation"),
     # api-reference.rst — page-top anchor for the public HTTP contract;
     # cited 16× across configuration.rst, glossary.rst.
-    ('std:ref','api-reference'),
+    ("std:ref", "api-reference"),
     # api-reference.rst sub-anchor for the prompt-cache ETag protocol;
     # cited from configuration.rst:1068, 2066 and glossary.rst:89, 638.
-    ('std:ref','api-etag'),
+    ("std:ref", "api-etag"),
     # api-reference.rst sub-anchor for the debug-trace response shape;
     # required by glossary.rst's ``debug trace`` term entry (lines 76,
     # 638).
-    ('std:ref','api-debug-trace'),
+    ("std:ref", "api-debug-trace"),
 ]
 
-source_suffix = '.rst'
-master_doc = 'index'
+source_suffix = ".rst"
+master_doc = "index"
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- HTML output -------------------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_theme_options = {
     # ``api-reference`` and ``service-layer`` have nested sections that go
     # 3-4 levels deep; ``navigation_depth = 4`` lets the RTD sidebar expand
     # them fully so readers can jump straight to a specific endpoint or
     # service method without first clicking into the page.
-    'navigation_depth': 4,
+    "navigation_depth": 4,
 }
 
 # -- Intersphinx mapping -----------------------------------------------------

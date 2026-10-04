@@ -12,7 +12,9 @@ router = APIRouter()
 @router.get("/suggested-actions")
 async def get_suggested_actions(
     request: Request,
-    context: str = Query(default="projects", description="View context: projects|tasks|team|employees"),
+    context: str = Query(
+        default="projects", description="View context: projects|tasks|team|employees"
+    ),
 ):
     intel_svc = request.app.state.intelligence_service
     return {"data": intel_svc.get_suggested_actions(context)}

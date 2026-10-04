@@ -80,9 +80,13 @@ class Orchestrator:
                 continue
             try:
                 if task.delay_seconds > 0:
-                    logger.debug("Worker %d sleeping %ds before %s:%s",
-                                 worker_id, task.delay_seconds,
-                                 task.task_type, task.primary_key)
+                    logger.debug(
+                        "Worker %d sleeping %ds before %s:%s",
+                        worker_id,
+                        task.delay_seconds,
+                        task.task_type,
+                        task.primary_key,
+                    )
                     await asyncio.sleep(task.delay_seconds)
                 follow_ups = await self._dispatch(task)
                 # Mark current as done BEFORE enqueuing follow-ups so a follow-up
@@ -92,8 +96,12 @@ class Orchestrator:
                 for f in follow_ups:
                     self.enqueue(f)
             except Exception:
-                logger.exception("Worker %d: task %s:%s failed",
-                                 worker_id, task.task_type, task.primary_key)
+                logger.exception(
+                    "Worker %d: task %s:%s failed",
+                    worker_id,
+                    task.task_type,
+                    task.primary_key,
+                )
                 self._mark_done(task)
                 # Safety re-enqueue: long-running monitor tasks (MonitorEpic /
                 # MonitorPR) must NOT silently disappear on a single transient
@@ -170,8 +178,10 @@ class Orchestrator:
             logger.warning(
                 "Safety re-enqueued MonitorEpic:%s with delay=%ds "
                 "(steady=%ds, crash_floor=%ds)",
-                task.epic_key, new_task.delay_seconds,
-                new_task.steady_state_delay_seconds, int(crash_floor),
+                task.epic_key,
+                new_task.delay_seconds,
+                new_task.steady_state_delay_seconds,
+                int(crash_floor),
             )
         elif isinstance(task, task_mod.MonitorPRTask):
             new_task = task_mod.MonitorPRTask(
@@ -185,8 +195,10 @@ class Orchestrator:
             logger.warning(
                 "Safety re-enqueued MonitorPR:%s with delay=%ds "
                 "(steady=%ds, crash_floor=%ds)",
-                task.issue_key, new_task.delay_seconds,
-                new_task.steady_state_delay_seconds, int(crash_floor),
+                task.issue_key,
+                new_task.delay_seconds,
+                new_task.steady_state_delay_seconds,
+                int(crash_floor),
             )
 
     async def _dispatch(self, task: object) -> List[object]:
@@ -226,9 +238,11 @@ class Orchestrator:
 
 def install_sigint_handler(orch: Orchestrator) -> None:
     loop = asyncio.get_running_loop()
+
     def _on_sig() -> None:
         logger.warning("SIGINT received; initiating graceful shutdown")
         asyncio.create_task(orch.shutdown())
+
     try:
         loop.add_signal_handler(signal.SIGINT, _on_sig)
         loop.add_signal_handler(signal.SIGTERM, _on_sig)

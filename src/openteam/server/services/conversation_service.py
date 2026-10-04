@@ -13,18 +13,59 @@ The route handler orchestrates: append user msg → call service → append resp
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import copy
+import functools
 import logging
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator
 
 import agent_foundation.resources as _af_res
+from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversational_inferencer import (
+    _CONTINUE_AFTER_TOOLS,
+)
+from openteam.server.services.json_io import write_json_atomic
+from openteam.server.services.native_session_store import (
+    NATIVE_SESSION_DIR as _NATIVE_SESSION_DIR,
+    replace_record,
+    SESSION_KEY as _NATIVE_SESSION_KEY,
+    SessionStoreRecordAdapter,
+)
 
 _AF_TEMPLATES_ROOT = Path(_af_res.__file__).parent / "prompt_templates"
+# Bound on each step of evicting a session: its cancelled turn unwinding, and
+# closing its inferencer (live vendor session included).
+_RETIRE_TIMEOUT_S = 60.0
 
 logger = logging.getLogger(__name__)
+
+# Roles that are UI-only chrome (chips/cards) and must be excluded from the LLM
+# conversation feed. ``task_ref`` / ``dashboard_ref`` are purely-visual subtab
+# markers; including them would inject junk empty assistant turns.
+_UI_ONLY_ROLES = {"task_ref", "dashboard_ref"}
+
+
+def _count_turn_dirs(session_dir: Path | None) -> int:
+    """Number of turns recorded in ``session_dir``: new-style ``turn_NNN/`` at
+    the root (RankEvolve layout), else legacy nested ``turns/turn_NNN/``."""
+    if session_dir is None:
+        return 0
+    new_style = sum(
+        1
+        for p in session_dir.iterdir()
+        if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
+    )
+    if new_style > 0:
+        return new_style
+    legacy_dir = session_dir / "turns"
+    if not legacy_dir.is_dir():
+        return 0
+    return sum(
+        1 for p in legacy_dir.iterdir() if p.is_dir() and p.name.startswith("turn_")
+    )
 
 
 class _SimplePromptRenderer:
@@ -79,7 +120,9 @@ class _SimplePromptRenderer:
             if candidate.is_file():
                 try:
                     data = _yaml.safe_load(candidate.read_text(encoding="utf-8"))
-                    self._cached_template_config = data if isinstance(data, dict) else {}
+                    self._cached_template_config = (
+                        data if isinstance(data, dict) else {}
+                    )
                     return self._cached_template_config
                 except Exception:
                     pass
@@ -123,6 +166,37 @@ def _build_prompt_renderer(templates_dir: Path) -> _SimplePromptRenderer:
     return _SimplePromptRenderer(templates_dir)
 
 
+class _DetachedSessionView:
+    """The session-store surface an inferencer build uses, with session
+    ``session_id`` replaced by an in-memory copy of ``session``: reads see the
+    copy and updates change only it, so a vendor session can be rewound before
+    the host commits (or drops) the result. Other sessions and the session's
+    directory are the real store's."""
+
+    def __init__(self, store: Any, session_id: str, session: dict) -> None:
+        self._store = store
+        self._session_id = session_id
+        self.session = copy.deepcopy(session)
+
+    def get_session(self, session_id: str) -> dict | None:
+        if session_id == self._session_id:
+            return copy.deepcopy(self.session)
+        return self._store.get_session(session_id)
+
+    def update_session(self, session_id: str, updates: dict) -> dict | None:
+        if session_id != self._session_id:
+            return self._store.update_session(session_id, updates)
+        self.session.update({k: v for k, v in updates.items() if k != "id"})
+        return copy.deepcopy(self.session)
+
+    def get_session_dir(self, session_id: str) -> Path:
+        return self._store.get_session_dir(session_id)
+
+    @property
+    def server_dir(self) -> Path:
+        return self._store.server_dir
+
+
 class ConversationService:
     """Renders conversation prompts and manages LLM interactions."""
 
@@ -141,18 +215,60 @@ class ConversationService:
         self._working_dir = working_dir or str(Path.home())
         self._cache_dir = cache_dir
         self._session_store = session_store
-        self._inferencers: dict[str, object] = {}  # session_id → ConversationalInferencer
+        self._inferencers: dict[
+            str, object
+        ] = {}  # session_id → ConversationalInferencer
         # session_id → ONE session-scoped RunContext root, reused across all turns
         # (each turn derives child("turn_N")). Loaded once from run_state/store.json;
         # mirrors the _inferencers cache lifecycle (evicted in lock-step). §9.4.
         self._session_roots: dict[str, object] = {}
-        self._mock_prompt_cache: dict[str, dict] = {}  # session_id → last prompt data (mock mode)
+        self._mock_prompt_cache: dict[
+            str, dict
+        ] = {}  # session_id → last prompt data (mock mode)
         # Per-session JsonLogger cache for RankEvolve-style structured logging.
         # Created lazily on first run_conversation_turn call so that we have
         # a session_dir to bind to. Reused across turns so the JSONL file
         # accumulates and the parts/ subfolders persist across the session.
         self._session_loggers: dict[str, Any] = {}
+        # Per-session registry of agent-invoked background tasks (asyncio.Task),
+        # so a resume/restore can cancel + await them before mutating disk.
+        # Inner dict is keyed by task_id so reconcile_task_ref_statuses can
+        # ask "is this task_id still alive?" via get_live_task_ids() — the
+        # authoritative liveness signal that distinguishes a WS reconnect
+        # (registry has the task) from a crash/restart (registry is empty).
+        self._bg_tasks: dict[str, dict[str, asyncio.Task]] = {}
+        # session_id → the lock that runs that session's turns one at a time: every
+        # turn shares the session's inferencer instances (which run one host
+        # invocation at a time) and its on-disk turn numbering.
+        self._turn_locks: dict[str, asyncio.Lock] = {}
+        # session_id → the tasks running or waiting to run that session's turns
+        # (cancelled when the session is evicted).
+        self._turn_tasks: dict[str, set[asyncio.Task]] = {}
+        # Live vendor sessions of native backends, shared by this service's
+        # native inferencers so a session survives evict-then-rebuild; created
+        # on first use.
+        self._native_runtime: Any = None
+        # Evicted inferencers still being closed (awaited by aclose_all).
+        self._retiring: set[asyncio.Task] = set()
         self._template_manager = self._build_template_manager()
+
+    def _turn_lock(self, session_id: str) -> asyncio.Lock:
+        return self._turn_locks.setdefault(session_id, asyncio.Lock())
+
+    @contextlib.asynccontextmanager
+    async def _session_turn(self, session_id: str) -> AsyncIterator[None]:
+        """Run the body as one of the session's turns: after the turn ahead of
+        it has finished, and cancelled if the session is evicted meanwhile."""
+        task = asyncio.current_task()
+        turns = self._turn_tasks.setdefault(session_id, set())
+        turns.add(task)
+        try:
+            async with self._turn_lock(session_id):
+                yield
+        finally:
+            turns.discard(task)
+            if not turns and self._turn_tasks.get(session_id) is turns:
+                del self._turn_tasks[session_id]
 
     def _build_template_manager(self):
         """Create TemplateManager for conversation prompt rendering.
@@ -195,6 +311,8 @@ class ConversationService:
         conversation_history = []
         for msg in messages:
             role = msg.get("role", "manager")
+            if role in _UI_ONLY_ROLES:
+                continue  # task_ref chips are UI-only — never feed to the LLM
             # Map OpenStartup roles to prompt template roles
             prompt_role = "manager" if role in ("manager", "user") else "assistant"
             conversation_history.append(
@@ -226,6 +344,7 @@ class ConversationService:
         /api/server/backends meta route.
         """
         from openteam.server.backends import get_registry
+
         return list(get_registry().list_backends())
 
     # ── Workflow-controlled conversation ────────────────────────────
@@ -242,34 +361,82 @@ class ConversationService:
         registry. Any other backend dispatches through
         ``BackendRegistry.create()``.
         """
-        from openteam.server.backends import BackendBuildContext, get_registry
-
         sess = session or {}
-        backend = sess.get("llm_backend") or self._llm_backend
-        model = sess.get("llm_model") or self._llm_model
-
-        if backend == "mock":
+        if (sess.get("llm_backend") or self._llm_backend) == "mock":
             return None
 
         if session_id in self._inferencers:
             return self._inferencers[session_id]
 
+        inferencer = self._build_inferencer(session_id, sess)
+        self._inferencers[session_id] = inferencer
+        return inferencer
+
+    def _build_inferencer(
+        self, session_id: str, session: dict, *, session_store: Any = None
+    ) -> Any:
+        """Build (without caching) the inferencer for ``session``'s effective
+        backend and model, or None for ``mock``; ``session_store`` stands in
+        for the service's store in what it builds."""
+        from openteam.server.backends import BackendBuildContext, get_registry
+
+        backend = session.get("llm_backend") or self._llm_backend
+        # The server default model belongs to the server default backend; a
+        # session on another backend without its own model gets that
+        # backend's default (a Claude alias means nothing to Codex).
+        model = session.get("llm_model") or (
+            self._llm_model if backend == self._llm_backend else None
+        )
+        if backend == "mock":
+            return None
+
         ctx = BackendBuildContext(
             templates_dir=self._templates_dir,
             working_dir=self._working_dir,
             cache_dir=self._cache_dir,
-            session_store=self._session_store,
+            session_store=(
+                session_store if session_store is not None else self._session_store
+            ),
             model_name=model,
             session_id=session_id,
+            native_runtime=(
+                self._get_native_runtime() if self._is_native_backend(backend) else None
+            ),
         )
         try:
-            inferencer = get_registry().create(backend, ctx)
+            return get_registry().create(backend, ctx)
         except Exception as e:
             logger.error("Failed to build inferencer for backend %r: %s", backend, e)
             raise
 
-        self._inferencers[session_id] = inferencer
-        return inferencer
+    @staticmethod
+    def _is_native_backend(backend: str | None) -> bool:
+        """Whether ``backend`` hands the conversation to a vendor agent session
+        (registered with ``BackendDescriptor.native``)."""
+        from openteam.server.backends import get_registry
+
+        descriptor = get_registry().list_backends().get(backend or "")
+        return getattr(descriptor, "native", False) is True
+
+    def _get_native_runtime(self) -> Any:
+        if self._native_runtime is None:
+            from agent_foundation.common.inferencers.agentic_inferencers.conversational_native import (
+                NativeRuntimeManager,
+            )
+
+            self._native_runtime = NativeRuntimeManager()
+        return self._native_runtime
+
+    def _stored_session(self, session_id: str) -> dict:
+        store = self._session_store
+        if store is None or not hasattr(store, "get_session"):
+            return {}
+        session = store.get_session(session_id)
+        return session if isinstance(session, dict) else {}
+
+    def _session_backend(self, session_id: str, session: dict | None = None) -> str:
+        sess = session if session is not None else self._stored_session(session_id)
+        return sess.get("llm_backend") or self._llm_backend
 
     def _get_session_root(
         self,
@@ -324,7 +491,7 @@ class ConversationService:
         except Exception:  # pragma: no cover - never block a turn on context setup
             return None
 
-    def set_session_backend(
+    async def set_session_backend(
         self,
         session_id: str,
         backend: str,
@@ -333,8 +500,18 @@ class ConversationService:
         """Set the per-session LLM backend (and optional model).
 
         Validates ``backend`` against the registry, persists via
-        ``session_store.update_session``, and evicts any cached inferencer
-        so the next turn rebuilds with the new choice.
+        ``session_store.update_session``, then evicts the session (cancelling
+        its running turn) so the next turn rebuilds with the new choice.
+        Leaving a backend closes its live vendor sessions; leaving a native
+        backend also ends its vendor session: that session would miss the
+        turns run elsewhere, so a later native turn starts a fresh one with a
+        recap.
+
+        The session's background tool runs are kept: a run belongs to the
+        session, not to the backend, and its completion reaches the
+        conversation through the host's auto-advance turn on the backend
+        current by then. Deleting the session or shutting the server down
+        cancels them.
 
         Returns the updated session dict, or ``None`` if the session is
         unknown or no session store is wired.
@@ -348,32 +525,393 @@ class ConversationService:
                 f"Unknown backend {backend!r}. Registered backends: {available}"
             )
 
-        # Evict cached inferencer so the next turn rebuilds with the new backend
-        self._inferencers.pop(session_id, None)
-        self._session_roots.pop(session_id, None)  # lock-step with _inferencers
-
+        previous = self._session_backend(session_id)
+        switched = backend != previous
+        updated = None
         if self._session_store is None or not hasattr(
             self._session_store, "update_session"
         ):
             logger.warning(
                 "set_session_backend(%s, %s): no session_store wired — "
-                "in-memory eviction only", session_id, backend,
+                "in-memory eviction only",
+                session_id,
+                backend,
             )
-            return None
+        else:
+            updates = {"llm_backend": backend, "llm_model": model}
+            updated = self._session_store.update_session(session_id, updates)
+        await self._evict(
+            session_id,
+            close_sessions=switched,
+            end_native_session=switched and self._is_native_backend(previous),
+        )
+        return updated
 
-        updates = {"llm_backend": backend, "llm_model": model}
-        return self._session_store.update_session(session_id, updates)
+    async def evict_session_inferencer(
+        self, session_id: str, *, close_sessions: bool = False
+    ) -> None:
+        """Drop cached per-session state (on delete, or to force a resume rebuild).
 
-    def evict_session_inferencer(self, session_id: str) -> None:
-        """Free memory when a session is deleted."""
-        self._inferencers.pop(session_id, None)
+        Cancels the session's running turn, then closes and removes the cached
+        inferencer + session root so the next turn rebuilds the CI (which
+        re-restores ``sop_state`` in the factory) and re-binds the per-session
+        JsonLogger after a truncate/restore rewrites ``session.jsonl``. The
+        background-task registry is forgotten, not cancelled (resume/restore
+        drain it explicitly first). ``close_sessions`` (session deleted) also
+        cancels the background tasks and closes the session's live vendor
+        sessions, which a rebuild would otherwise resume.
+        """
+        await self._evict(
+            session_id,
+            close_sessions=close_sessions,
+            cancel_background=close_sessions,
+            forget_session=True,
+        )
+
+    # ── Inferencer lifecycle (eviction, rewind, shutdown) ──────────
+
+    async def _evict(
+        self,
+        session_id: str,
+        *,
+        close_sessions: bool = False,
+        end_native_session: bool = False,
+        cancel_background: bool = False,
+        forget_session: bool = False,
+    ) -> None:
+        """Cancel the session's turns, then — holding its turn lock — close its
+        cached inferencer and drop the cached state.
+
+        ``aclose`` releases a native inferencer's lease on its live vendor
+        session (which stays in the runtime manager for a rebuilt inferencer);
+        ``close_sessions`` closes the conversation's live vendor sessions;
+        ``end_native_session`` retires the persisted vendor session;
+        ``cancel_background`` cancels the session's background tasks;
+        ``forget_session`` also drops the session logger and background-task
+        registry. A turn that ignores cancellation for ``_RETIRE_TIMEOUT_S``
+        keeps the lock: the cached state is dropped at once (the next turn
+        rebuilds) and the rest happens when that turn ends.
+        """
+        current = asyncio.current_task()
+        for task in self._turn_tasks.get(session_id, ()):
+            if task is not current:
+                task.cancel()
+        close = functools.partial(
+            self._close_inferencer,
+            session_id,
+            close_sessions=close_sessions,
+            end_native_session=end_native_session,
+            cancel_background=cancel_background,
+        )
+        lock = self._turn_lock(session_id)
+        try:
+            await asyncio.wait_for(lock.acquire(), timeout=_RETIRE_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Session %s: its turn did not stop within %.0fs of being "
+                "cancelled; closing its inferencer once the turn ends",
+                session_id,
+                _RETIRE_TIMEOUT_S,
+            )
+            inferencer = self._inferencers.pop(session_id, None)
+            self._drop_session_state(session_id, forget_session=forget_session)
+            self._run_behind_turn(session_id, close(inferencer))
+            return
+        try:
+            inferencer = self._inferencers.get(session_id)
+            await close(inferencer)
+            if (
+                inferencer is not None
+                and self._inferencers.get(session_id) is inferencer
+            ):
+                del self._inferencers[session_id]
+            self._drop_session_state(session_id, forget_session=forget_session)
+        finally:
+            lock.release()
+
+    def _drop_session_state(self, session_id: str, *, forget_session: bool) -> None:
         self._session_roots.pop(session_id, None)  # lock-step with _inferencers
+        if forget_session:
+            self._session_loggers.pop(session_id, None)  # re-bind session.jsonl
+            self._bg_tasks.pop(session_id, None)
+
+    def _run_behind_turn(self, session_id: str, work: Any) -> None:
+        """Run coroutine ``work`` as a tracked task once the session's turn
+        lock is free (awaited by ``aclose_all``)."""
+
+        async def locked() -> None:
+            async with self._turn_lock(session_id):
+                await work
+
+        task = asyncio.get_running_loop().create_task(locked())
+        self._retiring.add(task)
+        task.add_done_callback(self._retiring.discard)
+
+    async def _close_inferencer(
+        self,
+        session_id: str,
+        inferencer: Any,
+        *,
+        close_sessions: bool = False,
+        end_native_session: bool = False,
+        cancel_background: bool = False,
+    ) -> None:
+        if cancel_background:
+            try:
+                await asyncio.wait_for(
+                    self.drain_session_background_tasks(session_id),
+                    timeout=_RETIRE_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Background tasks of session %s did not stop within %.0fs",
+                    session_id,
+                    _RETIRE_TIMEOUT_S,
+                )
+        aclose = getattr(inferencer, "aclose", None)
+        if aclose is not None:
+            try:
+                await asyncio.wait_for(aclose(), timeout=_RETIRE_TIMEOUT_S)
+            except Exception:
+                logger.warning(
+                    "Closing the evicted inferencer of session %s failed",
+                    session_id,
+                    exc_info=True,
+                )
+        if close_sessions and self._native_runtime is not None:
+            try:
+                await asyncio.wait_for(
+                    self._native_runtime.evict_conversation(session_id),
+                    timeout=_RETIRE_TIMEOUT_S,
+                )
+            except Exception:
+                logger.warning(
+                    "Closing the vendor sessions of session %s failed",
+                    session_id,
+                    exc_info=True,
+                )
+        if end_native_session:
+            self._end_native_session(session_id)
+
+    def _end_native_session(self, session_id: str) -> None:
+        if self._session_store is None:
+            return
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational_native import (
+            end_vendor_session,
+        )
+
+        try:
+            end_vendor_session(
+                SessionStoreRecordAdapter(self._session_store, session_id),
+                session_id,
+            )
+        except Exception:
+            logger.warning(
+                "Ending the vendor session of session %s failed",
+                session_id,
+                exc_info=True,
+            )
+
+    def accepts_slash_command(self, session_id: str, text: str) -> bool:
+        """Whether the session's conversation handles slash command ``text``
+        itself (e.g. ``/new``, ``/model``, a vendor's ``/compact``)."""
+        try:
+            inferencer = self._get_session_inferencer(
+                session_id, session=self._stored_session(session_id)
+            )
+        except Exception:
+            logger.warning(
+                "Slash-command check could not build the inferencer of session %s",
+                session_id,
+                exc_info=True,
+            )
+            return False
+        accepts = getattr(inferencer, "accepts_command", None)
+        return bool(accepts is not None and accepts(text))
+
+    def supports_round_resume(self, session_id: str) -> bool:
+        """Whether the session's conversation can resume from an assistant
+        round; otherwise the caller resumes that round's whole turn."""
+        inferencer = self._get_session_inferencer(
+            session_id, session=self._stored_session(session_id)
+        )
+        return getattr(inferencer, "supports_round_resume", True) is not False
+
+    async def prepare_rewind(self, session_id: str, turn_number: int) -> None:
+        """Make the session's agent session forget host turns ``>= turn_number``
+        before the caller truncates the session to resume from that turn.
+
+        The vendor session is rewound aside and only a successful rewind is
+        recorded in the session — and only over the record it started from (a
+        record saved meanwhile raises ``StaleRecordError``) — so when this
+        raises — the caller must then leave the session untouched — nothing in
+        the session has changed. A no-op for backends whose history is the
+        session's own messages (the classic orchestrator).
+        """
+        async with self._turn_lock(session_id):
+            session = self._stored_session(session_id)
+            inferencer = self._get_session_inferencer(session_id, session=session)
+            if getattr(inferencer, "supports_rewind", False) is not True:
+                return
+            rewound = await self._rewind_detached(session_id, session, turn_number)
+            if rewound is not None and self._session_store is not None:
+                # Not over a record saved meanwhile (StaleRecordError).
+                replace_record(
+                    self._session_store,
+                    session_id,
+                    session.get(_NATIVE_SESSION_KEY),
+                    rewound,
+                )
+
+    async def restore_checkpoint(self, session_id: str, name: str) -> dict | None:
+        """Restore the session to checkpoint ``name`` and bring its agent
+        session in line: a vendor session that ran on after the checkpoint is
+        forked back to the checkpoint's last turn (or replaced with a recap
+        where the backend cannot fork) BEFORE the session is restored on disk,
+        so when that fails (raises) the session is left untouched. Returns the
+        restored session, or None when the checkpoint does not exist. Callers
+        quiesce the session first.
+        """
+        store = self._session_store
+        if store is None or not hasattr(store, "read_checkpoint"):
+            return None
+        async with self._turn_lock(session_id):
+            checkpoint = await asyncio.to_thread(
+                store.read_checkpoint, session_id, name
+            )
+            if checkpoint is None:
+                return None
+            saved = checkpoint["session"]
+            self._session_roots.pop(session_id, None)
+            await self._close_inferencer(
+                session_id, self._inferencers.pop(session_id, None), close_sessions=True
+            )
+            rewound = None
+            record = saved.get(_NATIVE_SESSION_KEY)
+            if record and record != self._stored_session(session_id).get(
+                _NATIVE_SESSION_KEY
+            ):
+                rewound = await self._rewind_detached(
+                    session_id, saved, checkpoint["next_turn_number"]
+                )
+            return await asyncio.to_thread(
+                store.restore_checkpoint,
+                session_id,
+                name,
+                keep=(_NATIVE_SESSION_DIR,),
+                updates=None if rewound is None else {_NATIVE_SESSION_KEY: rewound},
+            )
+
+    async def _rewind_detached(
+        self, session_id: str, session: dict, turn_number: int
+    ) -> dict | None:
+        """Rewind the vendor session recorded in ``session`` (the live state or
+        a checkpoint's) to before host turn ``turn_number`` without writing to
+        the session store: a separate inferencer runs the rewind over an
+        in-memory copy of ``session``. Returns the resulting native record, or
+        None when it is unchanged (no vendor session yet, or no rewind
+        support). Raises when the vendor session cannot be rewound."""
+        view = _DetachedSessionView(self._session_store, session_id, session)
+        inferencer = self._build_inferencer(session_id, session, session_store=view)
+        try:
+            if getattr(inferencer, "supports_rewind", False) is True:
+                await inferencer.rewind_to(turn_number)
+        finally:
+            await self._close_inferencer(session_id, inferencer)
+        record = view.session.get(_NATIVE_SESSION_KEY)
+        return record if record != session.get(_NATIVE_SESSION_KEY) else None
+
+    async def aclose_all(self) -> None:
+        """Close every cached inferencer and live vendor session (server
+        shutdown), cancelling the sessions' running turns and background tasks
+        first."""
+        sessions = set(self._inferencers) | set(self._turn_tasks) | set(self._bg_tasks)
+        await asyncio.gather(
+            *(self._evict(sid, cancel_background=True) for sid in sessions)
+        )
+        if self._retiring:
+            await asyncio.wait(list(self._retiring), timeout=_RETIRE_TIMEOUT_S)
+        if self._native_runtime is not None:
+            await self._native_runtime.aclose_all()
+            self._native_runtime = None
+
+    def _register_bg_task(
+        self, session_id: str, task_id: str, task: asyncio.Task
+    ) -> None:
+        """Record an agent-invoked background task for later draining.
+
+        Wired into the dispatcher per turn (``_register_bg_task`` callback) so
+        when an async tool spawns its background ``_run`` we keep a handle.
+        ``add_done_callback`` self-evicts the task when it finishes.
+
+        Keyed by ``task_id`` so :meth:`get_live_task_ids` can answer the
+        "is this chip's task still alive?" question that reconcile needs to
+        distinguish a WS reconnect from a crash/restart.
+        """
+        bucket = self._bg_tasks.setdefault(session_id, {})
+        bucket[task_id] = task
+
+        def _evict(
+            _t: asyncio.Task, _sid: str = session_id, _tid: str = task_id
+        ) -> None:
+            b = self._bg_tasks.get(_sid)
+            # Identity guard: a re-registered task_id (unlikely but possible on
+            # rapid dispatch/retry) must not be evicted by a stale done-callback
+            # from a prior Task object.
+            if b is not None and b.get(_tid) is _t:
+                b.pop(_tid, None)
+                if not b:
+                    self._bg_tasks.pop(_sid, None)
+
+        task.add_done_callback(_evict)
+
+    def track_background_task(
+        self, session_id: str, task_id: str, task: asyncio.Task
+    ) -> None:
+        """Track a tool run started outside an agent turn (a slash command's)
+        with the session's agent-invoked background tasks: resume/restore,
+        session delete and server shutdown cancel and await it."""
+        self._register_bg_task(session_id, task_id, task)
+
+    def get_live_task_ids(self, session_id: str) -> set[str]:
+        """Return the ``task_id``s of this session's background tasks that are
+        still alive (not ``done()``).
+
+        Used by ``reconcile_task_ref_statuses`` to skip chips whose background
+        ``_run()`` is still executing. Pure read; no locks needed (single-
+        threaded asyncio event loop). Empty when the session has no bg tasks
+        or all completed (and were evicted via ``add_done_callback``).
+
+        Callers on the resume path MUST capture this BEFORE calling
+        :meth:`evict_session_inferencer` — that method pops the registry
+        without cancelling tasks, so a post-evict call would return an empty
+        set even though tasks are still running (they'd be orphans, but alive).
+        """
+        bucket = self._bg_tasks.get(session_id, {})
+        return {tid for tid, t in bucket.items() if not t.done()}
+
+    async def drain_session_background_tasks(self, session_id: str) -> None:
+        """Cancel + await all in-flight background tasks for a session.
+
+        MUST be called before any resume/restore disk mutation (checkpoint copy,
+        ``turn_NNN`` rmtree, task-workspace rmtree) so a live writer can't race
+        the copy/delete. ``CancelledError`` is ``BaseException``-derived, so it
+        skips the background ``_run``'s ``except Exception``, runs its ``finally``
+        (per-task queue cleanup), and the task ends cancelled.
+        """
+        tasks = [t for t in self._bg_tasks.get(session_id, {}).values() if not t.done()]
+        if not tasks:
+            self._bg_tasks.pop(session_id, None)
+            return
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self._bg_tasks.pop(session_id, None)
 
     def get_last_prompt_data(self, session_id: str) -> dict:
         """Return cached prompt data from the last turn for a given session.
 
-        Reads _last_template_source, _last_template_feed, _last_rendered_prompt,
-        _last_template_config from the ConversationalInferencer after run_agentic_loop().
+        Reads the inferencer's ``last_prompt_data()`` after run_agentic_loop().
         Returns empty dict if session has no inferencer or no data yet.
 
         The template_feed is sanitized — non-JSON-serializable objects (e.g. SOP,
@@ -384,11 +922,16 @@ class ConversationService:
         if inf is None:
             # Fall back to mock prompt cache (populated by astream_response in mock mode)
             return self._mock_prompt_cache.get(session_id, {})
+        return self._prompt_data(inf)
+
+    def _prompt_data(self, inferencer: Any) -> dict:
+        """The inferencer's last prompt (``last_prompt_data()``), display-safe."""
+        data = inferencer.last_prompt_data()
         return {
-            "template_source": getattr(inf, "_last_template_source", "") or "",
-            "template_feed": self._sanitize_feed(getattr(inf, "_last_template_feed", {}) or {}),
-            "rendered_prompt": getattr(inf, "_last_rendered_prompt", "") or "",
-            "template_config": getattr(inf, "_last_template_config", {}) or {},
+            "template_source": data.get("template_source") or "",
+            "template_feed": self._sanitize_feed(data.get("template_feed") or {}),
+            "rendered_prompt": data.get("rendered_prompt") or "",
+            "template_config": data.get("template_config") or {},
         }
 
     @staticmethod
@@ -428,8 +971,8 @@ class ConversationService:
         else:
             wc = WorkflowContext()
 
-        return {
-            "session_root_path": self._working_dir,
+        result: dict = {
+            "session_root_path": session.get("session_root_path") or self._working_dir,
             "workflow_status": wc.to_status_text(),
             "workflow_description": wc.workflow_description,
             "strategy": wc.strategy,
@@ -438,6 +981,15 @@ class ConversationService:
             "completed_phases": wc.completed_phases,
             "phase_outputs": wc.phase_outputs,
         }
+        # A4 (v3): hoist any `<tool>__<key>` entries persisted to
+        # phase_outputs (by tool_dispatcher.py's A4 persist block) to
+        # top-level prior_context so the SOP Jinja renderer finds
+        # `{{ research_propose__proposals_path }}` after a server restart.
+        # Pairs with the dispatcher-side A1 publish + A4 persist.
+        for k, v in (wc.phase_outputs or {}).items():
+            if isinstance(k, str) and "__" in k and k not in result:
+                result[k] = v
+        return result
 
     def _load_workflow_description(self) -> str:
         """Load the default workflow description from prompt templates."""
@@ -481,8 +1033,52 @@ class ConversationService:
 
         if data_service and hasattr(data_service, "update_workflow_context"):
             data_service.update_workflow_context(session["id"], wc.to_dict())
-        elif self._session_store and hasattr(self._session_store, "update_workflow_context"):
+        elif self._session_store and hasattr(
+            self._session_store, "update_workflow_context"
+        ):
             self._session_store.update_workflow_context(session["id"], wc.to_dict())
+
+        root_path = prior_context.get("session_root_path", "")
+        if root_path and root_path != session.get("session_root_path", ""):
+            session["session_root_path"] = root_path
+            if self._session_store and hasattr(self._session_store, "update_session"):
+                try:
+                    self._session_store.update_session(
+                        session["id"], {"session_root_path": root_path}
+                    )
+                except Exception:
+                    pass
+
+    # ── SOP-state persistence (Piece F) ─────────────────────────────
+
+    @staticmethod
+    def _sop_snapshot(inferencer: Any) -> dict[str, Any]:
+        """Serialize the inferencer's live SOP state (active + suspended stack).
+
+        Returns ``{"sop_state": <dict|None>, "suspended_sops": [<dict>, ...]}``.
+        ``SOPState.to_dict()`` drops the non-serializable ``.sop`` graph; it is
+        reattached on restore (in ``factories._restore_sop_state``) via
+        ``build_sop_state(extra_sop_dirs=...)``.
+        """
+
+        def _td(s: Any) -> dict[str, Any] | None:
+            if s is None:
+                return None
+            try:
+                return s.to_dict()
+            except Exception:
+                return None
+
+        sop = getattr(inferencer, "sop_state", None)
+        suspended = getattr(inferencer, "suspended_sops", []) or []
+        return {
+            "sop_state": _td(sop),
+            "suspended_sops": [d for d in (_td(s) for s in suspended) if d is not None],
+        }
+
+    def _write_sop_snapshot(self, path: Path, inferencer: Any) -> None:
+        """Atomically write the pre-turn SOP snapshot to ``path``."""
+        write_json_atomic(path, self._sop_snapshot(inferencer))
 
     def _get_or_create_session_logger(self, session_id: str, data_service):
         """Lazily create the per-session JsonLogger.
@@ -503,111 +1099,99 @@ class ConversationService:
         try:
             from rich_python_utils.io_utils.json_io import JsonLogger
         except ImportError:
-            logger.debug("JsonLogger not available; skipping structured session logging")
+            logger.debug(
+                "JsonLogger not available; skipping structured session logging"
+            )
             return None
         json_logger = JsonLogger(
             file_path=str(session_dir / "session.jsonl"),
             append=True,
-            parts_min_size=0,            # all fields → parts/ files (matches RankEvolve)
-            is_artifact=True,            # auto-sets parts_key_paths='*'
-            parts_file_namer=lambda obj: obj.get("type", "") if isinstance(obj, dict) else "",
+            parts_min_size=0,  # all fields → parts/ files (matches RankEvolve)
+            is_artifact=True,  # auto-sets parts_key_paths='*'
+            parts_file_namer=lambda obj: obj.get("type", "")
+            if isinstance(obj, dict)
+            else "",
             # space_ext_mode omitted: only affects space= param, not group=/subfolder=
         )
         self._session_loggers[session_id] = json_logger
         return json_logger
 
     async def run_conversation_turn(
-        self, session: dict, user_message: str, *, interactive, data_service=None
+        self,
+        session: dict,
+        user_message: str,
+        *,
+        interactive,
+        data_service=None,
+        origin: str = "user",
     ):
-        """Run a full conversation turn with workflow-controlled agentic loop.
+        """Run a full conversation turn (fresh USER turn) with the agentic loop,
+        after any turn of the same session still running (a cancelled turn
+        unwinding included) has finished.
 
-        Unlike astream_response() (async generator yielding chunks),
-        this returns AgenticResult after run_agentic_loop() completes.
-        Streaming happens inside run_agentic_loop() via interactive.stream_token_batches().
+        ``origin`` says who wrote ``user_message`` (``ConversationalHost``):
+        ``"user"``, ``"host_event"`` for a host notification such as a
+        background task's auto-advance, or ``"resumed_turn"`` when the host
+        runs an earlier turn again."""
+        async with self._session_turn(session["id"]):
+            return await self._run_user_turn(
+                session,
+                user_message,
+                interactive=interactive,
+                data_service=data_service,
+                origin=origin,
+            )
+
+    async def _run_user_turn(
+        self,
+        session: dict,
+        user_message: str,
+        *,
+        interactive,
+        data_service=None,
+        origin: str = "user",
+    ):
+        """Run a full conversation turn (fresh USER turn) with the agentic loop.
+
+        Allocates the next canonical user-turn number, seeds the turn-entry
+        artifacts (user_input.txt + the pre-turn sop_state_in.json boundary +
+        turn.json {rounds: []}), then delegates the loop to the shared
+        ``_run_agentic_turn`` helper. Returns AgenticResult after
+        run_agentic_loop() completes; streaming happens inside the loop via
+        interactive.stream_token_batches().
         """
-        inferencer = self._get_session_inferencer(session["id"])
-        if inferencer is None:
-            raise RuntimeError("ConversationalInferencer not initialized")
-
-        # Inject per-turn interactive into the dispatcher so async tools (create_role,
-        # role_setup) can send task_status WS messages and spawn background tasks.
-        if hasattr(inferencer, "_tool_dispatcher"):
-            inferencer._tool_dispatcher._interactive = interactive
-
-        # Inject workflow state as prior_context
-        session_ctx = self._compute_session_context(session)
-        inferencer.set_prior_context(session_ctx)
-
-        # Sync conversation history
-        conv_messages = [
-            {
-                "role": "user" if m.get("role") in ("manager", "user") else "assistant",
-                "content": m.get("content", ""),
-            }
-            for m in session.get("messages", [])
-        ]
-        inferencer.set_messages(conv_messages)
-
-        # ── RankEvolve-style structured logging setup ─────────────────────
-        # Get/create per-session JsonLogger; compute initial turn number from
-        # what's already on disk; track the current turn so we can save data
-        # for both intermediate iterations (via on_new_turn) and the final turn.
         sid = session["id"]
-        json_logger = self._get_or_create_session_logger(sid, data_service)
         session_dir = (
             data_service.get_session_dir(sid)
             if data_service is not None and hasattr(data_service, "get_session_dir")
             else None
         )
 
-        # Count existing turn directories. Prefer new-style (turn_NNN/ at root,
-        # RankEvolve layout); fall back to legacy nested (turns/turn_NNN/).
-        initial_turn = 0
+        # Count existing turn dirs → allocate EXACTLY ONE user-turn number for
+        # this call.
+        user_turn = _count_turn_dirs(session_dir) + 1
+
+        # At turn ENTRY, seed the turn root: turn_NNN/user_input.txt + the pre-turn
+        # SOP boundary (sop_state_in.json, read by truncate_session_at_message /
+        # _read_sop_boundary) + turn.json {rounds: []}. INTENTIONALLY only on the
+        # fresh-turn path — resume_conversation_from_round must NOT re-run this or
+        # it would clobber turn_T/sop_state_in.json (the turn-entry SOP boundary)
+        # with round-Y inferencer state and corrupt a later turn-resume of turn T.
         if session_dir is not None:
-            new_style = sum(
-                1 for p in session_dir.iterdir()
-                if p.is_dir() and p.name.startswith("turn_") and p.name != "turns"
-            )
-            if new_style > 0:
-                initial_turn = new_style
-            else:
-                legacy_dir = session_dir / "turns"
-                if legacy_dir.is_dir():
-                    initial_turn = sum(
-                        1 for p in legacy_dir.iterdir()
-                        if p.is_dir() and p.name.startswith("turn_")
-                    )
-
-        # ── CANONICAL TURN (round-lifecycle core) ───────────────────────
-        # Allocate EXACTLY ONE user-turn number for this whole call. The
-        # existing dir-count + 1 is the canonical turn; compute it once and
-        # keep it fixed. Turn identity NO LONGER comes from _on_new_turn /
-        # current_turn / final_turn — per-round artifacts and bubbles are owned
-        # by the round hooks below, all stamped with this single user_turn.
-        user_turn = initial_turn + 1
-
-        # The current RoundContext (minted in on_round_start, consumed in
-        # on_round_complete). Kept on a 1-slot list so the closures share it.
-        round_ctx_holder: list[dict[str, Any] | None] = [None]
-
-        # Parent user-message id minted at the route and threaded onto the
-        # appended user message; used as parent_user_message_id on each round.
-        parent_user_message_id = None
-        for _m in reversed(session.get("messages", [])):
-            if _m.get("role") in ("manager", "user"):
-                parent_user_message_id = _m.get("id")
-                break
-
-        # At turn ENTRY, seed the turn root so round=None View-Prompt has a root:
-        #   turn_NNN/user_input.txt  +  turn_NNN/turn.json {…, rounds: []}
-        if session_dir is not None:
+            # Backend-aware fetch (honors a per-session llm_backend override); also
+            # gives the live SOP state for the pre-turn boundary snapshot.
+            _inf = self._get_session_inferencer(sid, session=session)
             try:
                 turn_dir = session_dir / f"turn_{user_turn:03d}"
                 turn_dir.mkdir(parents=True, exist_ok=True)
                 (turn_dir / "user_input.txt").write_text(user_message, encoding="utf-8")
+                if _inf is not None:
+                    self._write_sop_snapshot(turn_dir / "sop_state_in.json", _inf)
             except Exception as e:
-                logger.debug("Turn-entry user_input.txt write failed: %s", e)
-        if data_service is not None and hasattr(data_service, "update_turn_root_summary"):
+                logger.debug("Turn-entry artifact write failed: %s", e)
+        if data_service is not None and hasattr(
+            data_service, "update_turn_root_summary"
+        ):
             try:
                 data_service.update_turn_root_summary(
                     sid,
@@ -622,16 +1206,279 @@ class ConversationService:
             except Exception as e:
                 logger.debug("Turn-entry root summary write failed: %s", e)
 
+        return await self._run_agentic_turn(
+            session,
+            user_turn=user_turn,
+            user_message=user_message,
+            interactive=interactive,
+            data_service=data_service,
+            resume_blob=None,
+            origin=origin,
+        )
+
+    async def resume_conversation_from_round(
+        self,
+        session: dict,
+        *,
+        target_turn: int,
+        target_round: int,
+        resume_blob: dict,
+        interactive,
+        data_service=None,
+    ):
+        """``_resume_from_round`` as one of the session's turns (``_session_turn``)."""
+        async with self._session_turn(session["id"]):
+            return await self._resume_from_round(
+                session,
+                target_turn=target_turn,
+                target_round=target_round,
+                resume_blob=resume_blob,
+                interactive=interactive,
+                data_service=data_service,
+            )
+
+    async def _resume_from_round(
+        self,
+        session: dict,
+        *,
+        target_turn: int,
+        target_round: int,
+        resume_blob: dict,
+        interactive,
+        data_service=None,
+    ):
+        """Auto-forward re-entry: regenerate turn ``target_turn`` from assistant
+        round ``target_round``. Rounds ``1..target_round-1`` are kept (the caller's
+        truncate removed round >= target_round and read the round-entry blob into
+        ``resume_blob``); the loop regenerates round ``target_round`` onward under
+        the SAME turn, driven by a self-continuation — NO new user message.
+
+        Does NOT allocate/seed a turn: turn ``target_turn`` already exists and its
+        user_input.txt / sop_state_in.json MUST be preserved. SOP is reattached by
+        the factory (_restore_sop_state) on the rebuilt CI; the blob restores
+        messages/prior_context/dynamic_context via restore_state(
+        reattach_sop=False) inside _run_agentic_turn. Backends without round
+        resume (``supports_round_resume`` false) are resumed per turn instead.
+        """
+        sid = session["id"]
+        if not self.supports_round_resume(sid):
+            raise RuntimeError(
+                "This session's backend resumes whole turns, not rounds; "
+                "resume from the turn's user message instead."
+            )
+        session_dir = (
+            data_service.get_session_dir(sid)
+            if data_service is not None and hasattr(data_service, "get_session_dir")
+            else None
+        )
+        # The turn's original user input (for per-round artifacts + round-1 content).
+        user_message = ""
+        if session_dir is not None:
+            uin = session_dir / f"turn_{target_turn:03d}" / "user_input.txt"
+            try:
+                if uin.is_file():
+                    user_message = uin.read_text(encoding="utf-8")
+            except OSError as e:
+                logger.debug("resume: user_input.txt read failed: %s", e)
+        if not user_message:
+            for _m in reversed(session.get("messages", [])):
+                if _m.get("role") in ("manager", "user"):
+                    user_message = _m.get("content", "") or ""
+                    break
+
+        # What round M renders with: the blob's captured content (authoritative);
+        # fallback = the continuation sentinel (M>1) or the user input (M==1).
+        content = resume_blob.get("content") or (
+            _CONTINUE_AFTER_TOOLS if target_round > 1 else user_message
+        )
+
+        return await self._run_agentic_turn(
+            session,
+            user_turn=target_turn,
+            user_message=user_message,
+            interactive=interactive,
+            data_service=data_service,
+            resume_blob=resume_blob,
+            content=content,
+            origin="resumed_turn",
+        )
+
+    async def resume_conversation_from_widget(
+        self,
+        session: dict,
+        *,
+        marker: dict,
+        blob: dict,
+        raw_value,
+        interactive,
+        data_service=None,
+    ):
+        """``_resume_from_widget`` as one of the session's turns (``_session_turn``)."""
+        async with self._session_turn(session["id"]):
+            return await self._resume_from_widget(
+                session,
+                marker=marker,
+                blob=blob,
+                raw_value=raw_value,
+                interactive=interactive,
+                data_service=data_service,
+            )
+
+    async def _resume_from_widget(
+        self,
+        session: dict,
+        *,
+        marker: dict,
+        blob: dict,
+        raw_value,
+        interactive,
+        data_service=None,
+    ):
+        """Recover an unanswered conversation widget after a reconnect/restart:
+        inject the user's answer into the loop at the widget's iteration (restored
+        from ``blob``) so it applies to the EXACT persisted widget with NO LLM
+        re-inference, then continue the SOP. Reconstructs the ConversationTool
+        objects from the durable marker; clears the marker when done."""
+        from agent_foundation.common.inferencers.agentic_inferencers.conversational.conversation_tools import (  # noqa: E501
+            ConversationTool,
+        )
+
+        def _revive(t):
+            if isinstance(t, ConversationTool):
+                return t
+            if isinstance(t, dict) and hasattr(ConversationTool, "from_dict"):
+                return ConversationTool.from_dict(t)
+            return t
+
+        pending_widget = {
+            "raw_value": raw_value,
+            "tools": [_revive(t) for t in (marker.get("tools") or [])],
+            "action_tools": marker.get("action_tools") or [],
+        }
+        target_turn = int(marker.get("turn_number") or blob.get("turn_number") or 1)
+        try:
+            return await self._run_agentic_turn(
+                session,
+                user_turn=target_turn,
+                user_message="",
+                interactive=interactive,
+                data_service=data_service,
+                resume_blob=blob,
+                content=_CONTINUE_AFTER_TOOLS,
+                pending_widget=pending_widget,
+                origin="widget_answer",
+            )
+        finally:
+            # Clear-at-END (idempotency): the widget is resolved once the
+            # continuation runs. Cleared in ``finally`` so an error can't leave a
+            # stale marker that re-arms a ghost widget on the next connect
+            # (at-most-once; full message-dedup idempotency is a follow-up).
+            if data_service is not None and hasattr(data_service, "session_store"):
+                try:
+                    data_service.session_store.clear_pending_input(session["id"])
+                except Exception as e:
+                    logger.warning("clear_pending_input failed: %s", e)
+
+    async def _run_agentic_turn(
+        self,
+        session: dict,
+        *,
+        user_turn: int,
+        user_message: str,
+        interactive,
+        data_service=None,
+        resume_blob: dict | None = None,
+        content: str | None = None,
+        pending_widget: dict | None = None,
+        origin: str = "user",
+    ):
+        """Shared agentic-loop driver for a fresh turn (resume_blob=None) and a
+        round-resume (resume_blob set). Owns the dispatcher per-turn injections,
+        the per-round persistence closures, the run_agentic_loop call (passing
+        the turn's ``origin``), and the turn-exit persistence. The caller owns
+        turn-number allocation and (fresh turn only) turn-entry seeding.
+        """
+        sid = session["id"]
+        # Backend-aware fetch so a per-session llm_backend override survives an
+        # eviction+rebuild (the resume path evicts the CI before calling us).
+        inferencer = self._get_session_inferencer(sid, session=session)
+        if inferencer is None:
+            raise RuntimeError("ConversationalInferencer not initialized")
+
+        session_dir = (
+            data_service.get_session_dir(sid)
+            if data_service is not None and hasattr(data_service, "get_session_dir")
+            else None
+        )
+        # Bind (or re-bind, after an eviction) the per-session structured logger.
+        json_logger = self._get_or_create_session_logger(sid, data_service)
+
+        # ── Dispatcher per-turn injections (BOTH paths — all load-bearing on
+        # resume too, since regenerated rounds may dispatch async tools) ──
+        #   _interactive: gates async-tool dispatch + task/dashboard WS emission
+        #   _current_turn: stamps task_meta/task_ref/dashboard turn_number
+        #   _register_bg_task: registers spawned bg tasks so a later resume/restore
+        #     can drain (cancel+await) them before mutating the session on disk
+        dispatcher = getattr(inferencer, "tool_dispatcher", None)
+        if dispatcher is not None:
+            dispatcher._interactive = interactive
+            dispatcher._current_turn = user_turn
+            dispatcher._register_bg_task = (
+                lambda t, tid, _sid=sid: self._register_bg_task(_sid, tid, t)
+            )
+
+        # ── Prepare the inferencer's conversation state ──────────────────
+        if resume_blob is None:
+            # Fresh turn: seed prior_context + messages from the session.
+            inferencer.set_prior_context(self._compute_session_context(session))
+            conv_messages = [
+                {
+                    "role": (
+                        "user" if m.get("role") in ("manager", "user") else "assistant"
+                    ),
+                    "content": m.get("content", ""),
+                }
+                for m in session.get("messages", [])
+                if m.get("role") not in _UI_ONLY_ROLES
+            ]
+            inferencer.set_messages(conv_messages)
+        else:
+            # Round-resume: restore the round-ENTRY snapshot (full _messages incl.
+            # tool-result / widget / synthetic turns + prior_context +
+            # dynamic_context) and set the start_iteration marker. SOP is left to
+            # the factory restore (already applied on this rebuilt CI);
+            # reattach_sop=False avoids the CI's non-extra-dirs-aware
+            # _reload_sop_definition raising SOPNotFound on OpenTeam SOPs.
+            inferencer.restore_state(resume_blob, reattach_sop=False)
+
+        # Widget recovery: seed the injected answer so the loop's pending-widget
+        # branch (fired at the widget's iteration, restored from resume_blob)
+        # applies it deterministically — no re-inference, exact persisted widget.
+        if pending_widget is not None:
+            inferencer.set_pending_widget_answer(pending_widget)
+
+        # The current RoundContext (minted in on_round_start, consumed in
+        # on_round_complete). Kept on a 1-slot list so the closures share it.
+        round_ctx_holder: list[dict[str, Any] | None] = [None]
+
+        # Parent user-message id; used as parent_user_message_id on each round.
+        parent_user_message_id = None
+        for _m in reversed(session.get("messages", [])):
+            if _m.get("role") in ("manager", "user"):
+                parent_user_message_id = _m.get("id")
+                break
+
         # ── on_new_turn: NEUTERED ────────────────────────────────────────
-        # No longer creates sibling turn dirs, rotates cache, writes JSONL, or
-        # calls save_turn_data. Returns the SAME fixed user_turn so the loop's
-        # turn_number stays constant (send_turn_boundary won't spuriously fire)
-        # and the round hooks own all per-turn/round artifacts.
+        # Returns the SAME fixed user_turn so the loop's turn_number stays
+        # constant (send_turn_boundary won't spuriously fire) and the round hooks
+        # own all per-turn/round artifacts.
         async def _on_new_turn(prev_turn: int, widget_response: Any) -> int:
             return user_turn
 
-        # ── on_round_start: mint RoundContext, mkdir round dir ───────────
-        async def _on_round_start(iteration: int, turn_number: int) -> dict[str, Any] | None:
+        # ── on_round_start: mint RoundContext, mkdir round dir, snapshot ──
+        async def _on_round_start(
+            iteration: int, turn_number: int
+        ) -> dict[str, Any] | None:
             round_index = iteration + 1
             message_id = uuid.uuid4().hex[:12]
             round_dir = ""
@@ -642,6 +1489,24 @@ class ConversationService:
                 except Exception as e:
                     logger.debug("[_on_round_start] round dir mkdir failed: %s", e)
                 round_dir = str(rd)
+                # Per-round resume snapshot (round-ENTRY state — this hook fires at
+                # the TOP of the loop iteration, BEFORE render/infer, so the
+                # exported state is exactly the state entering this round).
+                # PURE blob (no ctx-node mirror) so snapshotting every round never
+                # pollutes run_state/store.json. Best-effort; never block a round.
+                try:
+                    write_json_atomic(
+                        Path(round_dir) / "resume_state.json",
+                        inferencer.export_state(
+                            turn_number=user_turn, iteration=iteration
+                        ),
+                    )
+                except Exception as e:
+                    logger.debug("[_on_round_start] resume snapshot failed: %s", e)
+            # Stamp the current round on the dispatcher so async tasks dispatched
+            # this round record round_number (round-granular keep/drop on resume).
+            if dispatcher is not None:
+                dispatcher._current_round = round_index
             ctx: dict[str, Any] = {
                 "message_id": message_id,
                 "round_index": round_index,
@@ -670,12 +1535,7 @@ class ConversationService:
 
             # 1) Per-round artifact (turn_NNN/round_MMM/…)
             prompt_data = {
-                "rendered_prompt": getattr(inf, "_last_rendered_prompt", "") or "",
-                "template_source": getattr(inf, "_last_template_source", "") or "",
-                "template_feed": self._sanitize_feed(
-                    getattr(inf, "_last_template_feed", {}) or {}
-                ),
-                "template_config": getattr(inf, "_last_template_config", {}) or {},
+                **self._prompt_data(inf),
                 "inference_response": clean_response,
                 "raw_response": raw_response,
                 "user_input": user_message,
@@ -694,8 +1554,10 @@ class ConversationService:
                 interactive._last_prompt_data = prompt_data
 
             # 2) Commit the assistant bubble ONLY when there is displayable text.
-            if display_text and data_service is not None and hasattr(
-                data_service, "append_message"
+            if (
+                display_text
+                and data_service is not None
+                and hasattr(data_service, "append_message")
             ):
                 try:
                     data_service.append_message(
@@ -725,7 +1587,9 @@ class ConversationService:
                         final_content=display_text,
                     )
                 except Exception as e:
-                    logger.debug("[_on_round_complete] send_round_message_end failed: %s", e)
+                    logger.debug(
+                        "[_on_round_complete] send_round_message_end failed: %s", e
+                    )
 
             # 4) Update the root turn summary once per round (assemble display text).
             if data_service is not None and hasattr(
@@ -739,7 +1603,11 @@ class ConversationService:
                     ) or {}
                     assembled = prev.get("assembled_summary", "") or ""
                     if display_text:
-                        assembled = (assembled + "\n\n" + display_text) if assembled else display_text
+                        assembled = (
+                            (assembled + "\n\n" + display_text)
+                            if assembled
+                            else display_text
+                        )
                     data_service.update_turn_root_summary(
                         sid,
                         user_turn,
@@ -752,7 +1620,9 @@ class ConversationService:
                         },
                     )
                 except Exception as e:
-                    logger.debug("[_on_round_complete] root summary update failed: %s", e)
+                    logger.debug(
+                        "[_on_round_complete] root summary update failed: %s", e
+                    )
 
         # §9.4: derive this turn's context from the ONE session-scoped root
         # (cached + reused across all turns; its run-state store is loaded ONCE in
@@ -760,19 +1630,26 @@ class ConversationService:
         # off that root. Best-effort: a None root falls back to the legacy call
         # (run_context=None -> byte-identical). Never block a turn on this.
         _turn_store_path = (
-            session_dir / "run_state" / "store.json" if session_dir is not None else None
+            session_dir / "run_state" / "store.json"
+            if session_dir is not None
+            else None
         )
         _cwd = getattr(inferencer, "effective_cwd", "") or ""
         _session_root = self._get_session_root(sid, session_dir=session_dir, cwd=_cwd)
         _turn_root = (
-            _session_root.child(f"turn_{user_turn}") if _session_root is not None else None
+            _session_root.child(f"turn_{user_turn}")
+            if _session_root is not None
+            else None
         )
 
-        # Run the full agentic loop. Turn identity is the fixed user_turn; the
-        # round hooks own per-round cache_folder placement + persistence.
+        # Run the full agentic loop. `content` is what round `start_iteration`
+        # renders with — user_message for a fresh turn, the blob's continuation
+        # content on resume. Turn identity is the fixed user_turn; the round hooks
+        # own per-round cache_folder placement + persistence.
+        _content = content if content is not None else user_message
         try:
             result = await inferencer.run_agentic_loop(
-                user_message,
+                _content,
                 interactive=interactive,
                 session_id=sid,
                 on_new_turn=_on_new_turn,
@@ -780,7 +1657,16 @@ class ConversationService:
                 on_round_complete=_on_round_complete,
                 turn_number=user_turn,
                 run_context=_turn_root,
+                origin=origin,
             )
+            reply = getattr(result, "text", "") or ""
+            if round_ctx_holder[0] is None and reply:
+                # Answered without a model round (a slash command such as
+                # /new): its reply is this turn's one round.
+                await _on_round_start(0, user_turn)
+                await _on_round_complete(
+                    inferencer, 0, user_turn, reply, reply, reply, None
+                )
         finally:
             # M9/§9.4: persist the session run-state store on EVERY exit (success/
             # error/cancel) so an interrupted turn can resume — parity with task/SOP.
@@ -791,6 +1677,23 @@ class ConversationService:
                     _session_root._store.save(str(_turn_store_path))
                 except Exception:  # pragma: no cover - best-effort
                     pass
+            # Piece F: persist the live SOP state (active + suspended stack) at
+            # turn exit so it survives restart/eviction. Stored as a top-level
+            # session field (NOT inside workflow_context) so the turn-end
+            # _persist_workflow_updates cannot clobber it. Restored on the next
+            # CI build by factories._restore_sop_state.
+            if self._session_store is not None:
+                try:
+                    _snap = self._sop_snapshot(inferencer)
+                    self._session_store.update_session(
+                        sid,
+                        {
+                            "sop_state": _snap["sop_state"],
+                            "suspended_sops": _snap["suspended_sops"],
+                        },
+                    )
+                except Exception as e:  # pragma: no cover - best-effort
+                    logger.debug("sop_state persist failed: %s", e)
 
         # Stash the canonical turn number on the result for the route layer.
         try:
@@ -847,6 +1750,8 @@ class ConversationService:
             conv_messages = []
             for msg in messages:
                 role = msg.get("role", "manager")
+                if role in _UI_ONLY_ROLES:
+                    continue  # task_ref chips are UI-only — never feed to the LLM
                 prompt_role = "user" if role in ("manager", "user") else "assistant"
                 conv_messages.append(
                     {"role": prompt_role, "content": msg.get("content", "")}
@@ -877,13 +1782,14 @@ class ConversationService:
             # so workflow context, SOP, and tools are NOT active in this path.
             # Prefer run_conversation_turn() for full workflow-controlled streaming.
             full_response = ""
-            async for chunk in inferencer.ainfer_streaming(
-                user_message, run_context=_stream_root
-            ):
-                chunk_str = str(chunk) if not isinstance(chunk, str) else chunk
-                if chunk_str:
-                    full_response += chunk_str
-                    yield chunk_str
+            async with contextlib.aclosing(
+                inferencer.ainfer_streaming(user_message, run_context=_stream_root)
+            ) as stream:
+                async for chunk in stream:
+                    chunk_str = str(chunk) if not isinstance(chunk, str) else chunk
+                    if chunk_str:
+                        full_response += chunk_str
+                        yield chunk_str
 
             inferencer.add_message("user", user_message)
             inferencer.add_message("assistant", full_response)

@@ -22,6 +22,7 @@ def test_dispatcher_arg_normalization():
         captured.update(arguments)
 
     import openteam.server.resources.tools.create_role.executor as cr_exec
+
     real_execute = cr_exec.execute
     cr_exec.execute = stub_execute
     try:
@@ -31,9 +32,10 @@ def test_dispatcher_arg_normalization():
 
         # Run with argparse-style CLI args (mixed dash + positional)
         # Note: --output-path was removed 2026-05-18; canonical deliverable
-        # now surfaces inside the workspace as final_deliverables/role_document.md
+        # now surfaces inside the workspace as outputs/role_document.md
         argv = [
-            "--max-facets", "3",
+            "--max-facets",
+            "3",
             "Senior Engineer",  # role_description (positional)
         ]
         try:
@@ -43,8 +45,7 @@ def test_dispatcher_arg_normalization():
 
         # Verify canonical underscore keys present
         assert "max_facets" in captured, (
-            f"max_facets missing from arguments. "
-            f"Got keys: {list(captured.keys())}"
+            f"max_facets missing from arguments. Got keys: {list(captured.keys())}"
         )
         assert captured.get("max_facets") in (3, "3"), (
             f"max_facets should be 3, got {captured.get('max_facets')!r}"
@@ -57,9 +58,7 @@ def test_dispatcher_arg_normalization():
         )
 
         # CRITICAL: verify NO dash-prefixed keys lingering
-        dash_keys = [
-            k for k in captured.keys() if k.startswith("-") or "-" in k
-        ]
+        dash_keys = [k for k in captured.keys() if k.startswith("-") or "-" in k]
         assert not dash_keys, (
             f"Dash-prefixed/dashed keys must not appear in arguments dict. "
             f"Got: {dash_keys}. All keys: {list(captured.keys())}"

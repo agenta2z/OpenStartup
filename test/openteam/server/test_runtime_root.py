@@ -1,15 +1,15 @@
 """TIER-1 tests for openteam.server.runtime_root (Round-8 / I21)."""
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
 import pytest
-
 from openteam.server.runtime_root import (
-    RuntimeRoot,
     apply_runtime_root,
     resolve_runtime_root,
+    RuntimeRoot,
 )
 
 
@@ -36,7 +36,9 @@ class TestResolveEnum:
 
     def test_explicit_path_relative_resolves_to_cwd(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        assert resolve_runtime_root("subdir/rt") == (tmp_path / "subdir" / "rt").resolve()
+        assert (
+            resolve_runtime_root("subdir/rt") == (tmp_path / "subdir" / "rt").resolve()
+        )
 
     def test_tilde_expands(self):
         assert resolve_runtime_root("~/custom") == (Path.home() / "custom").resolve()
@@ -76,6 +78,7 @@ class TestApplyRuntimeRoot:
         assert os.environ["OPENTEAM_RUNTIME_DIR"] == str(resolved)
         # I21 single source: subsequent find_runtime_root() returns same
         from openteam.server.runtime_root import find_runtime_root
+
         assert find_runtime_root() == resolved
 
     def test_user_home_sets_env_var(self, monkeypatch):

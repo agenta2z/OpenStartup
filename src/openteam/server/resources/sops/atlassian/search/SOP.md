@@ -49,7 +49,7 @@ Read the current state of `lkp_ugc_dup_exception_list` and compute a determinist
 
 **Why server-side checksum, not row download**: The table has 365k+ rows (~25MB+) which exceeds the Databricks SQL Statements API's default 25MB INLINE response cap. The orchestrator computes `SHA2(SUM(HASH(*)), 256)` server-side, returning a 64-char checksum + COUNT(*) + DESCRIBE + LIMIT 5 sample.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `python3 CoreProjects/xtenant_refresh_automation/refresh_xtenant_check.py --cache .xtenant_cache/last_seen.json`
 
 **Verified working warehouse**: `ac8c98be41a8ce28` (general data warehouse — has SELECT on the exception-list catalog)
@@ -61,7 +61,7 @@ Read the current state of `lkp_ugc_dup_exception_list` and compute a determinist
 
 Fire the un-filtered training workflow. Used for sanity comparison only; downstream phases use Phase 2's artifact.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 -  `atlas ml workflow run -b edfb796a-0e83-4aa2-8bb6-b70d43c5ec9d -e prod`
    **Capture**: ML Studio Run ID from the output line `ML Studio Run ID: <uuid>`. Example run `06c06b43-f769-4070-ae60-8d2c9963059b`.
 
@@ -74,7 +74,7 @@ Fire the training workflow that reads `lkp_ugc_dup_exception_list` and produces 
 
 Do NOT proceed to packaging if Phase 2 fails or aborts — packaging would consume a stale model.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `atlas ml workflow run -b 290570de-bcf4-40f4-9090-15bffefa262d -e prod`
   **Capture**: ML Studio Run ID. Runtime ~2h. Example run `b929f0ce-549a-421f-b6f3-7b0d41f9e709`.
 
@@ -85,7 +85,7 @@ Package the new trained model into `assets.tar.gz` consumable by Tarot V2.
 
 **CRITICAL — DO NOT USE `atlas ml workflow run -b` BARE**: The blueprint's default `features.config` was bumped to a june recipe (`l2_xt_3p_doc_cal_mf_no_sl_365_pg_v2_comment_jun_2026_250_token_ignore_embedding.config` — 32 cont + 16 cat features) that is incompatible with the gdrive training recipe currently used by Phase 2 (25 cont + 15 cat features). A bare run produces a packaging that Triton cannot load at eval time. **Always override `features.config` and `l2_ranker_model.pt` via descriptor clone**. See [resolved issue 2026-06-04-wrong-features-config-in-p3](issues/resolved/2026-06-04-wrong-features-config-in-p3.md) for the diagnosis.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 ```bash
 # 1. Clone a prior known-good P3 run (06-01 cycle is the most recent known-good)
 atlas ml workflow clone -r <prior_p3_dbx_rid> -e prod -o p3.yaml
@@ -132,7 +132,7 @@ echo "prior=$PRIOR_SIZE new=$NEW_SIZE diff_kb=$(( (NEW_SIZE - PRIOR_SIZE) / 1024
 
 Create a new YAML descriptor in `atlassian/ml-studio` registering the Tarot V3 package for the new model. Pattern: copy the most recent `package_ensemble_l2_general_doc_stack_retrain_zero_query_<MMDD>.yaml` to the new date.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__bitbucket__invoke_tool` with `bitbucketRepoContent action=branch.create` then `action=commit.create` then `bitbucketPullRequest action=create draft=true`
 
 **Branch convention**: `tchen7/automation-<YYYY-MM-DD>-tarot-v3-v<NEW_VERSION>`
@@ -165,7 +165,7 @@ variables:
 
 Two-step: (5a) fire the Databricks launchpad job that creates the ml-registry version, (5b) the Tarot V3 PR from Phase 4 is what allows future workflows to consume the registered version.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `databricks --profile ml-ugc-prod jobs run-now 41970387619718 --no-wait`
 
 **Verification**:
@@ -210,7 +210,7 @@ end-to-end automated refresh completed <DATE>:
 
 File a draft PR in `atlassian/xpsearch-content` against `master` (NOTE: master, not main) as a placeholder. The real diff (4 regional yamls + maintainers.yml updating the endpoint slug) cannot be written until TS provisions the new endpoint (Phase 7 outcome).
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__bitbucket__invoke_tool` with `bitbucketRepoContent action=branch.create target=master` then `action=commit.create branch=<feature>` then `bitbucketPullRequest action=create draft=true targetBranch=master`
 
 **Branch convention**: `tchen7/automation-<YYYY-MM-DD>-xtenant-v<NEW_VERSION>`
@@ -290,7 +290,7 @@ for t in d.get('tasks', []):
 
 The runbook's MRR comparison table requires reading 4 MRR values from each region's eval run. **As of 2026-06-05, this IS programmatically extractable** via the UGC-safe view that the `create_ugc_safe_views_in_interactive_catalog_task` publishes into `ml_interactive_prod`.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 ```bash
 WH="bbeb56ed30694b10"  # general data warehouse with SELECT on ml_interactive_prod
 for ENTRY in "us_west_2:2026_05_18_14_14_3345678" "us:2026_05_18_14_15_3345678" "eu_west_1:2026_05_18_14_16_3345678" "eu:2026_05_18_14_17_3345678"; do
@@ -323,7 +323,7 @@ The canonical MRR for the launch doc is `fullPageSearch` + `inferred_total_score
 
 Publish a launch doc under the user's personal space following the runbook template.
 
-**Tools**[__must__]:
+**Tools**[__required__]:
 - `mcp__atlassian__invoke_tool` with `create_confluence_page parent_url=<personal_space>`
 
 **Title convention**: `Apply lkp_ugc_dup_exception_list to Filter Tenant for Cross Tenant Modeling - <YYYY-MM-DD> (Automated)`

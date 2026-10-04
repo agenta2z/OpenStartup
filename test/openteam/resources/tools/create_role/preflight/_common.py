@@ -28,25 +28,33 @@ COREPROJECTS_ROOT = OPENSTARTUP_ROOT.parent
 
 YAML_PATH = (
     OPENSTARTUP_ROOT
-    / "src" / "openteam" / "server" / "resources" / "tools"
-    / "create_role" / "create_role_bta.yaml"
+    / "src"
+    / "openteam"
+    / "server"
+    / "resources"
+    / "tools"
+    / "create_role"
+    / "create_role_bta.yaml"
 )
 
 AF_TEMPLATES_DIR = (
     COREPROJECTS_ROOT
-    / "AgentFoundation" / "src" / "agent_foundation"
-    / "resources" / "prompt_templates"
+    / "AgentFoundation"
+    / "src"
+    / "agent_foundation"
+    / "resources"
+    / "prompt_templates"
 )
 
 OPENSTARTUP_TEMPLATES_DIR = (
-    OPENSTARTUP_ROOT
-    / "src" / "openteam" / "server" / "resources" / "prompt_templates"
+    OPENSTARTUP_ROOT / "src" / "openteam" / "server" / "resources" / "prompt_templates"
 )
 
 
 # ---------------------------------------------------------------------------
 # Skip markers (shared with the real-CLI integration test)
 # ---------------------------------------------------------------------------
+
 
 def _cli_available(command: str) -> bool:
     try:
@@ -66,10 +74,7 @@ ACLI_AVAILABLE = _cli_available("acli")
 
 ROVOCHAT_CREDS_AVAILABLE = bool(
     (os.environ.get("ROVOCHAT_EMAIL") or os.environ.get("JIRA_EMAIL"))
-    and (
-        os.environ.get("ROVOCHAT_API_TOKEN")
-        or os.environ.get("JIRA_API_TOKEN")
-    )
+    and (os.environ.get("ROVOCHAT_API_TOKEN") or os.environ.get("JIRA_API_TOKEN"))
 )
 
 skip_no_acli = pytest.mark.skipif(

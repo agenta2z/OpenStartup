@@ -1,6 +1,7 @@
 """Backward-compatible re-export. The canonical implementation has moved to
 agent_foundation.common.workspace.allocator.
 """
+
 import warnings
 
 warnings.warn(
@@ -10,7 +11,7 @@ warnings.warn(
     stacklevel=2,
 )
 from agent_foundation.common.workspace.allocator import (
+    allocate_tool_workspace,
     find_runtime_root,
     make_workspace_dirname,
-    allocate_tool_workspace,
 )

@@ -36,12 +36,12 @@ except ImportError as exc:  # pragma: no cover
     raise
 
 from openteam.use_cases._shared_runtime import (
-    SingleShotRunWorkspace,
     autodiscover_phase_artifacts,
     parse_sentinel,
     promote_to_artifacts,
     sentinel_indicates_success,
     setup_run_workspace,
+    SingleShotRunWorkspace,
     workstream_slug_from_codebase,
 )
 
@@ -55,12 +55,16 @@ SENTINEL_COMPLETE = "EPIC_CREATION_COMPLETE"
 
 # Legacy in-package runtime locations (for backward-compat docs discovery).
 LEGACY_PHASE1_IN_PACKAGE_RUNTIME = HERE.parent / "codebase_investigation" / "_runtime"
-LEGACY_PHASE2_IN_PACKAGE_RUNTIME = HERE.parent / "system_and_signals_investigation" / "_runtime"
+LEGACY_PHASE2_IN_PACKAGE_RUNTIME = (
+    HERE.parent / "system_and_signals_investigation" / "_runtime"
+)
 
 DEFAULT_JIRA_PROJECT = "AI"
 # AI Lab board on the Atlassian hello instance — issues with project_key=AI
 # automatically appear here via the board's JQL filter.
-DEFAULT_JIRA_BOARD_URL = "https://hello.atlassian.net/jira/software/projects/AI/boards/22269"
+DEFAULT_JIRA_BOARD_URL = (
+    "https://hello.atlassian.net/jira/software/projects/AI/boards/22269"
+)
 DEFAULT_ASSIGNEE_ACCOUNT_ID = "712020:5cf4b2db-f12d-4739-867d-9fe8ecb66d54"
 
 
@@ -83,8 +87,14 @@ def _render_prompt(
     template = PROMPT_PATH.read_text(encoding="utf-8")
     return (
         template.replace("{{TARGET_PATH}}", str(target_path))
-        .replace("{{CODEBASE_DOCS_DIR}}", str(codebase_docs) if codebase_docs else "(no Phase-1 docs found)")
-        .replace("{{SIGNALS_DOCS_DIR}}", str(signals_docs) if signals_docs else "(no Phase-2 docs found)")
+        .replace(
+            "{{CODEBASE_DOCS_DIR}}",
+            str(codebase_docs) if codebase_docs else "(no Phase-1 docs found)",
+        )
+        .replace(
+            "{{SIGNALS_DOCS_DIR}}",
+            str(signals_docs) if signals_docs else "(no Phase-2 docs found)",
+        )
         .replace("{{OUTPUT_DOCS_DIR}}", str(output_docs_dir))
         .replace("{{JIRA_PROJECT_KEY}}", jira_project)
         .replace("{{JIRA_BOARD_URL}}", jira_board_url)
@@ -93,16 +103,17 @@ def _render_prompt(
     )
 
 
-async def _run_inferencer(prompt: str, target_path: Path, ws: SingleShotRunWorkspace) -> str:
+async def _run_inferencer(
+    prompt: str, target_path: Path, ws: SingleShotRunWorkspace
+) -> str:
     ws.prompt_path.write_text(prompt, encoding="utf-8")
 
     # Grant write access to the project root so create_file works for docs/runtime
     import json as _json
-    _cfg_override = _json.dumps({
-        "toolPermissions": {
-            "allowedExternalPaths": [str(ws.project_root)]
-        }
-    })
+
+    _cfg_override = _json.dumps(
+        {"toolPermissions": {"allowedExternalPaths": [str(ws.project_root)]}}
+    )
     inf = RovoDevCliInferencer(
         target_path=str(target_path),
         idle_timeout_seconds=1200,
@@ -136,23 +147,50 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Absolute path to the codebase under investigation.",
     )
-    parser.add_argument("--codebase-docs", type=Path, default=None,
-                        help="Optional Phase-1 docs path (auto-discovered otherwise).")
-    parser.add_argument("--signals-docs", type=Path, default=None,
-                        help="Optional Phase-2 docs path (auto-discovered otherwise).")
-    parser.add_argument("--jira-project", default=DEFAULT_JIRA_PROJECT,
-                        help=f"Jira project key (default: {DEFAULT_JIRA_PROJECT}).")
-    parser.add_argument("--jira-board-url", default=DEFAULT_JIRA_BOARD_URL,
-                        help=f"Jira board UI URL where the new Epic + children will appear "
-                             f"(informational; default: AI Lab board {DEFAULT_JIRA_BOARD_URL}).")
-    parser.add_argument("--workstream-label", default=None,
-                        help="Shared workstream label (default: <codebase-basename>-optimization).")
-    parser.add_argument("--assignee-account-id", default=DEFAULT_ASSIGNEE_ACCOUNT_ID,
-                        help=f"AAID for issue Reporter (default: {DEFAULT_ASSIGNEE_ACCOUNT_ID}).")
-    parser.add_argument("--runtime-root", type=Path, default=None,
-                        help="Override the AI-employee home (default: $AI_EMPLOYEE_HOME or ~/.ai-employee).")
-    parser.add_argument("--workstream-slug", default=None,
-                        help="Override the auto-derived workstream slug.")
+    parser.add_argument(
+        "--codebase-docs",
+        type=Path,
+        default=None,
+        help="Optional Phase-1 docs path (auto-discovered otherwise).",
+    )
+    parser.add_argument(
+        "--signals-docs",
+        type=Path,
+        default=None,
+        help="Optional Phase-2 docs path (auto-discovered otherwise).",
+    )
+    parser.add_argument(
+        "--jira-project",
+        default=DEFAULT_JIRA_PROJECT,
+        help=f"Jira project key (default: {DEFAULT_JIRA_PROJECT}).",
+    )
+    parser.add_argument(
+        "--jira-board-url",
+        default=DEFAULT_JIRA_BOARD_URL,
+        help=f"Jira board UI URL where the new Epic + children will appear "
+        f"(informational; default: AI Lab board {DEFAULT_JIRA_BOARD_URL}).",
+    )
+    parser.add_argument(
+        "--workstream-label",
+        default=None,
+        help="Shared workstream label (default: <codebase-basename>-optimization).",
+    )
+    parser.add_argument(
+        "--assignee-account-id",
+        default=DEFAULT_ASSIGNEE_ACCOUNT_ID,
+        help=f"AAID for issue Reporter (default: {DEFAULT_ASSIGNEE_ACCOUNT_ID}).",
+    )
+    parser.add_argument(
+        "--runtime-root",
+        type=Path,
+        default=None,
+        help="Override the AI-employee home (default: $AI_EMPLOYEE_HOME or ~/.ai-employee).",
+    )
+    parser.add_argument(
+        "--workstream-slug",
+        default=None,
+        help="Override the auto-derived workstream slug.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -251,7 +289,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Project root: {ws.project_root}")
     print(f"Run dir     : {ws.run_dir}")
     print(f"Docs (run)  : {ws.docs_dir}")
-    print(f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}")
+    print(
+        f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}"
+    )
     print(f"Status      : {sentinel}")
     return 0 if promoted is not None else 1
 

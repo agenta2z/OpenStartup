@@ -318,8 +318,8 @@ fi
 # -----------------------------------------------------------------------------
 # Step 5: Resolve log file (output goes into workspace, not a tmp path)
 # -----------------------------------------------------------------------------
-# Per 2026-05-18 surfacing fix, the canonical role document lives at:
-#   <workspace>/outputs/final_deliverables/role_document.md
+# The canonical role document lives at:
+#   <workspace>/outputs/role_document.md
 # where <workspace> = <REPO_ROOT>/_runtime/tasks/create_role/create_role_<TS>_<UUID>/
 if [ -z "${LOG_DIR}" ]; then
     LOG_DIR="${REPO_ROOT}"
@@ -329,7 +329,7 @@ LOG_FILE="${LOG_DIR}/create_role_${TIMESTAMP}.log"
 
 log_ok "Log file:    ${LOG_FILE}"
 log_ok "Workspace:   ${REPO_ROOT}/_runtime/tasks/create_role/create_role_<TS>_<UUID>/"
-log_ok "Deliverable: <workspace>/outputs/final_deliverables/role_document.md"
+log_ok "Deliverable: <workspace>/outputs/role_document.md"
 
 # -----------------------------------------------------------------------------
 # Step 6: Sanity check create_role module is importable
@@ -402,7 +402,7 @@ else
         echo
         log_ok "Run completed successfully"
         log_ok "Log: ${LOG_FILE}"
-        log_ok "Deliverable: see <workspace>/outputs/final_deliverables/role_document.md"
+        log_ok "Deliverable: see <workspace>/outputs/role_document.md"
         log_ok "  (workspace path is printed early in the log; grep for 'workspace')"
         exit 0
     else

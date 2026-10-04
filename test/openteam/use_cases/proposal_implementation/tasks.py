@@ -41,12 +41,8 @@ logger = logging.getLogger(__name__)
 #
 # TEST_SOP_PATH is a separate per-repo testing-convention reference (NOT one
 # of our SOP outputs); kept as a hard-coded fallback for the PoC.
-_LEGACY_CODE_UNDERSTANDING_PATH = (
-    "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/convo_ai_hack/code_understanding"
-)
-_LEGACY_SYSTEM_UNDERSTANDING_PATH = (
-    "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/convo_ai_hack/system_understanding"
-)
+_LEGACY_CODE_UNDERSTANDING_PATH = "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/convo_ai_hack/code_understanding"
+_LEGACY_SYSTEM_UNDERSTANDING_PATH = "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/convo_ai_hack/system_understanding"
 _TEST_SOP_PATH = (
     "/Users/tchen7/MyProjects/CoreProjects/OpenStartup/_dev/convo_ai_hack/test_sop"
 )
@@ -69,22 +65,31 @@ def _resolve_understanding_paths(workspace_path: str) -> tuple[str, str]:
         return cached
 
     from pathlib import Path
+
     try:
         # Import lazily to keep tasks.py importable in isolation.
         from openteam.use_cases._shared_runtime import autodiscover_phase_artifacts
+
         codebase = Path(workspace_path).expanduser().resolve()
 
-        code_dir = autodiscover_phase_artifacts(codebase=codebase, phase_name="codebase")
-        signals_dir = autodiscover_phase_artifacts(codebase=codebase, phase_name="signals")
+        code_dir = autodiscover_phase_artifacts(
+            codebase=codebase, phase_name="codebase"
+        )
+        signals_dir = autodiscover_phase_artifacts(
+            codebase=codebase, phase_name="signals"
+        )
 
         code_str = str(code_dir) if code_dir else _LEGACY_CODE_UNDERSTANDING_PATH
-        signals_str = str(signals_dir) if signals_dir else _LEGACY_SYSTEM_UNDERSTANDING_PATH
+        signals_str = (
+            str(signals_dir) if signals_dir else _LEGACY_SYSTEM_UNDERSTANDING_PATH
+        )
 
         if code_dir is None:
             logger.info(
                 "Phase-4: no auto-discovered code_understanding for codebase=%s; "
                 "falling back to legacy hard-coded path %s",
-                workspace_path, _LEGACY_CODE_UNDERSTANDING_PATH,
+                workspace_path,
+                _LEGACY_CODE_UNDERSTANDING_PATH,
             )
         else:
             logger.info("Phase-4: auto-discovered code_understanding -> %s", code_str)
@@ -93,10 +98,13 @@ def _resolve_understanding_paths(workspace_path: str) -> tuple[str, str]:
             logger.info(
                 "Phase-4: no auto-discovered system_understanding for codebase=%s; "
                 "falling back to legacy hard-coded path %s",
-                workspace_path, _LEGACY_SYSTEM_UNDERSTANDING_PATH,
+                workspace_path,
+                _LEGACY_SYSTEM_UNDERSTANDING_PATH,
             )
         else:
-            logger.info("Phase-4: auto-discovered system_understanding -> %s", signals_str)
+            logger.info(
+                "Phase-4: auto-discovered system_understanding -> %s", signals_str
+            )
 
         _UNDERSTANDING_CACHE[workspace_path] = (code_str, signals_str)
         return code_str, signals_str
@@ -127,8 +135,8 @@ _UNDERSTANDING_CACHE: dict[str, tuple[str, str]] = {}
 # the safety net.
 #
 # To bypass for unit tests, set env var JIRA_BOARD_MONITOR_DISABLE_MIN_GAP=1.
-MIN_EPIC_POLL_SECONDS = 180   # 3 min — fast enough for human-triggered events
-MIN_PR_POLL_SECONDS = 900     # 15 min — paced for CI build cycles (~10-30 min)
+MIN_EPIC_POLL_SECONDS = 180  # 3 min — fast enough for human-triggered events
+MIN_PR_POLL_SECONDS = 900  # 15 min — paced for CI build cycles (~10-30 min)
 
 
 def _floor(seconds: int, floor: int) -> int:
@@ -146,10 +154,13 @@ def _floor(seconds: int, floor: int) -> int:
         return seconds
     return max(seconds, floor)
 
+
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 # Regex sentinels parsed from inferencer output
-_TRIGGER_RE = re.compile(r"^TRIGGER_CREATE_PR:\s*([A-Z][A-Z0-9]+-\d+)\s*$", re.MULTILINE)
+_TRIGGER_RE = re.compile(
+    r"^TRIGGER_CREATE_PR:\s*([A-Z][A-Z0-9]+-\d+)\s*$", re.MULTILINE
+)
 # Self-healing: "an In Progress / In Review issue already has an open PR with no
 # orchestrator record" — orchestrator should pick up MonitorPR for it.
 # Format: RESUME_MONITOR_PR: <ISSUE_KEY> <FULL_PR_URL>
@@ -163,7 +174,9 @@ _PR_URL_RE = re.compile(
 _STATUS_RE = re.compile(r"^STATUS:\s*([A-Z_]+)(?:\s*--\s*(.*))?\s*$", re.MULTILINE)
 # JIRA_STATUS: <KEY>=<status text> — the LLM's self-report of a transition it performed.
 # Captured as (key, status). Status may contain spaces (e.g. "In Progress", "In Review").
-_JIRA_STATUS_RE = re.compile(r"^JIRA_STATUS:\s*([A-Z][A-Z0-9]+-\d+)\s*=\s*(.+?)\s*$", re.MULTILINE)
+_JIRA_STATUS_RE = re.compile(
+    r"^JIRA_STATUS:\s*([A-Z][A-Z0-9]+-\d+)\s*=\s*(.+?)\s*$", re.MULTILINE
+)
 
 
 def _parse_jira_status_reports(output: str) -> dict[str, str]:
@@ -188,7 +201,9 @@ def _verify_jira_status(
             logger.warning(
                 "[%s] No JIRA_STATUS reported for %s — expected one of %s. "
                 "LLM may have skipped the transition. Next poll will recheck.",
-                context, key, sorted(exp_set),
+                context,
+                key,
+                sorted(exp_set),
             )
             drift.append((key, "<unreported>", exp_set))
             continue
@@ -196,7 +211,10 @@ def _verify_jira_status(
         if not any(reported.strip().lower() == e.lower() for e in exp_set):
             logger.warning(
                 "[%s] JIRA_STATUS drift for %s: reported=%r expected one of %s",
-                context, key, reported, sorted(exp_set),
+                context,
+                key,
+                reported,
+                sorted(exp_set),
             )
             drift.append((key, reported, exp_set))
     return drift
@@ -204,11 +222,12 @@ def _verify_jira_status(
 
 # ---------- task dataclasses ----------
 
+
 @dataclass
 class MonitorEpicTask:
     epic_key: str
-    assignee_hint: str            # e.g. "Tony Chen"
-    assignee_account_id: str      # e.g. "712020:5cf4b2db-..."
+    assignee_hint: str  # e.g. "Tony Chen"
+    assignee_account_id: str  # e.g. "712020:5cf4b2db-..."
     workspace_path: str
     # Default 600s (10 min). Hard floor MIN_EPIC_POLL_SECONDS (180s / 3 min)
     # is enforced in __post_init__ — any caller passing a smaller value will
@@ -227,7 +246,8 @@ class MonitorEpicTask:
                 "MonitorEpicTask delay_seconds=%d clamped UP to floor %d "
                 "(MIN_EPIC_POLL_SECONDS). Set env JIRA_BOARD_MONITOR_DISABLE_MIN_GAP=1 "
                 "to bypass (tests only).",
-                self.delay_seconds, clamped,
+                self.delay_seconds,
+                clamped,
             )
             self.delay_seconds = clamped
         # Also clamp steady_state_delay_seconds (which IS the steady-state
@@ -237,7 +257,8 @@ class MonitorEpicTask:
             if ss_clamped != self.steady_state_delay_seconds:
                 logger.warning(
                     "MonitorEpicTask steady_state_delay_seconds=%d clamped UP to %d",
-                    self.steady_state_delay_seconds, ss_clamped,
+                    self.steady_state_delay_seconds,
+                    ss_clamped,
                 )
                 self.steady_state_delay_seconds = ss_clamped
 
@@ -268,7 +289,7 @@ class CreatePRTask:
 @dataclass
 class MonitorPRTask:
     issue_key: str
-    pr_url: str                   # full URL incl. workspace + repo + id
+    pr_url: str  # full URL incl. workspace + repo + id
     workspace_path: str
     # Default 1800s (30 min). Hard floor MIN_PR_POLL_SECONDS (900s / 15 min)
     # is enforced in __post_init__. CI build cycles typically take 10-30 min,
@@ -276,7 +297,7 @@ class MonitorPRTask:
     # without seeing new state. NEEDS_HUMAN paths slow further to 1800s+ inside
     # the handler.
     delay_seconds: int = 1800
-    steady_state_delay_seconds: int = 0   # see MonitorEpicTask docstring
+    steady_state_delay_seconds: int = 0  # see MonitorEpicTask docstring
 
     def __post_init__(self) -> None:
         clamped = _floor(self.delay_seconds, MIN_PR_POLL_SECONDS)
@@ -285,7 +306,8 @@ class MonitorPRTask:
                 "MonitorPRTask delay_seconds=%d clamped UP to floor %d "
                 "(MIN_PR_POLL_SECONDS). Set env JIRA_BOARD_MONITOR_DISABLE_MIN_GAP=1 "
                 "to bypass (tests only).",
-                self.delay_seconds, clamped,
+                self.delay_seconds,
+                clamped,
             )
             self.delay_seconds = clamped
         if self.steady_state_delay_seconds > 0:
@@ -293,7 +315,8 @@ class MonitorPRTask:
             if ss_clamped != self.steady_state_delay_seconds:
                 logger.warning(
                     "MonitorPRTask steady_state_delay_seconds=%d clamped UP to %d",
-                    self.steady_state_delay_seconds, ss_clamped,
+                    self.steady_state_delay_seconds,
+                    ss_clamped,
                 )
                 self.steady_state_delay_seconds = ss_clamped
 
@@ -311,6 +334,7 @@ class RescueIssueTask:
     """Dispatched when a CreatePR fails — transitions the issue back to To Do
     so the next Epic poll can re-pick it (preventing the stuck-in-progress
     dead-letter scenario)."""
+
     issue_key: str
     reason: str
     workspace_path: str
@@ -326,6 +350,7 @@ class RescueIssueTask:
 
 
 # ---------- shared inferencer helper ----------
+
 
 async def _run_inferencer(
     prompt: str,
@@ -347,6 +372,7 @@ async def _run_inferencer(
     from agent_foundation.common.inferencers.agentic_inferencers.external.rovodev.rovodev_cli_inferencer import (
         RovoDevCliInferencer,
     )
+
     # Late import so the runtime module is optional / no circular imports.
     from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
 
@@ -361,7 +387,7 @@ async def _run_inferencer(
 
         inf = RovoDevCliInferencer(
             target_path=workspace_path,
-            idle_timeout_seconds=600,           # 10 min idle ceiling
+            idle_timeout_seconds=600,  # 10 min idle ceiling
             tool_use_idle_timeout_seconds=900,  # 15 min tool-use ceiling
             output_file=output_file_arg,
         )
@@ -381,7 +407,9 @@ async def _run_inferencer(
                 # After streaming completes, the clean output file is populated.
                 # Read it (RovoDevCliInferencer also stores it in _last_clean_output).
                 try:
-                    clean_output = call_ctx.clean_output_path.read_text(encoding="utf-8").strip()
+                    clean_output = call_ctx.clean_output_path.read_text(
+                        encoding="utf-8"
+                    ).strip()
                     success = bool(clean_output)
                 except FileNotFoundError:
                     clean_output = getattr(inf, "_last_clean_output", "") or ""
@@ -398,7 +426,9 @@ async def _run_inferencer(
             # Try to capture whatever output exists so far
             if call_ctx is not None:
                 try:
-                    clean_output = call_ctx.clean_output_path.read_text(encoding="utf-8").strip()
+                    clean_output = call_ctx.clean_output_path.read_text(
+                        encoding="utf-8"
+                    ).strip()
                 except Exception:
                     pass
 
@@ -428,20 +458,26 @@ def _load_prompt(name: str, substitutions: dict[str, str]) -> str:
 
 # ---------- handlers ----------
 
+
 async def handle_monitor_epic(
     task: MonitorEpicTask, orch: "Orchestrator"
 ) -> List[object]:
     """Invoke the inferencer to list+transition assigned issues; enqueue
     CreatePRTask per emitted TRIGGER_CREATE_PR line. Always re-enqueue self.
     """
-    logger.info("[MonitorEpic %s] invoking inferencer (poll cadence %ds)",
-                task.epic_key, task.delay_seconds)
+    logger.info(
+        "[MonitorEpic %s] invoking inferencer (poll cadence %ds)",
+        task.epic_key,
+        task.delay_seconds,
+    )
 
-    in_flight_issue_keys = sorted({
-        marker.split(":", 1)[1].split("#", 1)[0]
-        for marker in orch.state.in_flight
-        if marker.startswith(("CreatePR:", "MonitorPR:", "RescueIssue:"))
-    })
+    in_flight_issue_keys = sorted(
+        {
+            marker.split(":", 1)[1].split("#", 1)[0]
+            for marker in orch.state.in_flight
+            if marker.startswith(("CreatePR:", "MonitorPR:", "RescueIssue:"))
+        }
+    )
     # Stuck issues are treated like completed-but-unhappy: the prompt should
     # leave them alone. Bundle them into the COMPLETED_KEYS list passed to the
     # LLM since the contract there is "do NOT re-touch".
@@ -451,7 +487,8 @@ async def handle_monitor_epic(
         "EPIC_KEY": task.epic_key,
         "ASSIGNEE_HINT": task.assignee_hint,
         "ASSIGNEE_ACCOUNT_ID": task.assignee_account_id,
-        "IN_FLIGHT_KEYS": "\n".join(f"- {k}" for k in in_flight_issue_keys) or "- (none)",
+        "IN_FLIGHT_KEYS": "\n".join(f"- {k}" for k in in_flight_issue_keys)
+        or "- (none)",
         "COMPLETED_KEYS": "\n".join(f"- {k}" for k in completed_keys) or "- (none)",
     }
     prompt = _load_prompt("monitor_epic.md", prompt_vars)
@@ -459,10 +496,13 @@ async def handle_monitor_epic(
     call_ctx = None
     if orch.runtime_ws is not None:
         call_ctx = await orch.runtime_ws.begin_call(
-            task_type="MonitorEpic", primary_key=task.epic_key, is_round_based=True,
+            task_type="MonitorEpic",
+            primary_key=task.epic_key,
+            is_round_based=True,
         )
-    output = await _run_inferencer(prompt, task.workspace_path, orch,
-                                   call_ctx=call_ctx, prompt_vars=prompt_vars)
+    output = await _run_inferencer(
+        prompt, task.workspace_path, orch, call_ctx=call_ctx, prompt_vars=prompt_vars
+    )
 
     triggered = _TRIGGER_RE.findall(output)
     # Self-healing sentinel: (issue_key, pr_url) tuples to start MonitorPR for
@@ -472,44 +512,60 @@ async def handle_monitor_epic(
     status = status_match.group(1) if status_match else "UNKNOWN"
     logger.info(
         "[MonitorEpic %s] STATUS=%s; triggered=%s; resumes=%s",
-        task.epic_key, status, triggered,
+        task.epic_key,
+        status,
+        triggered,
         [f"{k}={u}" for k, u in resumes],
     )
 
     # P2 — verify each triggered issue was actually reported transitioned to In Progress
     status_reports = _parse_jira_status_reports(output)
     expected = {k: {"In Progress"} for k in triggered}
-    _verify_jira_status(status_reports, expected, context=f"MonitorEpic {task.epic_key}")
+    _verify_jira_status(
+        status_reports, expected, context=f"MonitorEpic {task.epic_key}"
+    )
 
     if call_ctx is not None:
         from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
-        RunWorkspace.write_sentinels(call_ctx, {
-            "status": status,
-            "triggered": triggered,
-            "resumes": [{"issue_key": k, "pr_url": u} for k, u in resumes],
-            "jira_status_reports": status_reports,
-        })
+
+        RunWorkspace.write_sentinels(
+            call_ctx,
+            {
+                "status": status,
+                "triggered": triggered,
+                "resumes": [{"issue_key": k, "pr_url": u} for k, u in resumes],
+                "jira_status_reports": status_reports,
+            },
+        )
 
     follow_ups: List[object] = []
     for issue_key in triggered:
         if issue_key in orch.state.completed:
-            logger.info("[MonitorEpic] skipping %s — already in completed set", issue_key)
+            logger.info(
+                "[MonitorEpic] skipping %s — already in completed set", issue_key
+            )
             continue
         if issue_key in orch.state.stuck:
-            logger.info("[MonitorEpic] skipping %s — marked stuck (rescue failed)", issue_key)
+            logger.info(
+                "[MonitorEpic] skipping %s — marked stuck (rescue failed)", issue_key
+            )
             continue
         marker = f"CreatePR:{issue_key}"
         any_pr_marker = f"MonitorPR:{issue_key}"
         rescue_marker = f"RescueIssue:{issue_key}"
-        if (marker in orch.state.in_flight
-                or rescue_marker in orch.state.in_flight
-                or any(m.startswith(any_pr_marker + "#") for m in orch.state.in_flight)):
+        if (
+            marker in orch.state.in_flight
+            or rescue_marker in orch.state.in_flight
+            or any(m.startswith(any_pr_marker + "#") for m in orch.state.in_flight)
+        ):
             logger.info("[MonitorEpic] skipping %s — already in flight", issue_key)
             continue
-        follow_ups.append(CreatePRTask(
-            issue_key=issue_key,
-            workspace_path=task.workspace_path,
-        ))
+        follow_ups.append(
+            CreatePRTask(
+                issue_key=issue_key,
+                workspace_path=task.workspace_path,
+            )
+        )
 
     # Self-healing path: STRANDED_PR issues — orchestrator has no record but
     # Jira shows an `In Progress`/`In Review` issue with an open PR. Start
@@ -517,7 +573,9 @@ async def handle_monitor_epic(
     # the issue appropriately on the next cycle).
     for resume_key, resume_pr_url in resumes:
         if resume_key in orch.state.completed:
-            logger.info("[MonitorEpic] skipping resume %s — in completed set", resume_key)
+            logger.info(
+                "[MonitorEpic] skipping resume %s — in completed set", resume_key
+            )
             continue
         if resume_key in orch.state.stuck:
             logger.info("[MonitorEpic] skipping resume %s — marked stuck", resume_key)
@@ -525,12 +583,20 @@ async def handle_monitor_epic(
         # Compose the orchestrator's MonitorPR primary key (matches enqueue() format)
         pr_marker = f"MonitorPR:{resume_key}#{resume_pr_url}"
         create_marker = f"CreatePR:{resume_key}"
-        if (pr_marker in orch.state.in_flight
-                or create_marker in orch.state.in_flight
-                or any(m.startswith(f"MonitorPR:{resume_key}#") for m in orch.state.in_flight)):
-            logger.info("[MonitorEpic] skipping resume %s — already in flight", resume_key)
+        if (
+            pr_marker in orch.state.in_flight
+            or create_marker in orch.state.in_flight
+            or any(
+                m.startswith(f"MonitorPR:{resume_key}#") for m in orch.state.in_flight
+            )
+        ):
+            logger.info(
+                "[MonitorEpic] skipping resume %s — already in flight", resume_key
+            )
             continue
-        logger.info("[MonitorEpic] RESUME monitoring %s => %s", resume_key, resume_pr_url)
+        logger.info(
+            "[MonitorEpic] RESUME monitoring %s => %s", resume_key, resume_pr_url
+        )
         # Mirror the same persistence the CreatePR success path does so
         # subsequent restarts find this mapping. Parse the canonical bitbucket
         # URL into a PRRecord; if it doesn't match, skip the record but still
@@ -540,42 +606,49 @@ async def handle_monitor_epic(
             _, ws_slug, repo_slug, pr_id_str = m.groups()
             try:
                 orch.state.issue_to_pr[resume_key] = PRRecord(
-                    workspace=ws_slug, repo=repo_slug, pr_id=int(pr_id_str), pr_url=resume_pr_url,
+                    workspace=ws_slug,
+                    repo=repo_slug,
+                    pr_id=int(pr_id_str),
+                    pr_url=resume_pr_url,
                 )
             except (TypeError, ValueError) as e:
-                logger.warning("[MonitorEpic] could not build PRRecord for %s: %s", resume_key, e)
+                logger.warning(
+                    "[MonitorEpic] could not build PRRecord for %s: %s", resume_key, e
+                )
         else:
             logger.warning(
                 "[MonitorEpic] resume URL %r doesn't match canonical Bitbucket pattern; "
                 "monitoring will still be enqueued but state.issue_to_pr will lack this record",
                 resume_pr_url,
             )
-        follow_ups.append(MonitorPRTask(
-            issue_key=resume_key,
-            pr_url=resume_pr_url,
-            workspace_path=task.workspace_path,
-            delay_seconds=0,  # poll immediately on first observation
-        ))
+        follow_ups.append(
+            MonitorPRTask(
+                issue_key=resume_key,
+                pr_url=resume_pr_url,
+                workspace_path=task.workspace_path,
+                delay_seconds=0,  # poll immediately on first observation
+            )
+        )
 
     # Always re-enqueue self to keep watching. If this iteration was the
     # immediate-kickoff seed (delay_seconds == 0), use the configured steady-
     # state interval instead so we don't loop tightly. The dataclass default
     # (600s) is the canonical steady-state value when the user didn't override.
     next_delay = task.steady_state_delay_seconds or task.delay_seconds or 600
-    follow_ups.append(MonitorEpicTask(
-        epic_key=task.epic_key,
-        assignee_hint=task.assignee_hint,
-        assignee_account_id=task.assignee_account_id,
-        workspace_path=task.workspace_path,
-        delay_seconds=next_delay,
-        steady_state_delay_seconds=task.steady_state_delay_seconds,
-    ))
+    follow_ups.append(
+        MonitorEpicTask(
+            epic_key=task.epic_key,
+            assignee_hint=task.assignee_hint,
+            assignee_account_id=task.assignee_account_id,
+            workspace_path=task.workspace_path,
+            delay_seconds=next_delay,
+            steady_state_delay_seconds=task.steady_state_delay_seconds,
+        )
+    )
     return follow_ups
 
 
-async def handle_create_pr(
-    task: CreatePRTask, orch: "Orchestrator"
-) -> List[object]:
+async def handle_create_pr(task: CreatePRTask, orch: "Orchestrator") -> List[object]:
     """Invoke the inferencer to implement + open a PR; on success enqueue MonitorPR."""
     logger.info("[CreatePR %s] invoking inferencer", task.issue_key)
 
@@ -592,10 +665,13 @@ async def handle_create_pr(
     call_ctx = None
     if orch.runtime_ws is not None:
         call_ctx = await orch.runtime_ws.begin_call(
-            task_type="CreatePR", primary_key=task.issue_key, is_round_based=False,
+            task_type="CreatePR",
+            primary_key=task.issue_key,
+            is_round_based=False,
         )
-    output = await _run_inferencer(prompt, task.workspace_path, orch,
-                                   call_ctx=call_ctx, prompt_vars=prompt_vars)
+    output = await _run_inferencer(
+        prompt, task.workspace_path, orch, call_ctx=call_ctx, prompt_vars=prompt_vars
+    )
 
     pr_match = _PR_URL_RE.search(output)
     status_match = _STATUS_RE.search(output)
@@ -604,11 +680,15 @@ async def handle_create_pr(
 
     if call_ctx is not None:
         from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
-        RunWorkspace.write_sentinels(call_ctx, {
-            "status": status,
-            "pr_url": pr_match.group(1) if pr_match else None,
-            "jira_status_reports": status_reports,
-        })
+
+        RunWorkspace.write_sentinels(
+            call_ctx,
+            {
+                "status": status,
+                "pr_url": pr_match.group(1) if pr_match else None,
+                "jira_status_reports": status_reports,
+            },
+        )
 
     if status == "NEEDS_HUMAN":
         reason = (status_match.group(2) if status_match else "") or "(no reason given)"
@@ -621,40 +701,57 @@ async def handle_create_pr(
         if reported.strip().lower() not in ("to do", "open", "backlog"):
             logger.warning(
                 "[CreatePR %s] LLM did not roll back (reported=%r). Dispatching RescueIssueTask.",
-                task.issue_key, reported,
+                task.issue_key,
+                reported,
             )
-            return [RescueIssueTask(
-                issue_key=task.issue_key,
-                reason=f"CreatePR NEEDS_HUMAN: {reason}",
-                workspace_path=task.workspace_path,
-            )]
+            return [
+                RescueIssueTask(
+                    issue_key=task.issue_key,
+                    reason=f"CreatePR NEEDS_HUMAN: {reason}",
+                    workspace_path=task.workspace_path,
+                )
+            ]
         return []
 
     if not pr_match:
         logger.error(
             "[CreatePR %s] inferencer did not emit a valid PR_URL line; status=%s",
-            task.issue_key, status,
+            task.issue_key,
+            status,
         )
         # No PR_URL AND not NEEDS_HUMAN → malformed output; treat as failure
         # and dispatch rescue so the issue isn't left stuck.
-        return [RescueIssueTask(
-            issue_key=task.issue_key,
-            reason=f"CreatePR returned malformed output (status={status}, no PR_URL)",
-            workspace_path=task.workspace_path,
-        )]
+        return [
+            RescueIssueTask(
+                issue_key=task.issue_key,
+                reason=f"CreatePR returned malformed output (status={status}, no PR_URL)",
+                workspace_path=task.workspace_path,
+            )
+        ]
 
-    pr_url, workspace, repo, pr_id_str = pr_match.group(1), pr_match.group(2), pr_match.group(3), pr_match.group(4)
+    pr_url, workspace, repo, pr_id_str = (
+        pr_match.group(1),
+        pr_match.group(2),
+        pr_match.group(3),
+        pr_match.group(4),
+    )
     pr_id = int(pr_id_str)
-    logger.info("[CreatePR %s] PR opened: %s (status=%s)", task.issue_key, pr_url, status)
+    logger.info(
+        "[CreatePR %s] PR opened: %s (status=%s)", task.issue_key, pr_url, status
+    )
 
     # P2 — verify the issue is now reported as In Review
     _verify_jira_status(
-        status_reports, {task.issue_key: {"In Review"}},
+        status_reports,
+        {task.issue_key: {"In Review"}},
         context=f"CreatePR {task.issue_key}",
     )
 
     orch.state.issue_to_pr[task.issue_key] = PRRecord(
-        workspace=workspace, repo=repo, pr_id=pr_id, pr_url=pr_url,
+        workspace=workspace,
+        repo=repo,
+        pr_id=pr_id,
+        pr_url=pr_url,
     )
 
     # First MonitorPR after PR creation: kickoff immediately (delay=0). The
@@ -663,22 +760,25 @@ async def handle_create_pr(
     # (1800s = 30 min) is the fallback, which is sensible for "just-opened
     # PR" first-poll cadence. If the user wants tighter, they'd seed the task
     # directly in run.py with their preferred steady_state_delay_seconds.
-    return [MonitorPRTask(
-        issue_key=task.issue_key,
-        pr_url=pr_url,
-        workspace_path=task.workspace_path,
-        delay_seconds=0,
-        steady_state_delay_seconds=0,  # use dataclass default of 1800s
-    )]
+    return [
+        MonitorPRTask(
+            issue_key=task.issue_key,
+            pr_url=pr_url,
+            workspace_path=task.workspace_path,
+            delay_seconds=0,
+            steady_state_delay_seconds=0,  # use dataclass default of 1800s
+        )
+    ]
 
 
-async def handle_monitor_pr(
-    task: MonitorPRTask, orch: "Orchestrator"
-) -> List[object]:
+async def handle_monitor_pr(task: MonitorPRTask, orch: "Orchestrator") -> List[object]:
     """Invoke the inferencer to poll + act on PR state. Re-enqueue unless
     terminal (MERGED / DECLINED / SUPERSEDED)."""
-    logger.info("[MonitorPR %s] invoking inferencer (poll cadence %ds)",
-                task.issue_key, task.delay_seconds)
+    logger.info(
+        "[MonitorPR %s] invoking inferencer (poll cadence %ds)",
+        task.issue_key,
+        task.delay_seconds,
+    )
 
     code_path, signals_path = _resolve_understanding_paths(task.workspace_path)
     prompt_vars = {
@@ -698,27 +798,37 @@ async def handle_monitor_pr(
             primary_key=f"{task.issue_key}#{task.pr_url}",
             is_round_based=True,
         )
-    output = await _run_inferencer(prompt, task.workspace_path, orch,
-                                   call_ctx=call_ctx, prompt_vars=prompt_vars)
+    output = await _run_inferencer(
+        prompt, task.workspace_path, orch, call_ctx=call_ctx, prompt_vars=prompt_vars
+    )
 
     status_match = _STATUS_RE.search(output)
     status = status_match.group(1) if status_match else "UNKNOWN"
     reason = status_match.group(2) if status_match and status_match.group(2) else None
     status_reports = _parse_jira_status_reports(output)
-    logger.info("[MonitorPR %s] STATUS=%s %s",
-                task.issue_key, status, f"({reason})" if reason else "")
+    logger.info(
+        "[MonitorPR %s] STATUS=%s %s",
+        task.issue_key,
+        status,
+        f"({reason})" if reason else "",
+    )
 
     if call_ctx is not None:
         from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
-        RunWorkspace.write_sentinels(call_ctx, {
-            "status": status,
-            "reason": reason,
-            "jira_status_reports": status_reports,
-        })
+
+        RunWorkspace.write_sentinels(
+            call_ctx,
+            {
+                "status": status,
+                "reason": reason,
+                "jira_status_reports": status_reports,
+            },
+        )
 
     if status == "MERGED":
         _verify_jira_status(
-            status_reports, {task.issue_key: {"Done"}},
+            status_reports,
+            {task.issue_key: {"Done"}},
             context=f"MonitorPR {task.issue_key}",
         )
         orch.state.completed.add(task.issue_key)
@@ -730,12 +840,17 @@ async def handle_monitor_pr(
         # Just log whatever the LLM reported.
         reported = status_reports.get(task.issue_key)
         if reported is not None:
-            logger.info("[MonitorPR %s] post-%s status reported as %r",
-                        task.issue_key, status, reported)
+            logger.info(
+                "[MonitorPR %s] post-%s status reported as %r",
+                task.issue_key,
+                status,
+                reported,
+            )
         else:
             logger.warning(
                 "[MonitorPR %s] %s but no JIRA_STATUS report — verify manually.",
-                task.issue_key, status,
+                task.issue_key,
+                status,
             )
         orch.state.issue_to_pr.pop(task.issue_key, None)
         return []
@@ -759,8 +874,9 @@ async def handle_rescue_issue(
     workflow-compatible target status. If even the rescue fails, the issue
     is added to state.stuck so we don't infinitely retry.
     """
-    logger.info("[Rescue %s] invoking inferencer; reason=%s",
-                task.issue_key, task.reason)
+    logger.info(
+        "[Rescue %s] invoking inferencer; reason=%s", task.issue_key, task.reason
+    )
 
     code_path, signals_path = _resolve_understanding_paths(task.workspace_path)
     prompt_vars = {
@@ -775,34 +891,47 @@ async def handle_rescue_issue(
     call_ctx = None
     if orch.runtime_ws is not None:
         call_ctx = await orch.runtime_ws.begin_call(
-            task_type="RescueIssue", primary_key=task.issue_key, is_round_based=False,
+            task_type="RescueIssue",
+            primary_key=task.issue_key,
+            is_round_based=False,
         )
-    output = await _run_inferencer(prompt, task.workspace_path, orch,
-                                   call_ctx=call_ctx, prompt_vars=prompt_vars)
+    output = await _run_inferencer(
+        prompt, task.workspace_path, orch, call_ctx=call_ctx, prompt_vars=prompt_vars
+    )
 
     status_match = _STATUS_RE.search(output)
     status = status_match.group(1) if status_match else "UNKNOWN"
     status_reports = _parse_jira_status_reports(output)
     reported = status_reports.get(task.issue_key, "<unreported>")
-    logger.info("[Rescue %s] STATUS=%s; final status=%r",
-                task.issue_key, status, reported)
+    logger.info(
+        "[Rescue %s] STATUS=%s; final status=%r", task.issue_key, status, reported
+    )
 
     if call_ctx is not None:
         from openteam.use_cases.proposal_implementation.runtime import RunWorkspace
-        RunWorkspace.write_sentinels(call_ctx, {
-            "status": status,
-            "final_status_reported": reported,
-            "jira_status_reports": status_reports,
-        })
+
+        RunWorkspace.write_sentinels(
+            call_ctx,
+            {
+                "status": status,
+                "final_status_reported": reported,
+                "jira_status_reports": status_reports,
+            },
+        )
 
     if status in ("ROLLED_BACK", "ALREADY_ROLLED_BACK"):
         # Verify the actual reported status really is To Do
         if reported.strip().lower() in ("to do", "open", "backlog"):
-            logger.info("[Rescue %s] successful rollback; issue will be re-picked on next Epic poll", task.issue_key)
+            logger.info(
+                "[Rescue %s] successful rollback; issue will be re-picked on next Epic poll",
+                task.issue_key,
+            )
         else:
             logger.warning(
                 "[Rescue %s] STATUS=%s but reported status=%r doesn't match To-Do family",
-                task.issue_key, status, reported,
+                task.issue_key,
+                status,
+                reported,
             )
         return []
 
@@ -821,7 +950,9 @@ async def handle_rescue_issue(
     # NEEDS_HUMAN / UNKNOWN — mark as stuck so we don't infinitely retry
     logger.error(
         "[Rescue %s] rescue failed (status=%s, reported=%r). Marking as stuck. Human intervention required.",
-        task.issue_key, status, reported,
+        task.issue_key,
+        status,
+        reported,
     )
     orch.state.stuck.add(task.issue_key)
     return []

@@ -18,6 +18,7 @@ also prevents collision if two callers somehow tried to register the same
 ``server_id`` simultaneously (the launch lock makes this impossible in
 practice but defense in depth is cheap).
 """
+
 from __future__ import annotations
 
 import atexit
@@ -33,12 +34,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from openteam.client.discovery import (
-    DISCOVERY_DIR,
-    SCHEMA_VERSION,
-    SERVICE_NAME,
-    ServerHandle,
     compute_server_id,
+    DISCOVERY_DIR,
     pid_alive,
+    SCHEMA_VERSION,
+    ServerHandle,
+    SERVICE_NAME,
 )
 
 _logger = logging.getLogger(__name__)
@@ -167,6 +168,7 @@ def _install_cleanup_handlers(target: Path) -> None:
     NOT a substitute for stale-entry reaping — clients always reap on read
     (Invariant I12). This is just polite cleanup.
     """
+
     def _cleanup(*_args) -> None:
         unregister_server(target)
 

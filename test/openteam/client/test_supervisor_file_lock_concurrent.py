@@ -7,6 +7,7 @@ same ``ServerHandle``.
 We test this by counting how many times ``subprocess.Popen`` is invoked
 across two parallel ``auto_launch_server`` calls. Expected: exactly 1.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,7 +17,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from openteam.client.discovery import ServerHandle, compute_server_id
+from openteam.client.discovery import compute_server_id, ServerHandle
 from openteam.client.supervisor import auto_launch_server
 
 
@@ -41,13 +42,18 @@ def test_two_concurrent_launches_only_spawn_one_subprocess(tmp_path, monkeypatch
         # Write the registry entry on first spawn so the wait loop in BOTH
         # threads can find it.
         import json
+
         reg_dir = Path(tmp_path / "registry")
         sid = compute_server_id(tmp_path, "127.0.0.1", 8100)
         handle = ServerHandle(
-            server_id=sid, pid=os.getpid(), host="127.0.0.1", port=8100,
+            server_id=sid,
+            pid=os.getpid(),
+            host="127.0.0.1",
+            port=8100,
             runtime_root=str(tmp_path.resolve()),
             server_dir_name="server_test",
-            started_at="2026-05-18T00:00:00.000Z", version="0.1.0",
+            started_at="2026-05-18T00:00:00.000Z",
+            version="0.1.0",
         )
         (reg_dir / f"{sid}.json").write_text(json.dumps(asdict(handle)))
         return _FakeProc()
@@ -64,8 +70,11 @@ def test_two_concurrent_launches_only_spawn_one_subprocess(tmp_path, monkeypatch
     def _worker():
         try:
             h = auto_launch_server(
-                runtime_root=tmp_path, host="127.0.0.1", port=8100,
-                wait_timeout_s=5.0, poll_interval_s=0.05,
+                runtime_root=tmp_path,
+                host="127.0.0.1",
+                port=8100,
+                wait_timeout_s=5.0,
+                poll_interval_s=0.05,
             )
             results.append(h)
         except Exception as e:

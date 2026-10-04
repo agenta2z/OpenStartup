@@ -15,26 +15,23 @@ Public API:
     ensure_server, auto_launch_server, NoServerAvailable,
     attach_session_via_http, AttachResult, AttachFailed
 """
+
+from openteam.client.attach import attach_session_via_http, AttachFailed, AttachResult
 from openteam.client.discovery import (
-    DISCOVERY_DIR,
-    SCHEMA_VERSION,
-    SERVICE_NAME,
-    ServerHandle,
     compute_server_id,
     discover_servers,
+    DISCOVERY_DIR,
     find_server,
     health_check,
     pid_alive,
+    SCHEMA_VERSION,
+    ServerHandle,
+    SERVICE_NAME,
 )
 from openteam.client.supervisor import (
-    NoServerAvailable,
     auto_launch_server,
     ensure_server,
-)
-from openteam.client.attach import (
-    AttachFailed,
-    AttachResult,
-    attach_session_via_http,
+    NoServerAvailable,
 )
 
 __all__ = [

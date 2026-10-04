@@ -13,7 +13,11 @@ async def list_conversations(
     project_id: str | None = Query(default=None),
 ):
     svc = request.app.state.data_service
-    return {"data": svc.get_conversations(participant_id=participant_id, project_id=project_id)}
+    return {
+        "data": svc.get_conversations(
+            participant_id=participant_id, project_id=project_id
+        )
+    }
 
 
 @router.get("/{conversation_id}")

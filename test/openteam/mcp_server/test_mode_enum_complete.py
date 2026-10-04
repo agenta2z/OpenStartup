@@ -1,4 +1,5 @@
 """TIER-1: verify the openteam_task 'mode' Literal stays in sync with tool.json flags."""
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,10 @@ def _get_tool_json_flag_names() -> set[str]:
     flags = set()
     for p in tool_json.get("parameters", []):
         if p.get("type") == "flag" and p["name"].lstrip("-") in {
-            "plan", "execute", "full", "confirm",
+            "plan",
+            "execute",
+            "full",
+            "confirm",
         }:
             flags.add(p["name"].lstrip("-"))
     return flags

@@ -9,6 +9,7 @@
 # can build a self-contained ``python_binary`` that imports openteam
 # without the sibling sys.path injection in ``openteam.bootstrap``.
 
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
 
 oncall("ml_oncall")
@@ -16,6 +17,7 @@ oncall("ml_oncall")
 python_library(
     name = "openteam",
     srcs = glob(["openteam/**/*.py"]),
+    base_module = "",
     resources = glob([
         # Bundle non-Python assets accessed via ``Path(pkg.__file__).parent``
         # at runtime: YAML topology configs, Jinja2 prompt templates, tool.json
@@ -26,25 +28,42 @@ python_library(
         "openteam/**/.initial.config.yaml",
         "openteam/**/.variables.yaml",
     ]),
-    base_module = "",
     typing = False,
     visibility = ["PUBLIC"],
     deps = [
-        "fbsource//third-party/pypi/attrs:attrs",
-        "fbsource//third-party/pypi/fastmcp:fastmcp",
-        "fbsource//third-party/pypi/httpx:httpx",
-        "fbsource//third-party/pypi/hydra-core:hydra-core",
-        "fbsource//third-party/pypi/jinja2:jinja2",
-        "fbsource//third-party/pypi/mcp:mcp",
-        "fbsource//third-party/pypi/omegaconf:omegaconf",
-        "fbsource//third-party/pypi/pydantic:pydantic",
-        "fbsource//third-party/pypi/pyre-extensions:pyre-extensions",
-        "fbsource//third-party/pypi/python-dotenv:python-dotenv",
-        "fbsource//third-party/pypi/pyyaml:pyyaml",
-        "fbsource//third-party/pypi/requests:requests",
-        "fbsource//third-party/pypi/typer:typer",
-        "fbsource//third-party/pypi/websockets:websockets",
         "fbcode//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
         "fbcode//_tony_dev/CoreProjects/RichPythonUtils/src:rich_python_utils",
+        "fbsource//third-party/pypi/attrs:attrs",
+        "fbsource//third-party/pypi/fastapi:fastapi",
+        "fbsource//third-party/pypi/fastmcp:fastmcp",
+        "fbsource//third-party/pypi/httpx:httpx",
+        "fbsource//third-party/pypi/jinja2:jinja2",
+        "fbsource//third-party/pypi/pydantic:pydantic",
+        "fbsource//third-party/pypi/pyyaml:pyyaml",
+        "fbsource//third-party/pypi/starlette:starlette",
+        "fbsource//third-party/pypi/typer:typer",
+        "fbsource//third-party/pypi/uvicorn:uvicorn",
+    ],
+)
+
+# The API server (run_server.py) with the backends whose SDK is Buck-only: the
+# native Metamate backend carries //msl/metamate/sdk, so `native_metamate` is
+# available here and nowhere else.
+#   buck2 run @fbcode//mode/dev //_tony_dev/CoreProjects/OpenStartup/src:server -- \
+#       --real-sessions <dir> --llm-backend native_metamate
+# Scripts that start the server themselves (test_e2e_native.py) need this
+# binary's interpreter, not just its link-tree on PYTHONPATH: the SDK's thrift
+# extensions are linked into the interpreter. From fbcode/:
+#   L="$(dirname "$(buck2 build @fbcode//mode/dev //_tony_dev/CoreProjects/OpenStartup/src:server \
+#       --show-full-output | cut -d' ' -f2)")/server#link-tree"
+#   cd _tony_dev/CoreProjects/OpenStartup && "$L/_bootstrap.sh" \
+#       -m test.openteam.server.backends.test_e2e_native --backend native_metamate --model ""
+python_binary(
+    # @autodeps-skip
+    name = "server",
+    main_function = "openteam.server.run_server.main",
+    deps = [
+        ":openteam",
+        "//_tony_dev/CoreProjects/AgentFoundation/src/agent_foundation/common/inferencers/agentic_inferencers/conversational_native/session/metamate:metamate",
     ],
 )

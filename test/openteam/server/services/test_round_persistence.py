@@ -8,13 +8,13 @@ DataService forwarding of ``round`` through to the store.
 Mirrors the setup in the sibling test_session_store_attach.py (a fresh
 SessionStore rooted at tmp_path with resume_server="new").
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import pytest
-
 from openteam.server.services.data_service import RealSessionDataService
 from openteam.server.services.session_store import SessionStore
 
@@ -103,7 +103,9 @@ class TestSaveTurnDataRoundAwareness:
 class TestUpdateTurnRootSummary:
     def test_creates_root_turn_json(self, session):
         store, sid = session
-        store.update_turn_root_summary(sid, 1, {"user_input": "hello", "latest_round": 1})
+        store.update_turn_root_summary(
+            sid, 1, {"user_input": "hello", "latest_round": 1}
+        )
 
         sd = _session_dir(store, sid)
         root = sd / "turn_001" / "turn.json"
@@ -114,14 +116,18 @@ class TestUpdateTurnRootSummary:
 
     def test_merges_into_existing_root(self, session):
         store, sid = session
-        store.update_turn_root_summary(sid, 1, {"user_input": "hello", "latest_round": 1})
+        store.update_turn_root_summary(
+            sid, 1, {"user_input": "hello", "latest_round": 1}
+        )
         # Second call across a later round accumulates rather than clobbers.
-        store.update_turn_root_summary(sid, 1, {"latest_round": 2, "assembled": "summary"})
+        store.update_turn_root_summary(
+            sid, 1, {"latest_round": 2, "assembled": "summary"}
+        )
 
         got = store.get_turn_data(sid, 1)
-        assert got["user_input"] == "hello"     # preserved from first call
-        assert got["latest_round"] == 2          # overwritten by second call
-        assert got["assembled"] == "summary"     # added by second call
+        assert got["user_input"] == "hello"  # preserved from first call
+        assert got["latest_round"] == 2  # overwritten by second call
+        assert got["assembled"] == "summary"  # added by second call
 
     def test_summary_merge_does_not_disturb_round_dirs(self, session):
         store, sid = session

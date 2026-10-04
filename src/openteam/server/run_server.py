@@ -18,6 +18,7 @@ from pathlib import Path
 # `bash run.sh` (which sets PYTHONPATH) or directly via `python run_server.py`.
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # OpenStartup/src
 from openteam.bootstrap import ensure_siblings_on_path  # noqa: E402
+
 ensure_siblings_on_path()
 
 
@@ -30,7 +31,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="OpenStartup API Server")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--mode", choices=["mock", "live"], default="mock", help="Server mode")
+    parser.add_argument(
+        "--mode", choices=["mock", "live"], default="mock", help="Server mode"
+    )
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
@@ -58,13 +61,13 @@ def main() -> None:
         type=str,
         default=None,
         metavar="NAME",
-        help='Resume a specific server dir by name (e.g., server_20260406_...). Default: always create a new server.',
+        help="Resume a specific server dir by name (e.g., server_20260406_...). Default: always create a new server.",
     )
     parser.add_argument(
         "--resume-latest-server",
         action="store_true",
         default=False,
-        help='Resume the most recently created server directory instead of creating a new one.',
+        help="Resume the most recently created server directory instead of creating a new one.",
     )
     parser.add_argument(
         "--llm-backend",
@@ -105,6 +108,7 @@ def main() -> None:
     # Precedence: --runtime-root > --real-sessions DIR > env var > 4-tier.
     if args.runtime_root is not None:
         from openteam.server.runtime_root import apply_runtime_root
+
         resolved = apply_runtime_root(args.runtime_root)
         # Mirror onto --real-sessions for the lifespan code that still keys off
         # `app.state.real_sessions_dir`. Operators specifying --runtime-root
@@ -145,12 +149,21 @@ def main() -> None:
 
     if args.real_sessions:
         app.state.real_sessions_dir = str(Path(args.real_sessions).expanduser())
-    # --resume-latest-server → "latest"; --resume-server <name> → "<name>"; default → None (new)
+    # Resume resolution:
+    #   --resume-latest-server      → "latest"
+    #   --resume-server <name>      → "<name>"  (--new-server arrives as "new")
+    #   --real-sessions, no flag    → "latest"  (NEW default: a plain restart
+    #                                 re-attaches the prior server's sessions
+    #                                 instead of minting an empty new server)
+    # SessionStore falls back to creating a fresh server when "latest" finds
+    # none, so first boot is unaffected; "new" still forces a fresh server.
     if args.resume_latest_server:
         app.state.resume_server = "latest"
     elif args.resume_server:
         app.state.resume_server = args.resume_server
-    # else: app.state.resume_server is not set → session_store defaults to creating new
+    elif args.real_sessions:
+        app.state.resume_server = "latest"
+    # else (mock, no real sessions): leave unset → SessionStore is not created
 
     if args.llm_backend:
         app.state.llm_backend = args.llm_backend
@@ -173,6 +186,13 @@ def main() -> None:
         host=args.host,
         port=args.port,
         log_level="debug" if args.debug else "info",
+        # Layer-1 defense-in-depth: protocol-level WS PING/PONG so idle
+        # connections stay alive even without the client keepalive (the browser
+        # auto-answers control-frame PINGs). Complements — does not replace — the
+        # client ping in useManagerChat.js (which doesn't depend on the proxy
+        # forwarding WS control frames).
+        ws_ping_interval=20,
+        ws_ping_timeout=20,
     )
 
 

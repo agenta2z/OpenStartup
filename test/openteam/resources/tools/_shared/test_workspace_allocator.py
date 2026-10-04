@@ -2,6 +2,7 @@
 
 Phase 0 contract tests were originally xfail; they are now GREEN after Phase 1 landed.
 """
+
 from __future__ import annotations
 
 import re
@@ -10,7 +11,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from openteam.server.resources.tools._shared.workspace_allocator import (
     allocate_tool_workspace,
     find_runtime_root,
@@ -21,6 +21,7 @@ _DIRNAME_RE = re.compile(r"^[a-z_]+_\d{8}_\d{6}_[0-9a-f]{8}$")
 
 
 # ── find_runtime_root ────────────────────────────────────────────────
+
 
 def test_find_runtime_root_uses_env_var(tmp_path, monkeypatch):
     """RED #1 — $OPENTEAM_RUNTIME_DIR wins over all other strategies."""
@@ -66,10 +67,12 @@ def test_find_runtime_root_fallback_home(tmp_path, monkeypatch):
     from openteam.server.resources.tools._shared.workspace_allocator import (
         _FALLBACK_HOME_DIR,
     )
+
     assert _FALLBACK_HOME_DIR == fallback
 
 
 # ── make_workspace_dirname ───────────────────────────────────────────
+
 
 def test_make_workspace_dirname_format():
     """RED #5 — matches regex <tool>_YYYYMMDD_HHMMSS_<8hex>."""
@@ -88,6 +91,7 @@ def test_make_workspace_dirname_lex_sortable():
 
 # ── allocate_tool_workspace — Path A (standalone) ────────────────────
 
+
 def test_path_a_standalone_layout(tmp_path, monkeypatch):
     """RED #7 — standalone layout at _runtime/tasks/<tool>/<tool>_<TS>_<uuid8>/."""
     monkeypatch.setenv("OPENTEAM_RUNTIME_DIR", str(tmp_path))
@@ -103,6 +107,7 @@ def test_path_a_standalone_layout(tmp_path, monkeypatch):
 
 # ── allocate_tool_workspace — Path B (server-affiliated) ─────────────
 
+
 def test_path_b_server_affiliated_layout(tmp_path):
     """RED #8 — server-affiliated layout at <base_dir>/<tool>_<TS>_<uuid8>/."""
     base = tmp_path / "session_root" / "tasks"
@@ -116,6 +121,7 @@ def test_path_b_server_affiliated_layout(tmp_path):
 
 
 # ── Validation ───────────────────────────────────────────────────────
+
 
 def test_invalid_tool_name_raises():
     """RED #9 — empty / non-identifier raises ValueError."""
@@ -135,11 +141,14 @@ def test_relative_base_dir_raises(tmp_path):
 
 # ── UUID8 collision ──────────────────────────────────────────────────
 
+
 def test_uuid8_collision_retried(tmp_path, monkeypatch):
     """RED #11 — mock uuid4 to collide; allocator retries then raises."""
     monkeypatch.setenv("OPENTEAM_RUNTIME_DIR", str(tmp_path))
     fixed_hex = "deadbeef" * 4
-    with patch("openteam.server.resources.tools._shared.workspace_allocator.uuid.uuid4") as mock_uuid:
+    with patch(
+        "openteam.server.resources.tools._shared.workspace_allocator.uuid.uuid4"
+    ) as mock_uuid:
         mock_uuid.return_value.hex = fixed_hex
         ws1 = allocate_tool_workspace("task")
         assert ws1.exists()

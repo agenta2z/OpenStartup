@@ -3,6 +3,7 @@
 Verifies duck-typed rendering of ToolExecutionResult, dict (modern + legacy),
 and bare str. Also verifies the suffix-discovery rule for artifact paths.
 """
+
 from __future__ import annotations
 
 import sys
@@ -29,7 +30,11 @@ def _capture_render(result):
             ctx = {}
 
         for key, value in sorted(ctx.items()):
-            if (key.endswith("_path") or key.endswith("_dir")) and isinstance(value, str) and value:
+            if (
+                (key.endswith("_path") or key.endswith("_dir"))
+                and isinstance(value, str)
+                and value
+            ):
                 print(f"[{key}] {value}", file=sys.stderr)
 
         return sys.stdout.getvalue(), sys.stderr.getvalue()

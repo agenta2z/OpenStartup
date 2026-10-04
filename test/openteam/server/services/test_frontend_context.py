@@ -2,6 +2,7 @@
 
 Verifies env-var protocol decoding + mode discipline (I9 + I15).
 """
+
 from __future__ import annotations
 
 import json
@@ -9,7 +10,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from openteam.server.services.frontend_context import build_frontend_session_context
 from openteam.server.services.session_store import SessionStore
 
@@ -24,8 +24,13 @@ def server_dir(tmp_path):
 
 
 def _set_env(monkeypatch, **kwargs):
-    for k in ("OPENTEAM_MODE", "OPENTEAM_SESSION_ID", "OPENTEAM_SERVER_DIR",
-              "OPENTEAM_FRONTEND_ID", "OPENTEAM_FRONTEND_METADATA"):
+    for k in (
+        "OPENTEAM_MODE",
+        "OPENTEAM_SESSION_ID",
+        "OPENTEAM_SERVER_DIR",
+        "OPENTEAM_FRONTEND_ID",
+        "OPENTEAM_FRONTEND_METADATA",
+    ):
         monkeypatch.delenv(k, raising=False)
     for k, v in kwargs.items():
         if v is not None:
@@ -59,7 +64,10 @@ class TestSubprocessMode:
         )
         ctx = build_frontend_session_context()
         assert ctx["session_id"] == "rovodev-sub-1"
-        assert ctx["session_root"].endswith("rovodev-sub-1") or "rovodev-sub-1_" in ctx["session_root"]
+        assert (
+            ctx["session_root"].endswith("rovodev-sub-1")
+            or "rovodev-sub-1_" in ctx["session_root"]
+        )
         # Verify session actually persisted
         # (NOTE: build_frontend_session_context constructs its OWN SessionStore
         # via SessionStore(runtime_root=..., resume_server=server_name); that
@@ -80,7 +88,9 @@ class TestSubprocessMode:
         # Default = subprocess; would have created the session
         assert ctx["session_id"] == "rovodev-default"
 
-    def test_invalid_mode_falls_back_to_subprocess(self, server_dir, monkeypatch, caplog):
+    def test_invalid_mode_falls_back_to_subprocess(
+        self, server_dir, monkeypatch, caplog
+    ):
         sdir, _ = server_dir
         _set_env(
             monkeypatch,
@@ -133,7 +143,7 @@ class TestBareIdComposition:
         _set_env(
             monkeypatch,
             OPENTEAM_MODE="subprocess",
-            OPENTEAM_SESSION_ID="abc-def-1234",   # bare, not whitelist-prefixed
+            OPENTEAM_SESSION_ID="abc-def-1234",  # bare, not whitelist-prefixed
             OPENTEAM_FRONTEND_ID="rovodev",
             OPENTEAM_SERVER_DIR=str(sdir),
         )
@@ -159,7 +169,7 @@ class TestBareIdComposition:
             monkeypatch,
             OPENTEAM_MODE="subprocess",
             OPENTEAM_SESSION_ID="abc-def",
-            OPENTEAM_FRONTEND_ID="rovodev",     # env says rovodev
+            OPENTEAM_FRONTEND_ID="rovodev",  # env says rovodev
             OPENTEAM_SERVER_DIR=str(sdir),
         )
         # kwarg overrides

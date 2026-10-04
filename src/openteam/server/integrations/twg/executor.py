@@ -21,19 +21,36 @@ logger = logging.getLogger(__name__)
 # Known TWG surface names for input validation (warn-not-block on unknown)
 _KNOWN_SURFACES = {
     # Federated surfaces
-    "docs", "videos", "meetings", "spaces", "recently-viewed",
+    "docs",
+    "videos",
+    "meetings",
+    "spaces",
+    "recently-viewed",
     # Projection surfaces
-    "work", "org-tree", "context",
+    "work",
+    "org-tree",
+    "context",
     # Native surfaces
-    "jira", "confluence", "bitbucket", "goals", "projects", "teams",
+    "jira",
+    "confluence",
+    "bitbucket",
+    "goals",
+    "projects",
+    "teams",
     # Identity & resolution
-    "user-search", "resolve", "collaborators",
+    "user-search",
+    "resolve",
+    "collaborators",
     # Bitbucket shorthand
-    "bb", "pr",
+    "bb",
+    "pr",
     # Schema exploration
     "cypher",
     # Other
-    "focus-areas", "assets", "login", "echo",
+    "focus-areas",
+    "assets",
+    "login",
+    "echo",
 }
 
 
@@ -60,9 +77,7 @@ def is_twg_tool(tool_name: str) -> bool:
     return tool_name == "twg"
 
 
-async def execute_twg(
-    tool_name: str, arguments: dict[str, Any]
-) -> ToolExecutionResult:
+async def execute_twg(tool_name: str, arguments: dict[str, Any]) -> ToolExecutionResult:
     """Execute a TWG CLI command via subprocess.
 
     Args:

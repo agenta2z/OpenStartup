@@ -36,12 +36,12 @@ except ImportError as exc:  # pragma: no cover
     raise
 
 from openteam.use_cases._shared_runtime import (
-    SingleShotRunWorkspace,
     autodiscover_phase_artifacts,
     parse_sentinel,
     promote_to_artifacts,
     sentinel_indicates_success,
     setup_run_workspace,
+    SingleShotRunWorkspace,
 )
 
 logger = logging.getLogger("system_and_signals_investigation")
@@ -53,12 +53,12 @@ SCRIPT_DIR_NAME = "system_and_signals_investigation"
 SENTINEL_COMPLETE = "SYSTEM_INVESTIGATION_COMPLETE"
 
 # Legacy in-package runtime location (Phase 1 used to live here).
-LEGACY_PHASE1_IN_PACKAGE_RUNTIME = (
-    HERE.parent / "codebase_investigation" / "_runtime"
-)
+LEGACY_PHASE1_IN_PACKAGE_RUNTIME = HERE.parent / "codebase_investigation" / "_runtime"
 
 
-def _render_prompt(target_path: Path, codebase_docs: Path | None, output_docs_dir: Path) -> str:
+def _render_prompt(
+    target_path: Path, codebase_docs: Path | None, output_docs_dir: Path
+) -> str:
     template = PROMPT_PATH.read_text(encoding="utf-8")
     docs_placeholder = (
         str(codebase_docs)
@@ -72,16 +72,17 @@ def _render_prompt(target_path: Path, codebase_docs: Path | None, output_docs_di
     )
 
 
-async def _run_inferencer(prompt: str, target_path: Path, ws: SingleShotRunWorkspace) -> str:
+async def _run_inferencer(
+    prompt: str, target_path: Path, ws: SingleShotRunWorkspace
+) -> str:
     ws.prompt_path.write_text(prompt, encoding="utf-8")
 
     # Grant write access to the project root so create_file works for docs/runtime
     import json as _json
-    _cfg_override = _json.dumps({
-        "toolPermissions": {
-            "allowedExternalPaths": [str(ws.project_root)]
-        }
-    })
+
+    _cfg_override = _json.dumps(
+        {"toolPermissions": {"allowedExternalPaths": [str(ws.project_root)]}}
+    )
     inf = RovoDevCliInferencer(
         target_path=str(target_path),
         idle_timeout_seconds=900,
@@ -109,8 +110,12 @@ def main(argv: list[str] | None = None) -> int:
         prog="system_and_signals_investigation",
         description="Phase 2 of code_optimization SOP — investigate operational signals.",
     )
-    parser.add_argument("--codebase", required=True, type=Path,
-                        help="Absolute path to the codebase under investigation.")
+    parser.add_argument(
+        "--codebase",
+        required=True,
+        type=Path,
+        help="Absolute path to the codebase under investigation.",
+    )
     parser.add_argument(
         "--codebase-docs",
         type=Path,
@@ -153,7 +158,9 @@ def main(argv: list[str] | None = None) -> int:
         if phase1_docs:
             logger.info("Auto-discovered Phase-1 docs: %s", phase1_docs)
         else:
-            logger.warning("No Phase-1 docs found — proceeding without (lower-quality run).")
+            logger.warning(
+                "No Phase-1 docs found — proceeding without (lower-quality run)."
+            )
 
     ws = setup_run_workspace(
         codebase=codebase,
@@ -162,19 +169,25 @@ def main(argv: list[str] | None = None) -> int:
         workstream_slug=args.workstream_slug,
         runtime_root_override=args.runtime_root,
     )
-    ws.write_run_meta(extra={
-        "target_codebase": str(codebase),
-        "phase1_docs": str(phase1_docs) if phase1_docs else None,
-    })
-    ws.write_call_meta(extra={
-        "target_codebase": str(codebase),
-        "phase1_docs": str(phase1_docs) if phase1_docs else None,
-    })
+    ws.write_run_meta(
+        extra={
+            "target_codebase": str(codebase),
+            "phase1_docs": str(phase1_docs) if phase1_docs else None,
+        }
+    )
+    ws.write_call_meta(
+        extra={
+            "target_codebase": str(codebase),
+            "phase1_docs": str(phase1_docs) if phase1_docs else None,
+        }
+    )
     logger.info("Project root: %s", ws.project_root)
     logger.info("Run dir     : %s", ws.run_dir)
     logger.info("Artifacts   : %s (will be (over)written on success)", ws.artifacts_dir)
 
-    prompt = _render_prompt(target_path=codebase, codebase_docs=phase1_docs, output_docs_dir=ws.docs_dir)
+    prompt = _render_prompt(
+        target_path=codebase, codebase_docs=phase1_docs, output_docs_dir=ws.docs_dir
+    )
     clean_output = asyncio.run(_run_inferencer(prompt, codebase, ws))
 
     sentinel = parse_sentinel(clean_output)
@@ -192,7 +205,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Project root: {ws.project_root}")
     print(f"Run dir     : {ws.run_dir}")
     print(f"Docs (run)  : {ws.docs_dir}")
-    print(f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}")
+    print(
+        f"Artifacts   : {promoted if promoted else '(not promoted — sentinel was ' + sentinel + ')'}"
+    )
     print(f"Status      : {sentinel}")
     return 0 if promoted is not None else 1
 

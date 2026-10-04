@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Bot-token aware API call
 # ---------------------------------------------------------------------------
 
+
 async def _slack_bot_api_call(
     method: str,
     params: dict[str, Any] | None = None,
@@ -55,16 +56,22 @@ async def _slack_bot_api_call(
             if post:
                 resp = await client.post(url, json=params or {}, headers=headers)
             else:
-                filtered = {k: str(v) for k, v in (params or {}).items() if v is not None}
+                filtered = {
+                    k: str(v) for k, v in (params or {}).items() if v is not None
+                }
                 resp = await client.get(url, params=filtered, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             if not data.get("ok"):
-                raise RuntimeError(f"Slack API error ({method}): {data.get('error', 'unknown')}")
+                raise RuntimeError(
+                    f"Slack API error ({method}): {data.get('error', 'unknown')}"
+                )
             return data
 
     # Fallback to user-token client (may work for some write operations)
-    logger.debug("No SLACK_BOT_TOKEN set, falling back to user-token client for %s", method)
+    logger.debug(
+        "No SLACK_BOT_TOKEN set, falling back to user-token client for %s", method
+    )
     return await slack_api_call(method, params)
 
 
@@ -80,6 +87,7 @@ def _normalize_emoji(raw: str) -> str:
 # Reactions
 # ---------------------------------------------------------------------------
 
+
 async def react(
     channel_id: str,
     message_id: str,
@@ -87,11 +95,15 @@ async def react(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Add an emoji reaction to a message."""
-    await _slack_bot_api_call("reactions.add", {
-        "channel": channel_id,
-        "timestamp": message_id,
-        "name": _normalize_emoji(emoji),
-    }, post=True)
+    await _slack_bot_api_call(
+        "reactions.add",
+        {
+            "channel": channel_id,
+            "timestamp": message_id,
+            "name": _normalize_emoji(emoji),
+        },
+        post=True,
+    )
     return {"ok": True, "action": "react", "emoji": _normalize_emoji(emoji)}
 
 
@@ -102,11 +114,15 @@ async def remove_reaction(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Remove an emoji reaction from a message."""
-    await _slack_bot_api_call("reactions.remove", {
-        "channel": channel_id,
-        "timestamp": message_id,
-        "name": _normalize_emoji(emoji),
-    }, post=True)
+    await _slack_bot_api_call(
+        "reactions.remove",
+        {
+            "channel": channel_id,
+            "timestamp": message_id,
+            "name": _normalize_emoji(emoji),
+        },
+        post=True,
+    )
     return {"ok": True, "action": "remove_reaction", "emoji": _normalize_emoji(emoji)}
 
 
@@ -116,11 +132,14 @@ async def list_reactions(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """List reactions on a message."""
-    data = await _slack_bot_api_call("reactions.get", {
-        "channel": channel_id,
-        "timestamp": message_id,
-        "full": "true",
-    })
+    data = await _slack_bot_api_call(
+        "reactions.get",
+        {
+            "channel": channel_id,
+            "timestamp": message_id,
+            "full": "true",
+        },
+    )
     message = data.get("message", {})
     return {"ok": True, "reactions": message.get("reactions", [])}
 
@@ -144,11 +163,15 @@ async def remove_own_reactions(
         name = reaction.get("name")
         users = reaction.get("users", [])
         if name and bot_user_id in users:
-            await _slack_bot_api_call("reactions.remove", {
-                "channel": channel_id,
-                "timestamp": message_id,
-                "name": name,
-            }, post=True)
+            await _slack_bot_api_call(
+                "reactions.remove",
+                {
+                    "channel": channel_id,
+                    "timestamp": message_id,
+                    "name": name,
+                },
+                post=True,
+            )
             removed.append(name)
 
     return {"ok": True, "removed": removed}
@@ -157,6 +180,7 @@ async def remove_own_reactions(
 # ---------------------------------------------------------------------------
 # Messaging
 # ---------------------------------------------------------------------------
+
 
 async def send_message(
     to: str,
@@ -175,9 +199,13 @@ async def send_message(
         kind, target_id = to.split(":", 1)
         if kind == "user":
             # Open a DM conversation first
-            dm = await _slack_bot_api_call("conversations.open", {
-                "users": target_id,
-            }, post=True)
+            dm = await _slack_bot_api_call(
+                "conversations.open",
+                {
+                    "users": target_id,
+                },
+                post=True,
+            )
             channel = dm.get("channel", {}).get("id", target_id)
         else:
             channel = target_id
@@ -205,11 +233,15 @@ async def edit_message(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Edit an existing message."""
-    await _slack_bot_api_call("chat.update", {
-        "channel": channel_id,
-        "ts": message_id,
-        "text": content.strip() or " ",
-    }, post=True)
+    await _slack_bot_api_call(
+        "chat.update",
+        {
+            "channel": channel_id,
+            "ts": message_id,
+            "text": content.strip() or " ",
+        },
+        post=True,
+    )
     return {"ok": True, "action": "edit", "channel": channel_id, "ts": message_id}
 
 
@@ -219,10 +251,14 @@ async def delete_message(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Delete a message."""
-    await _slack_bot_api_call("chat.delete", {
-        "channel": channel_id,
-        "ts": message_id,
-    }, post=True)
+    await _slack_bot_api_call(
+        "chat.delete",
+        {
+            "channel": channel_id,
+            "ts": message_id,
+        },
+        post=True,
+    )
     return {"ok": True, "action": "delete", "channel": channel_id, "ts": message_id}
 
 
@@ -249,7 +285,11 @@ async def read_messages(
         messages = data.get("messages", [])
         # Drop parent message (same behavior as OpenClaw)
         messages = [m for m in messages if m.get("ts") != thread_id]
-        return {"ok": True, "messages": messages, "has_more": data.get("has_more", False)}
+        return {
+            "ok": True,
+            "messages": messages,
+            "has_more": data.get("has_more", False),
+        }
     else:
         params = {
             "channel": channel_id,
@@ -260,12 +300,17 @@ async def read_messages(
         if after:
             params["oldest"] = after
         data = await _slack_bot_api_call("conversations.history", params)
-        return {"ok": True, "messages": data.get("messages", []), "has_more": data.get("has_more", False)}
+        return {
+            "ok": True,
+            "messages": data.get("messages", []),
+            "has_more": data.get("has_more", False),
+        }
 
 
 # ---------------------------------------------------------------------------
 # Pins
 # ---------------------------------------------------------------------------
+
 
 async def pin_message(
     channel_id: str,
@@ -273,10 +318,14 @@ async def pin_message(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Pin a message in a channel."""
-    await _slack_bot_api_call("pins.add", {
-        "channel": channel_id,
-        "timestamp": message_id,
-    }, post=True)
+    await _slack_bot_api_call(
+        "pins.add",
+        {
+            "channel": channel_id,
+            "timestamp": message_id,
+        },
+        post=True,
+    )
     return {"ok": True, "action": "pin"}
 
 
@@ -286,10 +335,14 @@ async def unpin_message(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """Unpin a message from a channel."""
-    await _slack_bot_api_call("pins.remove", {
-        "channel": channel_id,
-        "timestamp": message_id,
-    }, post=True)
+    await _slack_bot_api_call(
+        "pins.remove",
+        {
+            "channel": channel_id,
+            "timestamp": message_id,
+        },
+        post=True,
+    )
     return {"ok": True, "action": "unpin"}
 
 
@@ -298,15 +351,19 @@ async def list_pins(
     **_kwargs: Any,
 ) -> dict[str, Any]:
     """List pinned items in a channel."""
-    data = await _slack_bot_api_call("pins.list", {
-        "channel": channel_id,
-    })
+    data = await _slack_bot_api_call(
+        "pins.list",
+        {
+            "channel": channel_id,
+        },
+    )
     return {"ok": True, "pins": data.get("items", [])}
 
 
 # ---------------------------------------------------------------------------
 # Member info & emoji
 # ---------------------------------------------------------------------------
+
 
 async def member_info(
     user_id: str,

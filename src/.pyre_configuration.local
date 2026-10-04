@@ -1,0 +1,6 @@
+{
+  "oncall": "ai_infra_efficiency",
+  "targets": [
+    "fbcode//_tony_dev/CoreProjects/OpenStartup/src/..."
+  ]
+}

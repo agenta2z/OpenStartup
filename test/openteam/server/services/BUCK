@@ -1,0 +1,54 @@
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
+
+oncall("ml_oncall")
+
+# ConversationService with a native backend over a scripted vendor. The rest
+# of this directory runs under pytest.
+python_unittest(
+    name = "test_native_conversation_turn",
+    srcs = ["test_native_conversation_turn.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "fbsource//third-party/pypi/fastapi:fastapi",
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
+
+# OpenStartup reaches conversational hosts only through their public API.
+python_unittest(
+    name = "test_host_public_api",
+    srcs = ["test_host_public_api.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
+
+# ConversationService passes each turn's origin to the host.
+python_unittest(
+    name = "test_conversation_turn_origin",
+    srcs = ["test_conversation_turn_origin.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
+
+# Session-state writers (the native record's compare-and-swap included) under
+# one per-session lock.
+python_unittest(
+    name = "test_native_session_store",
+    srcs = ["test_native_session_store.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
