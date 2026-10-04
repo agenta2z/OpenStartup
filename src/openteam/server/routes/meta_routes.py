@@ -84,7 +84,7 @@ async def set_session_backend(
     """Set the LLM backend for a specific session.
 
     Returns 400 with the available list if the backend name is unknown.
-    Evicts any cached inferencer so the next turn rebuilds.
+    Evicts the session (cancelling a running turn) so the next turn rebuilds.
     """
     svc = _conv_svc(request)
 
@@ -100,7 +100,9 @@ async def set_session_backend(
         )
 
     try:
-        updated = svc.set_session_backend(session_id, choice.backend, choice.model)
+        updated = await svc.set_session_backend(
+            session_id, choice.backend, choice.model
+        )
     except KeyError as e:
         from openteam.server.backends import get_registry
 

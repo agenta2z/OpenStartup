@@ -17,6 +17,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
+from agent_foundation.common.inferencers.terminal_inferencers.process_groups import (
+    install_exit_signal_reaper,
+)
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -63,6 +66,14 @@ from openteam.server.services.intelligence_service import MockIntelligenceServic
 
 logger = logging.getLogger(__name__)
 
+# The CLI process groups of runs still going when the process dies are ended by
+# AgentFoundation's reaper (``atexit``, and this SIGTERM/SIGHUP handler). It
+# must be in place before ``uvicorn.run`` (run_server.py imports this module
+# first): uvicorn re-raises a SIGTERM it caught under the handler it found at
+# start, also after a forced exit (a SIGINT during the graceful shutdown), which
+# skips the lifespan shutdown and kills the process before ``atexit`` runs.
+install_exit_signal_reaper()
+
 
 def _load_env_file(path: Path) -> None:
     """Load key=value pairs from a .env file into os.environ.
@@ -81,6 +92,30 @@ def _load_env_file(path: Path) -> None:
         value = value.strip().strip("'\"")  # strip optional quotes
         if key and key not in os.environ:
             os.environ[key] = value
+
+
+async def _cancel_hub_runs(app: FastAPI) -> None:
+    """Cancel and await every session's Experiment Hub runs still in flight."""
+    hub_runs = getattr(app.state, "hub_run_supervisor", None)
+    data_svc = getattr(app.state, "data_service", None)
+    if hub_runs is None or data_svc is None:
+        return
+    try:
+        for session in data_svc.get_sessions():
+            await hub_runs.cancel_session(session["id"])
+    except Exception:
+        logger.warning("Cancelling Experiment Hub runs failed", exc_info=True)
+
+
+async def _close_conversation_sessions(app: FastAPI) -> None:
+    """Close live agent sessions (native backends' vendor processes/clients)."""
+    conversation_svc = getattr(app.state, "conversation_service", None)
+    if conversation_svc is None or not hasattr(conversation_svc, "aclose_all"):
+        return
+    try:
+        await conversation_svc.aclose_all()
+    except Exception:
+        logger.warning("Closing conversation sessions failed", exc_info=True)
 
 
 @asynccontextmanager
@@ -240,6 +275,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("OpenStartup API started in %s mode", mode)
     yield
     logger.info("OpenStartup API shutting down")
+    await _cancel_hub_runs(app)
+    await _close_conversation_sessions(app)
     # Remove file handler to avoid handler accumulation on restart
     _handler = getattr(app.state, "_log_file_handler", None)
     if _handler:

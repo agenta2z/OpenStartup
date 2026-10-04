@@ -1,0 +1,30 @@
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
+
+oncall("ml_oncall")
+
+# The manager socket passes each turn's origin to the conversation service.
+# The rest of this directory runs under pytest.
+python_unittest(
+    name = "test_turn_origin",
+    srcs = ["test_turn_origin.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "fbsource//third-party/pypi/fastapi:fastapi",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
+
+# A turn that fails keeps its View Prompt data (native backend, scripted vendor).
+python_unittest(
+    name = "test_failed_turn_prompt",
+    srcs = ["test_failed_turn_prompt.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "fbsource//third-party/pypi/fastapi:fastapi",
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)

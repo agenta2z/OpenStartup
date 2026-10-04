@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 import unittest
 from pathlib import Path
@@ -91,7 +92,7 @@ class PerSessionOverrideTests(unittest.TestCase):
             r1 = svc._get_session_inferencer("s1")
             self.assertIs(r1, sentinel_a)
 
-            svc.set_session_backend("s1", "rovodev")
+            asyncio.run(svc.set_session_backend("s1", "rovodev"))
             # session_store.update_session should have been called
             svc._session_store.update_session.assert_called_once_with(
                 "s1", {"llm_backend": "rovodev", "llm_model": None}
@@ -111,7 +112,7 @@ class PerSessionOverrideTests(unittest.TestCase):
             }
             fake_get_registry.return_value = reg
             with self.assertRaises(KeyError) as cm:
-                svc.set_session_backend("s1", "totally-fake")
+                asyncio.run(svc.set_session_backend("s1", "totally-fake"))
         self.assertIn("totally-fake", str(cm.exception))
         self.assertIn("claude_cli", str(cm.exception))
 

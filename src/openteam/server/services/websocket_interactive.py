@@ -90,6 +90,12 @@ class WebSocketInteractive:
         return None
 
     @property
+    def round_context(self) -> dict[str, Any] | None:
+        """The current RoundContext (``message_id``, ``round_index``,
+        ``turn_number``…), or None when no round has started."""
+        return self._round_ctx
+
+    @property
     def clean_output(self) -> str | None:
         """Clean final output from --output-file, if available."""
         return self._clean_output
@@ -544,13 +550,14 @@ class WebSocketInteractive:
 
         # Inline prompt_data so the UI's "View Prompt" button on the preamble
         # widget message has the rendered prompt available without a REST fetch.
-        # ConversationalInferencer._handle_conversation_tool passes prompt_data=
-        # explicitly (carrying the raw _last_template_feed which may contain
+        # AgentFoundation's conversation widgets (``widget_core.show``, shared by
+        # the classic and native orchestrators) pass prompt_data= explicitly:
+        # the host's ``last_prompt_data()``, whose raw template feed may contain
         # non-JSON-serializable objects like SOP, SOPPhase, StateGraphTracker
-        # from the workflow's prior_context); otherwise we fall back to the
+        # from the workflow's prior_context. Otherwise we fall back to the
         # last-known value cached on this interactive (kept fresh by
-        # ConversationService._on_new_turn, which IS already sanitized via
-        # _sanitize_feed).
+        # ConversationService's ``_on_round_complete``, which IS already
+        # sanitized via _sanitize_feed).
         #
         # We must sanitize before serializing — without it, json.dumps() raises
         # "Object of type SOP is not JSON serializable", send_safe drops the

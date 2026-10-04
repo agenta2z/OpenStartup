@@ -549,12 +549,15 @@ class TaskGraphSnapshotStore:
     # <task_id>.json — one file per terminal task, written atomically.
     # ------------------------------------------------------------------
     def _task_graphs_dir(self, session_id: str) -> Optional[Path]:
+        """``<session_dir>/task_graphs``, or None without a session dir: a task
+        finishing after its session was deleted must not re-create it."""
         if self._session_store is None:
             return None
         try:
-            return self._session_store.get_session_dir(session_id) / "task_graphs"
+            session_dir = self._session_store.find_session_dir(session_id)
         except Exception:
             return None
+        return None if session_dir is None else session_dir / "task_graphs"
 
     def _task_graph_path(self, session_id: str, task_id: str) -> Optional[Path]:
         d = self._task_graphs_dir(session_id)

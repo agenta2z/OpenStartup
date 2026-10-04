@@ -192,10 +192,10 @@ async def run_submission(
 
     Backs ``useHubApiClient.runSubmission(submissionId, opts)``. This is a
     LONG-RUNNING action: we build a ``HubController`` out-of-turn (events flow to
-    every open tab via ``ConnectionRegistry.emit``), spawn
-    ``run_submission_script`` on the ``HubRunSupervisor`` keyed by the returned
-    queue task id, and return ``{run_id, status:"started"}`` immediately — the
-    FastAPI worker is never blocked on the run.
+    every open tab via ``ConnectionRegistry.emit``), spawn the run on the
+    ``HubRunSupervisor`` under a fresh ``run_id``, and return
+    ``{run_id, status:"started"}`` immediately — the FastAPI worker is never
+    blocked on the run.
 
     The runner needs the resolved script/launch paths + flags; the FE's
     Monitor-view ``opts`` carry them (camelCase). We do NOT call
@@ -240,26 +240,28 @@ async def run_submission(
 
     # ``run_submission_script`` enqueues + starts the run; it returns the queue
     # task id and (via the controller's own queue runner) drives the subprocess.
-    # Spawn the START on the supervisor so the request returns immediately; the
-    # task id doubles as the run_id the FE later cancels.
+    # The supervised run lasts until that queue runs dry (``join``), so
+    # cancelling it — the FE's cancel, session delete, server shutdown — stops
+    # the subprocess. Spawned on the supervisor so the request returns
+    # immediately; ``run_id`` is what the FE later cancels.
+    async def _run() -> None:
+        await controller.run_submission_script(
+            multi_task_id=hub_id,
+            submission_id=submission_id,
+            setup_id=setup_id,
+            script_path=script_path,
+            launch_path=launch_path,
+            enable_flags=enable_flags,
+            experiment_name=experiment_name,
+            submission_label=submission_label,
+            app_layer_version=app_layer_version,
+            build_command=build_command,
+        )
+        await controller.join()
+
     run_id = f"subrun-{uuid.uuid4().hex[:8]}"
     try:
-        await request.app.state.hub_run_supervisor.spawn(
-            session_id,
-            run_id,
-            controller.run_submission_script(
-                multi_task_id=hub_id,
-                submission_id=submission_id,
-                setup_id=setup_id,
-                script_path=script_path,
-                launch_path=launch_path,
-                enable_flags=enable_flags,
-                experiment_name=experiment_name,
-                submission_label=submission_label,
-                app_layer_version=app_layer_version,
-                build_command=build_command,
-            ),
-        )
+        await request.app.state.hub_run_supervisor.spawn(session_id, run_id, _run())
     except Exception as exc:  # noqa: BLE001 — translate spawn-time failures
         logger.error("[hub] run_submission spawn failed: %s", exc, exc_info=True)
         raise HTTPException(503, f"Failed to start run: {exc}") from exc

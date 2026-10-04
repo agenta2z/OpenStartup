@@ -26,19 +26,33 @@ Self-contained — no imports from data_service.py.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
 import re
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from openteam.server.services.json_io import primary_val_from_args, write_json_atomic
 
 logger = logging.getLogger(__name__)
+
+
+def _holding_session_lock(method: Callable[..., Any]) -> Callable[..., Any]:
+    """Run ``method(self, session_id, ...)`` holding ``session_id``'s lock
+    (:meth:`SessionStore.session_lock`)."""
+
+    @functools.wraps(method)
+    def locked(self: SessionStore, session_id: str, *args: Any, **kwargs: Any) -> Any:
+        with self.session_lock(session_id):
+            return method(self, session_id, *args, **kwargs)
+
+    return locked
 
 
 # ── Unified frontend session protocol (v6) ──────────────────────────────────
@@ -122,6 +136,8 @@ class SessionStore:
         self._runtime_root = Path(runtime_root)
         self._servers_dir = self._runtime_root / "servers"
         self._servers_dir.mkdir(parents=True, exist_ok=True)
+        self._session_locks: dict[str, threading.RLock] = {}
+        self._session_locks_guard = threading.Lock()
 
         # Determine server directory.
         # Default (resume_server is None or "new"): always create a new server.
@@ -167,6 +183,18 @@ class SessionStore:
 
     # ── Public API ───────────────────────────────────────────────────
 
+    def session_lock(self, session_id: str) -> threading.RLock:
+        """The lock every read-modify-write of ``session_id``'s state holds,
+        so concurrent writers (threads included) never lose each other's
+        updates: the store's own writers, and other modules' (e.g. the native
+        session record's compare-and-swap) that read the state, decide, and
+        write it back. Reentrant: a holder may call the store's writers."""
+        with self._session_locks_guard:
+            lock = self._session_locks.get(session_id)
+            if lock is None:
+                lock = self._session_locks[session_id] = threading.RLock()
+            return lock
+
     def list_sessions(self) -> list[dict[str, Any]]:
         """Return session summaries. Prefers sessions_index.json, falls back to scan.
 
@@ -197,13 +225,18 @@ class SessionStore:
         Checks flat file first, then directory structure.
         Backfills workflow_context for sessions created before workflow support.
         """
+        session = self._read_session(session_id)
+        if session is not None and "workflow_context" not in session:
+            self._backfill_workflow_context(session_id, session)
+        return session
+
+    def _read_session(self, session_id: str) -> dict[str, Any] | None:
+        """The session state as stored, or None."""
         # Try flat file: <sessions_dir>/<session_id>.json
         flat_file = self._session_path(session_id)
         if flat_file.is_file():
             try:
-                session = json.loads(flat_file.read_text(encoding="utf-8"))
-                self._backfill_workflow_context(session)
-                return session
+                return json.loads(flat_file.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning("Failed to read %s: %s", flat_file, e)
                 return None
@@ -218,9 +251,7 @@ class SessionStore:
             return None
 
         try:
-            session = json.loads(state_file.read_text(encoding="utf-8"))
-            self._backfill_workflow_context(session)
-            return session
+            return json.loads(state_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(
                 "Failed to read session_state.json for %s: %s", session_id, e
@@ -354,6 +385,7 @@ class SessionStore:
             _frontend_metadata=frontend_metadata,
         )
 
+    @_holding_session_lock
     def append_message(
         self, session_id: str, message: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -382,6 +414,7 @@ class SessionStore:
         self._update_index()
         return session
 
+    @_holding_session_lock
     def update_session(
         self, session_id: str, updates: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -642,6 +675,7 @@ class SessionStore:
             return {}
         return dict(session.get("dashboard_state", {}) or {})
 
+    @_holding_session_lock
     def reconcile_dashboard_ref_statuses(self, session_id: str) -> None:
         """Repair stale ``dashboard_ref`` statuses from disk on resume.
 
@@ -670,6 +704,7 @@ class SessionStore:
             self._persist_session(session_id, session)
             self._update_index()
 
+    @_holding_session_lock
     def reconcile_hub_queues(self, session_id: str) -> int:
         """On resume, heal a hub's task queue from disk (#18): mark phantom
         ``running`` entries (whose local subprocess was orphaned by a server
@@ -739,6 +774,11 @@ class SessionStore:
         session_dir = self._find_session_dir(session_id)
         if session_dir is None:
             return 1
+        return self._count_turn_dirs(session_dir) + 1
+
+    @staticmethod
+    def _count_turn_dirs(session_dir: Path) -> int:
+        """``turn_NNN/`` dirs at the root, else legacy ``turns/turn_NNN/``."""
         count = sum(
             1
             for p in session_dir.iterdir()
@@ -752,8 +792,9 @@ class SessionStore:
                     for p in legacy.iterdir()
                     if p.is_dir() and p.name.startswith("turn_")
                 )
-        return count + 1
+        return count
 
+    @_holding_session_lock
     def update_message(
         self, session_id: str, message_id: str, updates: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -814,6 +855,7 @@ class SessionStore:
         session_dir = self._find_session_dir(session_id)
         return None if session_dir is None else session_dir / "pending_input.json"
 
+    @_holding_session_lock
     def set_pending_input(
         self, session_id: str, marker: dict[str, Any], blob: dict[str, Any]
     ) -> None:
@@ -839,6 +881,7 @@ class SessionStore:
         except (json.JSONDecodeError, OSError):
             return None
 
+    @_holding_session_lock
     def clear_pending_input(self, session_id: str) -> None:
         """Clear the marker + delete the sidecar (idempotent). Call when the
         widget is resolved (answer), superseded (new message), or its turn is
@@ -880,6 +923,7 @@ class SessionStore:
                 return True
         return False
 
+    @_holding_session_lock
     def reconcile_task_ref_statuses(
         self,
         session_id: str,
@@ -1284,27 +1328,66 @@ class SessionStore:
             )
         return out
 
-    def restore_checkpoint(self, session_id: str, name: str) -> dict[str, Any] | None:
+    def _checkpoint_dir(self, session_id: str, name: str) -> Path | None:
+        """The existing ``checkpoints/<name>/`` dir of a session, or None
+        (also for a ``name`` that is not a single path component)."""
+        session_dir = self._find_session_dir(session_id)
+        if session_dir is None or not name or Path(name).name != name:
+            return None
+        cp = session_dir / "checkpoints" / name
+        return cp if cp.is_dir() else None
+
+    def read_checkpoint(self, session_id: str, name: str) -> dict[str, Any] | None:
+        """Checkpoint ``name`` without restoring it: ``{"session": <its session
+        state>, "next_turn_number": <the number its next turn would get>}``, or
+        None when it does not exist."""
+        cp = self._checkpoint_dir(session_id, name)
+        if cp is None:
+            return None
+        try:
+            session = json.loads(
+                (cp / "session_state.json").read_text(encoding="utf-8")
+            )
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(
+                "Failed to read checkpoint %s of %s: %s", name, session_id, e
+            )
+            return None
+        # In memory only: the live session's file is not the checkpoint's.
+        session.setdefault("workflow_context", self._default_workflow_context())
+        return {"session": session, "next_turn_number": self._count_turn_dirs(cp) + 1}
+
+    @_holding_session_lock
+    def restore_checkpoint(
+        self,
+        session_id: str,
+        name: str,
+        *,
+        keep: tuple[str, ...] = (),
+        updates: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Restore a session to checkpoint ``name`` (reversibly).
 
         Snapshots the CURRENT state first (so a restore is itself undoable), then
-        replaces every live top-level child (except ``checkpoints/``) with the
-        snapshot's. Returns the restored session, or None if not found. Caller
+        replaces every live top-level child (except ``checkpoints/`` and the
+        children named in ``keep``, which stay as they are) with the
+        snapshot's, and applies ``updates`` to the restored session state — all
+        under the session's lock, so no other writer sees or changes the state
+        in between. Returns the restored session, or None if not found. Caller
         MUST quiesce in-flight background tasks first.
         """
         import shutil
 
-        session_dir = self._find_session_dir(session_id)
-        if session_dir is None:
+        cp = self._checkpoint_dir(session_id, name)
+        if cp is None:
             return None
-        cp = session_dir / "checkpoints" / name
-        if not cp.is_dir():
-            return None
+        session_dir = cp.parent.parent
+        untouched = {"checkpoints", *keep}
         # 1. snapshot current state first (reversible)
         self.checkpoint_session(session_id)
-        # 2. clear live top-level children except checkpoints/
+        # 2. clear live top-level children except checkpoints/ and ``keep``
         for child in session_dir.iterdir():
-            if child.name == "checkpoints":
+            if child.name in untouched:
                 continue
             if child.is_dir():
                 shutil.rmtree(child, ignore_errors=True)
@@ -1315,12 +1398,16 @@ class SessionStore:
                     pass
         # 3. copy the snapshot's children back into the live dir
         for child in cp.iterdir():
+            if child.name in untouched:
+                continue
             target = session_dir / child.name
             if child.is_dir():
                 shutil.copytree(child, target)
             else:
                 shutil.copy2(child, target)
         self._update_index()
+        if updates:
+            self.update_session(session_id, updates)
         # Clear-point (e): a checkpoint restore replaces the live turn state with a
         # past snapshot — no agentic loop is running against it, so any restored
         # pending-widget marker is a ghost. Drop it (idempotent).
@@ -1328,6 +1415,7 @@ class SessionStore:
         logger.info("Restored session %s from checkpoint %s", session_id, name)
         return self.get_session(session_id)
 
+    @_holding_session_lock
     def truncate_session_at_message(
         self, session_id: str, message_id: str, *, drop_tasks: bool
     ) -> dict[str, Any]:
@@ -1395,6 +1483,33 @@ class SessionStore:
             "dropped_workspaces": dropped_workspaces,
             "resumed_message": resumed_message,
         }
+
+    def resolve_cut_turn(self, session_id: str, message_id: str) -> int | None:
+        """The turn :meth:`truncate_session_at_message` would cut at for
+        ``message_id`` (read-only), or None when the message is unknown."""
+        messages = (self.get_session(session_id) or {}).get("messages", [])
+        idx = next(
+            (i for i, m in enumerate(messages) if m.get("id") == message_id), None
+        )
+        return None if idx is None else self._resolve_cut_turn(messages, idx)
+
+    def parent_user_message_id(self, session_id: str, message_id: str) -> str | None:
+        """The user message whose turn produced message ``message_id``: its
+        ``parent_user_message_id`` stamp, else the nearest earlier user message
+        (read-only; None when there is none)."""
+        messages = (self.get_session(session_id) or {}).get("messages", [])
+        idx = next(
+            (i for i, m in enumerate(messages) if m.get("id") == message_id), None
+        )
+        if idx is None:
+            return None
+        stamped = messages[idx].get("parent_user_message_id")
+        if stamped and any(m.get("id") == stamped for m in messages[:idx]):
+            return stamped
+        for m in reversed(messages[:idx]):
+            if m.get("role") in ("manager", "user") and m.get("id"):
+                return m["id"]
+        return None
 
     @staticmethod
     def _resolve_cut_turn(messages: list[dict[str, Any]], idx: int) -> int:
@@ -1511,6 +1626,7 @@ class SessionStore:
             return None
         return {"blob": blob, "turn": int(turn), "round": int(rnd)}
 
+    @_holding_session_lock
     def truncate_session_at_round(
         self, session_id: str, message_id: str, *, drop_tasks: bool, resume_blob: dict
     ) -> dict[str, Any]:
@@ -1672,6 +1788,7 @@ class SessionStore:
                 dropped.append(str(child))
         return dropped
 
+    @_holding_session_lock
     def delete_session(self, session_id: str) -> bool:
         """Delete a session file or directory. Returns True if deleted, False if not found."""
         # Try flat file first
@@ -1829,15 +1946,21 @@ class SessionStore:
             "phase_outputs": {},
         }
 
-    def _backfill_workflow_context(self, session: dict[str, Any]) -> None:
-        """Add workflow_context to sessions created before workflow support.
+    @_holding_session_lock
+    def _backfill_workflow_context(
+        self, session_id: str, session: dict[str, Any]
+    ) -> None:
+        """Add workflow_context to a session created before workflow support.
 
         Mutates the in-memory dict AND persists to disk so the backfill
-        only happens once per session.
+        only happens once per session; the stored state is re-read under the
+        session's lock so a concurrent write is kept.
         """
-        if "workflow_context" not in session:
-            session["workflow_context"] = self._default_workflow_context()
-            self._persist_session(session["id"], session)
+        session["workflow_context"] = self._default_workflow_context()
+        stored = self._read_session(session_id)
+        if stored is not None and "workflow_context" not in stored:
+            stored["workflow_context"] = session["workflow_context"]
+            self._persist_session(session_id, stored)
 
     def _load_workflow_description(self) -> str:
         """Load the default workflow description from prompt templates."""

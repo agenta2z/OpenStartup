@@ -401,19 +401,23 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # Option B (breakdown → aggregator handoff): the new internal path
     # must plumb the breakdown's aggregation_guidance into the aggregator's
     # template_extra_feed. Verify by directly calling the helper that
-    # _build_agg_input uses.
-    plan_bta._last_aggregation_guidance = (
-        "Treat subtask 1 as backbone; layer subtasks 2-3 onto it; preserve glossary."
-    )
-    plan_bta._inject_aggregator_extra_feed(
-        worker_results=["worker 1 output", "worker 2 output"],
-    )
+    # _build_agg_input uses, inside an attempt whose breakdown recorded it.
+    from agent_foundation.common.inferencers.run_context import open_invocation
+
+    with open_invocation(plan_bta):
+        plan_bta._open_attempt("q", use_async=False).aggregation_guidance = (
+            "Treat subtask 1 as backbone; layer subtasks 2-3 onto it; preserve "
+            "glossary."
+        )
+        plan_bta._inject_aggregator_extra_feed(
+            worker_results=["worker 1 output", "worker 2 output"],
+        )
     assert plan_bta.aggregator_inferencer.template_extra_feed.get(
         "aggregation_guidance"
     ) == (
         "Treat subtask 1 as backbone; layer subtasks 2-3 onto it; preserve glossary."
     ), (
-        "_inject_aggregator_extra_feed must forward _last_aggregation_guidance "
+        "_inject_aggregator_extra_feed must forward the attempt's guidance "
         "into the aggregator's template_extra_feed['aggregation_guidance']"
     )
     # And the upstream_artifacts slot must be populated with formatted
@@ -432,10 +436,11 @@ def test_yaml_smoke_instantiate(tmp_path, monkeypatch):
     # Stale aggregation_guidance must be dropped when the next breakdown
     # produces no guidance (else previous-call guidance leaks into the
     # current aggregator prompt).
-    plan_bta._last_aggregation_guidance = None
-    plan_bta._inject_aggregator_extra_feed(
-        worker_results=["worker 1 output"],
-    )
+    with open_invocation(plan_bta):
+        plan_bta._open_attempt("q", use_async=False)
+        plan_bta._inject_aggregator_extra_feed(
+            worker_results=["worker 1 output"],
+        )
     assert (
         "aggregation_guidance" not in plan_bta.aggregator_inferencer.template_extra_feed
     ), (

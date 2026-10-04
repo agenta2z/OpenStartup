@@ -23,10 +23,12 @@ Protocol (server → client):
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import functools
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
@@ -88,10 +90,18 @@ async def _try_dev_slash_command(
     session_store=None,
     pending_input_cache: "dict[str, Any] | None" = None,
     snapshot_store: Any = None,
+    accepts_command: "Callable[[str], bool] | None" = None,
+    track_background_task: "Callable[[str, asyncio.Task[Any]], None] | None" = None,
 ) -> bool:
     """Intercept ``/command-name --args`` slash commands.
 
     Returns True if the message was handled (caller should skip normal flow).
+    A command that is not a tool but that the session's conversation handles
+    itself (``accepts_command``) is left to the conversation.
+
+    The tool runs as a background task, handed to ``track_background_task``
+    (``(task_id, task)``) so the session's delete, resume/restore and the server
+    shutdown cancel and await it.
 
     Patch 3.1 — gating uses tool.json's ``slash_enabled`` (defaults to ``not agent_enabled``
     for backward compat with /mock_task) and ``dev_mode_only`` (defaults to True). /task
@@ -136,6 +146,8 @@ async def _try_dev_slash_command(
                     tool_def = _t
                     break
 
+        if not tool_def and accepts_command is not None and accepts_command(text):
+            return False
         if not tool_def:
             available = [n for n, t in registry.items() if not t.agent_enabled]
             await send_safe(
@@ -312,6 +324,8 @@ async def _try_dev_slash_command(
             dev_tool_input_queues.pop(task_id, None)
 
         task_obj.add_done_callback(_cleanup)
+        if track_background_task is not None:
+            track_background_task(task_id, task_obj)
         return True
 
     except Exception as exc:
@@ -341,6 +355,164 @@ async def _quiesce_session(active_task: Any, conv_svc: Any, session_id: str) -> 
             logger.debug("quiesce: active turn unwind raised: %s", e)
     if conv_svc is not None and hasattr(conv_svc, "drain_session_background_tasks"):
         await conv_svc.drain_session_background_tasks(session_id)
+
+
+async def _prepare_rewind(
+    conv_svc: Any, store: Any, session_id: str, message_id: str
+) -> None:
+    """Rewind the session's agent session to before the turn of ``message_id``
+    ahead of truncating the session there; raises (and the caller truncates
+    nothing) when it cannot."""
+    if conv_svc is None or not hasattr(conv_svc, "prepare_rewind"):
+        return
+    if not hasattr(store, "resolve_cut_turn"):
+        return
+    cut_turn = store.resolve_cut_turn(session_id, message_id)
+    if cut_turn is not None:
+        await conv_svc.prepare_rewind(session_id, cut_turn)
+
+
+async def _rewind_and_truncate(
+    conv_svc: Any, store: Any, session_id: str, message_id: str, *, drop_tasks: bool
+) -> dict[str, Any]:
+    """Resume-from-turn's mutation of a quiesced session: the agent session
+    forgets the turns being redone BEFORE the session is checkpointed and
+    truncated after ``message_id`` — a failing rewind raises with nothing
+    changed. Returns ``truncate_session_at_message``'s result."""
+    await _prepare_rewind(conv_svc, store, session_id, message_id)
+    # Off-load the blocking FS ops (checkpoint copytree + truncate rmtree) to a
+    # worker thread so they don't stall the event loop / starve the WS
+    # heartbeat (the reconnect that used to silently drop the client-side
+    # replay).
+    await asyncio.to_thread(store.checkpoint_session, session_id)
+    return await asyncio.to_thread(
+        store.truncate_session_at_message,
+        session_id,
+        message_id,
+        drop_tasks=drop_tasks,
+    )
+
+
+def _turn_resume_for_round(
+    app_state: Any, session_id: str, data: dict[str, Any]
+) -> tuple[str, dict[str, Any]]:
+    """A session whose backend cannot resume from an assistant round (a native
+    vendor session owns the turn's internals) resumes the round's whole turn:
+    ``resume_from_round`` on a bubble becomes ``resume_from_turn`` on the user
+    message that started that turn."""
+    conv_svc = getattr(app_state, "conversation_service", None)
+    store = getattr(getattr(app_state, "data_service", None), "session_store", None)
+    message_id = data.get("message_id")
+    if (
+        not message_id
+        or not hasattr(conv_svc, "supports_round_resume")
+        or not hasattr(store, "parent_user_message_id")
+    ):
+        return "resume_from_round", data
+    try:
+        if conv_svc.supports_round_resume(session_id):
+            return "resume_from_round", data
+    except Exception as exc:  # the round-resume branch reports the failure
+        logger.warning("round-resume capability check failed: %s", exc)
+        return "resume_from_round", data
+    parent_id = store.parent_user_message_id(session_id, message_id)
+    if parent_id is None:
+        return "resume_from_round", data
+    return "resume_from_turn", {
+        **data,
+        "type": "resume_from_turn",
+        "message_id": parent_id,
+    }
+
+
+async def _stream_fallback_tokens(
+    conv_svc: Any, session: dict, text: str, send_safe: Any
+) -> str:
+    """Send each ``astream_response`` chunk as a ``token`` frame; return the text.
+
+    The stream is closed when delivery stops early (turn cancelled, socket
+    gone), so the backend stream unwinds in this task rather than at GC.
+    """
+    final_content = ""
+    async with contextlib.aclosing(conv_svc.astream_response(session, text)) as stream:
+        async for chunk in stream:
+            final_content += chunk
+            await send_safe(
+                {
+                    "type": "token",
+                    "content": chunk,
+                    "metadata": {"agent_name": "Orchestrator"},
+                }
+            )
+    return final_content
+
+
+def _failed_turn_bubble(
+    conv_svc: Any,
+    data_svc: Any,
+    sid: str,
+    turn_number: int | None,
+    round_index: int | None,
+    error: str,
+    user_input: str = "",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Keep the View Prompt data of a turn that ended in an error.
+
+    View Prompt data is otherwise saved per completed round, so a turn that
+    fails before its round completes (e.g. a stalled vendor) would have none.
+    The conversation's last prompt (a native backend marks it with how the
+    turn ended) is saved with the turn — under the round that was running, if
+    any — over what that turn or round already saved. Returns the error
+    bubble's prompt data (JSON-safe) and its turn / round stamps.
+    """
+    stamps: dict[str, Any] = {}
+    if turn_number is not None:
+        stamps["turn_number"] = turn_number
+    if round_index is not None:
+        stamps["round_index"] = round_index
+    return (
+        _save_failed_turn_prompt(
+            conv_svc, data_svc, sid, turn_number, round_index, error, user_input
+        ),
+        stamps,
+    )
+
+
+def _save_failed_turn_prompt(
+    conv_svc: Any,
+    data_svc: Any,
+    sid: str,
+    turn_number: int | None,
+    round_index: int | None,
+    error: str,
+    user_input: str,
+) -> dict[str, Any]:
+    prompt_data: dict[str, Any] = {}
+    if hasattr(conv_svc, "get_last_prompt_data"):
+        try:
+            prompt_data = dict(conv_svc.get_last_prompt_data(sid) or {})
+        except Exception as e:
+            logger.warning("get_last_prompt_data failed: %s", e)
+    try:
+        _json.dumps(prompt_data)
+    except (TypeError, ValueError) as e:
+        logger.warning("prompt_data is not JSON-serializable (%s) — dropped", e)
+        prompt_data = {}
+    if (
+        not prompt_data.get("rendered_prompt")
+        or turn_number is None
+        or not hasattr(data_svc, "save_turn_data")
+    ):
+        return prompt_data
+    try:
+        saved = data_svc.get_turn_data(sid, turn_number, round=round_index) or {}
+        turn_data = {**saved, **prompt_data, "error": error}
+        if user_input:
+            turn_data.setdefault("user_input", user_input)
+        data_svc.save_turn_data(sid, turn_number, turn_data, round=round_index)
+    except Exception as e:
+        logger.warning("save_turn_data (failed turn) failed: %s", e)
+    return prompt_data
 
 
 async def _replay_task_graph_snapshots(
@@ -420,7 +592,7 @@ async def _evict_and_send_session_init(
         except Exception:
             _live_task_ids = None
     if conv_svc is not None and hasattr(conv_svc, "evict_session_inferencer"):
-        conv_svc.evict_session_inferencer(session_id)
+        await conv_svc.evict_session_inferencer(session_id)
     ss = getattr(data_svc, "session_store", None)
     if ss is not None and hasattr(ss, "reconcile_task_ref_statuses"):
         try:
@@ -737,7 +909,7 @@ async def _advance_phase3_to_3b(
     Phase 3 → 3b in response to the hub's ``evolution_complete``.
 
     This is the codebase's FIRST out-of-turn ``sop_state`` write. A bare
-    ``phase_outputs`` write + ``_check_phase_completion()`` is NOT enough — it
+    ``phase_outputs`` write + ``check_phase_completion()`` is NOT enough — it
     mutates only in-memory state (lost on eviction/restart) and can be clobbered
     by a mid-flight turn's turn-exit persist. So, in order:
 
@@ -745,7 +917,7 @@ async def _advance_phase3_to_3b(
          can't overwrite us.
       2. Get the live cached CI (``None`` ⇒ mock ⇒ bail); write the declared
          Phase-3 output ``experiment_hub_evolution`` into ``sop_state.phase_outputs``
-         (the dict Strategy 3 reads) and call ``_check_phase_completion()``.
+         (the dict Strategy 3 reads) and call ``check_phase_completion()``.
       3. Persist ``sop_state`` exactly as the turn-exit writer does.
       4. Mirror ``workflow_context`` for the FE phase mirror.
 
@@ -781,12 +953,12 @@ async def _advance_phase3_to_3b(
         return False
     # Write the DECLARED Phase-3 output into SOPState.phase_outputs (the dict
     # Strategy 3 reads — distinct from WorkflowContext.phase_outputs), then fire
-    # _check_phase_completion → Strategy 3 advances 3→3b.
+    # check_phase_completion → Strategy 3 advances 3→3b.
     sop_state.phase_outputs["experiment_hub_evolution"] = True
     try:
-        ci._check_phase_completion()
+        ci.check_phase_completion()
     except Exception as exc:  # noqa: BLE001 — advance best-effort; still persist
-        logger.warning("[evolution_complete] _check_phase_completion raised: %s", exc)
+        logger.warning("[evolution_complete] check_phase_completion raised: %s", exc)
 
     # 3. Persist sop_state exactly as the turn-exit writer does (atomic).
     try:
@@ -862,6 +1034,16 @@ async def manager_websocket(websocket: WebSocket) -> None:
         except Exception as e:
             logger.warning("send_safe failed (type=%s): %s", msg.get("type"), e)
 
+    async def send_cancelled_status() -> None:
+        """Terminal frame of a cancelled turn — unless a newer turn already
+        replaced it: a turn can take a while to unwind (an agent session drains
+        its interrupted vendor turn first), and its late terminal must not end
+        the newer turn's busy state in the UI."""
+        if asyncio.current_task() is active_task:
+            await send_safe(
+                {"type": "status", "status": "complete", "detail": "Cancelled"}
+            )
+
     async def heartbeat_loop() -> None:
         """Send heartbeat every 30 seconds to keep connection alive."""
         try:
@@ -875,7 +1057,11 @@ async def manager_websocket(websocket: WebSocket) -> None:
             pass
 
     async def process_message(
-        sid: str, text: str, *, message_id: str | None = None
+        sid: str,
+        text: str,
+        *,
+        message_id: str | None = None,
+        origin: str = "user",
     ) -> None:
         """Process a user message: persist, call LLM, stream tokens back.
 
@@ -886,12 +1072,17 @@ async def manager_websocket(websocket: WebSocket) -> None:
         persisted id of the KEPT clicked turn. It wins over the WS frame's id so
         ``append_message``'s id-dedup matches the already-present turn and does
         NOT duplicate it — the re-run then proceeds exactly like a fresh turn.
+
+        ``origin`` says who wrote ``text``: ``"user"``, ``"host_event"`` (an
+        auto-advance notification — persisted with ``is_auto_advance`` so the
+        UI hides it) or ``"resumed_turn"`` (a resume re-running a kept turn).
         """
         nonlocal active_input_queue
 
         # Dev slash commands: intercept before conversation flow
         data_svc = websocket.app.state.data_service
         _ss = getattr(data_svc, "session_store", None)
+        conv_svc = getattr(websocket.app.state, "conversation_service", None)
         if await _try_dev_slash_command(
             text,
             sid,
@@ -905,9 +1096,18 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 "task_graph_snapshots",
                 None,
             ),
+            accepts_command=(
+                functools.partial(conv_svc.accepts_slash_command, sid)
+                if hasattr(conv_svc, "accepts_slash_command")
+                else None
+            ),
+            track_background_task=(
+                functools.partial(conv_svc.track_background_task, sid)
+                if hasattr(conv_svc, "track_background_task")
+                else None
+            ),
         ):
             return
-        conv_svc = getattr(websocket.app.state, "conversation_service", None)
 
         if not conv_svc or not hasattr(data_svc, "append_message"):
             await send_safe(
@@ -935,7 +1135,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 user_msg["turn_number"] = _ss.next_turn_number(sid)
             except Exception as exc:
                 logger.warning("next_turn_number failed for %s: %s", sid, exc)
-        if data.get("is_auto_advance"):
+        if origin == "host_event":
             user_msg["metadata"] = {"is_auto_advance": True}
         session = data_svc.append_message(sid, user_msg)
         if session is None:
@@ -952,19 +1152,34 @@ async def manager_websocket(websocket: WebSocket) -> None:
             assistant message, then clear busy with status:error.
 
             message_id provenance: prefer the active round id from the
-            conversation interactive; else mint a route id.
+            conversation interactive; else mint a route id. The error bubble
+            carries the turn's prompt data (saved with the turn for View
+            Prompt) and its turn / round.
             """
             try:
                 active_mid = getattr(interactive, "current_message_id", None)
+                round_ctx = getattr(interactive, "round_context", None) or {}
             except (NameError, UnboundLocalError):
                 active_mid = None
+                round_ctx = {}
             message_id = active_mid or f"msg-{uuid.uuid4().hex[:8]}"
+            prompt_data, stamps = _failed_turn_bubble(
+                conv_svc,
+                data_svc,
+                sid,
+                round_ctx.get("turn_number") or user_msg.get("turn_number"),
+                round_ctx.get("round_index"),
+                err_text,
+                text,
+            )
             await send_safe(
                 {
                     "type": "message_end",
                     "error": True,
                     "message_id": message_id,
                     "final_content": err_text,
+                    "prompt_data": prompt_data,
+                    **stamps,
                 }
             )
             try:
@@ -978,6 +1193,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                         "content": err_text,
                         "timestamp": _make_timestamp(),
                         "error": True,
+                        **stamps,
                     },
                 )
             except Exception as persist_exc:
@@ -1048,6 +1264,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                     text,
                     interactive=interactive,
                     data_service=data_svc,
+                    origin=origin,
                 )
                 # Agentic path: per-round persistence + per-round message_end
                 # bubbles are owned by ConversationService.on_round_complete.
@@ -1057,16 +1274,9 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 await send_safe({"type": "status", "status": "complete"})
             else:
                 # Fallback: mock backend via astream_response
-                final_content = ""
-                async for chunk in conv_svc.astream_response(session, text):
-                    final_content += chunk
-                    await send_safe(
-                        {
-                            "type": "token",
-                            "content": chunk,
-                            "metadata": {"agent_name": "Orchestrator"},
-                        }
-                    )
+                final_content = await _stream_fallback_tokens(
+                    conv_svc, session, text, send_safe
+                )
 
                 # ── Mock path: route still owns persistence + bubble commit ──
                 # 3. Compute turn number (1-based: count of existing assistant
@@ -1139,9 +1349,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
 
         except asyncio.CancelledError:
             logger.info("Message processing cancelled (session=%s)", sid)
-            await send_safe(
-                {"type": "status", "status": "complete", "detail": "Cancelled"}
-            )
+            await send_cancelled_status()
         except Exception as e:
             logger.error(
                 "Error processing message (session=%s): %s", sid, e, exc_info=True
@@ -1207,9 +1415,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
             await send_safe({"type": "status", "status": "complete"})
         except asyncio.CancelledError:
             logger.info("Resume-from-round cancelled (session=%s)", sid)
-            await send_safe(
-                {"type": "status", "status": "complete", "detail": "Cancelled"}
-            )
+            await send_cancelled_status()
         except Exception as e:
             logger.error(
                 "Error resuming from round (session=%s): %s", sid, e, exc_info=True
@@ -1219,12 +1425,22 @@ async def manager_websocket(websocket: WebSocket) -> None:
                 or f"msg-{uuid.uuid4().hex[:8]}"
             )
             _err = f"I encountered an error resuming: {e!s}"
+            _prompt_data, _stamps = _failed_turn_bubble(
+                conv_svc,
+                data_svc,
+                sid,
+                target_turn,
+                (interactive.round_context or {}).get("round_index"),
+                _err,
+            )
             await send_safe(
                 {
                     "type": "message_end",
                     "error": True,
                     "message_id": _mid,
                     "final_content": _err,
+                    "prompt_data": _prompt_data,
+                    **_stamps,
                 }
             )
             try:
@@ -1238,6 +1454,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                         "content": _err,
                         "timestamp": _make_timestamp(),
                         "error": True,
+                        **_stamps,
                     },
                 )
             except Exception as persist_exc:
@@ -1289,9 +1506,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
             await send_safe({"type": "status", "status": "complete"})
         except asyncio.CancelledError:
             logger.info("Widget recovery cancelled (session=%s)", sid)
-            await send_safe(
-                {"type": "status", "status": "complete", "detail": "Cancelled"}
-            )
+            await send_cancelled_status()
         except Exception as e:
             logger.error(
                 "Widget recovery failed (session=%s): %s", sid, e, exc_info=True
@@ -1503,6 +1718,10 @@ async def manager_websocket(websocket: WebSocket) -> None:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type", "")
+            if msg_type == "resume_from_round":
+                msg_type, data = _turn_resume_for_round(
+                    websocket.app.state, session_id, data
+                )
 
             if msg_type == "ping":
                 await send_safe({"type": "pong"})
@@ -1623,13 +1842,9 @@ async def manager_websocket(websocket: WebSocket) -> None:
                             )
                             continue
                         await _quiesce_session(active_task, conv_svc, session_id)
-                        # Off-load the blocking FS ops (checkpoint copytree +
-                        # truncate rmtree) to a worker thread so they don't stall
-                        # the event loop / starve the WS heartbeat (the reconnect
-                        # that used to silently drop the client-side replay).
-                        await asyncio.to_thread(_ss.checkpoint_session, session_id)
-                        _trunc = await asyncio.to_thread(
-                            _ss.truncate_session_at_message,
+                        _trunc = await _rewind_and_truncate(
+                            conv_svc,
+                            _ss,
                             session_id,
                             message_id,
                             drop_tasks=drop_tasks,
@@ -1651,7 +1866,17 @@ async def manager_websocket(websocket: WebSocket) -> None:
                             )
                             continue
                         await _quiesce_session(active_task, conv_svc, session_id)
-                        if _ss.restore_checkpoint(session_id, checkpoint) is None:
+                        # The service first realigns the agent session with the
+                        # checkpoint; when that fails it restores nothing.
+                        if conv_svc is not None and hasattr(
+                            conv_svc, "restore_checkpoint"
+                        ):
+                            restored = await conv_svc.restore_checkpoint(
+                                session_id, checkpoint
+                            )
+                        else:
+                            restored = _ss.restore_checkpoint(session_id, checkpoint)
+                        if restored is None:
                             await send_safe(
                                 {
                                     "type": "error",
@@ -1686,6 +1911,7 @@ async def manager_websocket(websocket: WebSocket) -> None:
                                 session_id,
                                 resumed_content,
                                 message_id=resumed_message_id,
+                                origin="resumed_turn",
                             )
                         )
                 except Exception as exc:
@@ -1904,27 +2130,26 @@ async def manager_websocket(websocket: WebSocket) -> None:
                     # Steps 1-4 (quiesce → advance sop_state → persist → mirror wc)
                     # live in the module-level helper; step 5 (render 3b) spawns a
                     # normal auto-advance turn HERE (process_message is loop-nested
-                    # and reads the closure `data` for is_auto_advance).
+                    # and reads the closure `data` for the message id).
                     _advanced = await _advance_phase3_to_3b(
                         websocket, session_id, active_task
                     )
                     if _advanced:
-                        # Step 5 — render the compact Phase-3b summary via a normal
-                        # turn. Mutate the closure `data` so process_message stamps
-                        # the synthetic user message is_auto_advance (FE hides it)
-                        # and mints a fresh message_id.
+                        # Step 5 — render the compact Phase-3b summary via a host
+                        # event turn: process_message stamps the synthetic user
+                        # message is_auto_advance (FE hides it); dropping the
+                        # closure `data`'s message_id mints a fresh one.
                         _note = (
                             "[System notification: The Experiment Hub evolution "
                             "cycle was marked complete by the user. Produce the "
                             "compact Phase-3b summary of results and decide whether "
                             "to continue evolving per <SOPNextStepGuidance>.]"
                         )
-                        data["is_auto_advance"] = True
                         data.pop("message_id", None)
                         if active_task and not active_task.done():
                             active_task.cancel()
                         active_task = asyncio.create_task(
-                            process_message(session_id, _note)
+                            process_message(session_id, _note, origin="host_event")
                         )
                 else:
                     # Experiment Hub long-running actions (implement-hypothesis /
@@ -1962,7 +2187,15 @@ async def manager_websocket(websocket: WebSocket) -> None:
                         logger.warning(
                             "clear_pending_input (new message) failed: %s", _mexc
                         )
-                active_task = asyncio.create_task(process_message(session_id, content))
+                # The UI auto-advances the conversation after a background task
+                # completes by sending a "[System notification: …]" message.
+                active_task = asyncio.create_task(
+                    process_message(
+                        session_id,
+                        content,
+                        origin="host_event" if data.get("is_auto_advance") else "user",
+                    )
+                )
 
     except WebSocketDisconnect:
         logger.info("Manager WebSocket disconnected (session=%s)", session_id)

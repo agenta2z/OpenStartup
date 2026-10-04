@@ -9,6 +9,7 @@
 # can build a self-contained ``python_binary`` that imports openteam
 # without the sibling sys.path injection in ``openteam.bootstrap``.
 
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
 
 oncall("ml_oncall")
@@ -42,5 +43,27 @@ python_library(
         "fbsource//third-party/pypi/starlette:starlette",
         "fbsource//third-party/pypi/typer:typer",
         "fbsource//third-party/pypi/uvicorn:uvicorn",
+    ],
+)
+
+# The API server (run_server.py) with the backends whose SDK is Buck-only: the
+# native Metamate backend carries //msl/metamate/sdk, so `native_metamate` is
+# available here and nowhere else.
+#   buck2 run @fbcode//mode/dev //_tony_dev/CoreProjects/OpenStartup/src:server -- \
+#       --real-sessions <dir> --llm-backend native_metamate
+# Scripts that start the server themselves (test_e2e_native.py) need this
+# binary's interpreter, not just its link-tree on PYTHONPATH: the SDK's thrift
+# extensions are linked into the interpreter. From fbcode/:
+#   L="$(dirname "$(buck2 build @fbcode//mode/dev //_tony_dev/CoreProjects/OpenStartup/src:server \
+#       --show-full-output | cut -d' ' -f2)")/server#link-tree"
+#   cd _tony_dev/CoreProjects/OpenStartup && "$L/_bootstrap.sh" \
+#       -m test.openteam.server.backends.test_e2e_native --backend native_metamate --model ""
+python_binary(
+    # @autodeps-skip
+    name = "server",
+    main_function = "openteam.server.run_server.main",
+    deps = [
+        ":openteam",
+        "//_tony_dev/CoreProjects/AgentFoundation/src/agent_foundation/common/inferencers/agentic_inferencers/conversational_native/session/metamate:metamate",
     ],
 )

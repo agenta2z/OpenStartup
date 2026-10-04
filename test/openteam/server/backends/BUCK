@@ -1,0 +1,37 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
+
+oncall("ml_oncall")
+
+# Native backend factories (no vendor process starts: a session opens on the
+# first turn). The rest of this directory runs under pytest.
+python_unittest(
+    name = "test_native_factories",
+    srcs = ["test_native_factories.py"],
+    network_access = network_access_utils.none(),
+    typing = False,
+    deps = [
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)
+
+# Host checklist against real vendor agents (direct run; costs real money):
+#   buck2 run :test_e2e_native -- --backend native_claude_sdk --model sonnet
+#   buck2 run :test_e2e_native -- --backend native_metamate --model ""
+# The native Metamate backend's own target carries the Buck-only Metamate SDK;
+# the server this script starts runs on this binary's interpreter.
+python_binary(
+    # @autodeps-skip
+    name = "test_e2e_native",
+    srcs = ["test_e2e_native.py"],
+    main_function = ".test_e2e_native.main",
+    deps = [
+        "fbsource//third-party/pypi/requests:requests",
+        "fbsource//third-party/pypi/websockets:websockets",
+        "//_tony_dev/CoreProjects/AgentFoundation/src:agent_foundation",
+        "//_tony_dev/CoreProjects/AgentFoundation/src/agent_foundation/common/inferencers/agentic_inferencers/conversational_native/session/metamate:metamate",
+        "//_tony_dev/CoreProjects/OpenStartup/src:openteam",
+    ],
+)

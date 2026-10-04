@@ -40,6 +40,9 @@ class BackendBuildContext:
     session_store: Optional[Any] = None
     model_name: Optional[str] = None
     session_id: str = ""
+    # Service-owned NativeRuntimeManager: native backends keep their live vendor
+    # sessions there so they survive the service's evict-then-rebuild.
+    native_runtime: Optional[Any] = None
 
 
 class BackendFactory(Protocol):
@@ -61,6 +64,10 @@ class BackendDescriptor:
     default_model: Optional[str] = None
     is_available: Callable[[], bool] = field(default=lambda: True)
     status_message: Callable[[], str] = field(default=lambda: "Available")
+    # The vendor agent owns the conversation (AgentFoundation's native
+    # orchestrator): its live sessions are kept in the service's
+    # NativeRuntimeManager (``BackendBuildContext.native_runtime``).
+    native: bool = False
 
 
 class BackendRegistry:

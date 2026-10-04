@@ -151,20 +151,25 @@ async def delete_session(request: Request, session_id: str):
     svc = request.app.state.data_service
     if not hasattr(svc, "delete_session"):
         raise HTTPException(400, "Session deletion not available in mock mode")
-    if not svc.delete_session(session_id):
+    if svc.get_session(session_id) is None:
         raise HTTPException(404, f"Session {session_id} not found")
-    # Evict per-session inferencer to free memory
+    # Stop the session's running turn, background tasks and Experiment Hub runs
+    # and close its live agent sessions (nothing will resume them) BEFORE its
+    # directory goes: an unwinding turn or run still writes there.
     conv_svc = getattr(request.app.state, "conversation_service", None)
     if conv_svc and hasattr(conv_svc, "evict_session_inferencer"):
-        conv_svc.evict_session_inferencer(session_id)
+        await conv_svc.evict_session_inferencer(session_id, close_sessions=True)
+    hub_runs = getattr(request.app.state, "hub_run_supervisor", None)
+    if hub_runs is not None:
+        await hub_runs.cancel_session(session_id)
     # Drop this session's durable task-graph snapshots (in-memory map + the
-    # <session_dir>/task_graphs/ dir). delete_session already rmtree'd the whole
-    # session dir above, so the disk cleanup is redundant-but-safe (a no-op when
-    # the dir is already gone); the in-memory drop frees the entry immediately
-    # rather than leaving it until the terminal-TTL prune.
+    # <session_dir>/task_graphs/ dir) while the session dir still exists: the
+    # store resolves it with ``get_session_dir``, which re-creates a missing one.
     snap_store = getattr(request.app.state, "task_graph_snapshots", None)
     if snap_store is not None and hasattr(snap_store, "drop_session"):
         snap_store.drop_session(session_id)
+    if not svc.delete_session(session_id):
+        raise HTTPException(404, f"Session {session_id} not found")
     return {"data": {"deleted": True}}
 
 

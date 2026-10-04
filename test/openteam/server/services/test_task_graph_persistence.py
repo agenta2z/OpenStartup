@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from openteam.server.services.session_store import SessionStore
 from openteam.server.services.task_graph_reconstruct import (
     reconstruct_graph_from_task_dir,
 )
@@ -146,13 +147,15 @@ def test_from_dict_defensive():
 # Store: persist / load / get_or_load / drop_session (Fix 2/3)
 # ---------------------------------------------------------------------------
 class _FakeSessionStore:
+    """Session ``s1``'s directory under ``base``."""
+
     def __init__(self, base: Path) -> None:
         self._base = Path(base)
+        (self._base / "s1").mkdir(parents=True, exist_ok=True)
 
-    def get_session_dir(self, session_id: str) -> Path:
+    def find_session_dir(self, session_id: str) -> Path | None:
         d = self._base / session_id
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        return d if d.is_dir() else None
 
 
 def _sample_snapshot(task_id: str = "task-x") -> GraphSnapshot:
@@ -211,6 +214,20 @@ def test_drop_session_removes_disk(tmp_path):
     store.drop_session("s1")
     assert not (tmp_path / "s1" / "task_graphs").exists()
     assert "s1" not in store._sessions
+
+
+def test_a_late_persist_never_recreates_a_deleted_session(tmp_path):
+    sessions = SessionStore(tmp_path, resume_server="new")
+    sid = sessions.create_session("graphs")["id"]
+    store = TaskGraphSnapshotStore(session_store=sessions)
+    store._sessions[sid] = {"task-x": _sample_snapshot()}
+    sessions.delete_session(sid)
+
+    store.mark_task_terminal(sid, "task-x")  # the task finished after the delete
+    assert sessions.find_session_dir(sid) is None
+    assert store.load_task_from_disk(sid, "task-x") is None
+    store.drop_session(sid)
+    assert sessions.find_session_dir(sid) is None
 
 
 def test_get_or_load_tier3_reconstruct(tmp_path):

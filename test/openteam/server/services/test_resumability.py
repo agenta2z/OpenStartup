@@ -646,6 +646,45 @@ class TestCheckpoint:
         sid, _ = session
         assert store.restore_checkpoint(sid, "nope") is None
 
+    def test_read_checkpoint_changes_nothing(self, store, session):
+        sid, sdir = session
+        (sdir / "turn_001").mkdir()
+        name = store.checkpoint_session(sid)
+        store.append_message(sid, {"id": "later", "role": "manager", "content": "x"})
+        (sdir / "turn_002").mkdir()
+        live = store.get_session(sid)
+
+        checkpoint = store.read_checkpoint(sid, name)
+        assert checkpoint["next_turn_number"] == 2
+        assert "later" not in [m["id"] for m in checkpoint["session"]["messages"]]
+        assert store.get_session(sid) == live
+        assert (sdir / "turn_002").is_dir()
+        assert len(store.list_checkpoints(sid)) == 1
+        assert store.read_checkpoint(sid, "nope") is None
+
+    def test_restore_keeps_the_named_children_live(self, store, session):
+        sid, sdir = session
+        (sdir / "native").mkdir()
+        (sdir / "native" / "l1_0.md").write_text("old")
+        name = store.checkpoint_session(sid)
+        (sdir / "native" / "l1_1.md").write_text("new")
+        (sdir / "turn_001").mkdir()
+
+        store.restore_checkpoint(sid, name, keep=("native",))
+        assert sorted(p.name for p in (sdir / "native").iterdir()) == [
+            "l1_0.md",
+            "l1_1.md",
+        ]
+        assert not (sdir / "turn_001").exists()
+
+    def test_checkpoint_name_is_one_path_component(self, store, session):
+        sid, _ = session
+        name = store.checkpoint_session(sid)
+        escaped = f"../checkpoints/{name}"
+        assert store.read_checkpoint(sid, escaped) is None
+        assert store.restore_checkpoint(sid, escaped) is None
+        assert len(store.list_checkpoints(sid)) == 1
+
 
 # ── truncate_session_at_message ─────────────────────────────────────────
 
@@ -889,7 +928,7 @@ class TestGetLiveTaskIds:
             t = asyncio.create_task(_long())
             conv_svc._register_bg_task("sidC", "tid", t)
             assert conv_svc.get_live_task_ids("sidC") == {"tid"}
-            conv_svc.evict_session_inferencer("sidC")
+            await conv_svc.evict_session_inferencer("sidC")
             # Bucket popped → get_live_task_ids returns empty ...
             assert conv_svc.get_live_task_ids("sidC") == set()
             # ... but the Task itself is NOT cancelled — orphaned but alive.

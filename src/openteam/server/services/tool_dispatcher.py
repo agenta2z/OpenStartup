@@ -938,8 +938,8 @@ class ToolDispatcher:
 
     # ── Dashboard handoff (HubAwareToolExecutor / DashboardAwareToolExecutor) ──
     # These make the dispatcher satisfy the AF capability Protocols so the
-    # ConversationalInferencer's post-fork opener (resolved via
-    # ``conv_inferencer._tool_dispatcher``) can open a Dashboard subtab. Transport
+    # host's dashboard opener (the dispatcher it is given as ``tool_dispatcher``,
+    # classic or native) can open a Dashboard subtab. Transport
     # + persistence live HERE (OpenTeam concern); the ML-specific hub init is
     # delegated to ``agent_foundation.experiment_hub`` when present (#13). The
     # task-subtab persist+emit pattern (``_dispatch_as_task``) is the template.
@@ -1472,11 +1472,24 @@ class ToolDispatcher:
                 session_context=self._session_context,
                 add_task_ref=_add_task_ref,
                 update_task_ref_status=_update_task_ref_status,
+                track_task=self._track_hub_task,
             )
         except Exception as exc:
             logger.warning("[dashboard] HubController construction failed: %s", exc)
             return None
         return controller, wc
+
+    def _track_hub_task(self, key: str, task: Any) -> None:
+        """Hand a hub queue job (it outlives the turn that queued it) to the
+        session's background-task registry, as ``_dispatch_as_task`` does its
+        runs: session delete, server shutdown and resume/restore cancel and
+        await it."""
+        if self._register_bg_task is None:
+            return
+        try:
+            self._register_bg_task(task, key)
+        except Exception as exc:
+            logger.warning("[dashboard] hub job register failed: %s", exc)
 
     def _make_hub_exec_task(self, hub_id_holder: dict[str, str]) -> Callable:
         """Return the ``exec_task(args, task_id)`` the HubController queue runner

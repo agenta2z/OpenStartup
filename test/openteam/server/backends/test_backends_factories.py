@@ -6,8 +6,12 @@ factory wiring, not the inferencer's runtime.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -115,6 +119,8 @@ class ClaudeCliFactoryTests(unittest.TestCase):
         self.assertEqual(kwargs["idle_timeout_seconds"], 1800)
         self.assertEqual(kwargs["permission_mode"], "bypassPermissions")
         self.assertEqual(kwargs["cache_folder"], "/tmp/cache")
+        self.assertEqual(kwargs["concurrency_pool"], "openstartup_chat")
+        self.assertEqual(kwargs["concurrency_pool_cap"], 2)
 
     def test_claude_cli_factory_default_model(self):
         """When ctx.model_name is None, falls back to the descriptor default 'opus[1m]'."""
@@ -131,6 +137,90 @@ class ClaudeCliFactoryTests(unittest.TestCase):
         ):
             factories_mod._claude_cli_factory(ctx)
         self.assertEqual(fake_base.call_args.kwargs["model_name"], "opus[1m]")
+
+
+_STAND_IN_CLAUDE = r"""
+import json, sys, time
+
+prompt = sys.stdin.read()
+with open(__LOG__, "a") as f:
+    f.write(prompt.replace("\n", " ") + "\n")
+while "hold" in prompt:
+    print(json.dumps({"type": "stream_event", "event": {"type": "ping"}}), flush=True)
+    time.sleep(0.05)
+reply = "reply to " + prompt.strip()
+delta = {"type": "text_delta", "text": reply}
+print(json.dumps({"type": "stream_event",
+                  "event": {"type": "content_block_delta", "delta": delta}}))
+print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                  "result": reply, "session_id": "sess-1"}))
+"""
+
+
+class ClaudeCliChatCapacityTests(unittest.TestCase):
+    """The classic chat leaf never waits for claude slots held by background
+    runs: their leaves fill the default pool (four processes, each holding its
+    slot until it exits) and the chat reply still comes back at once.
+
+    A stand-in ``claude`` streams until cancelled when its prompt says ``hold``
+    and answers any other prompt immediately."""
+
+    def test_a_chat_reply_runs_while_background_runs_fill_the_default_pool(self):
+        from agent_foundation.common.inferencers.agentic_inferencers.external.claude_code.claude_code_cli_inferencer import (
+            ClaudeCodeCliInferencer,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp = Path(tmp_name)
+            started = tmp / "started.log"
+            script = tmp / "claude.py"
+            script.write_text(_STAND_IN_CLAUDE.replace("__LOG__", repr(str(started))))
+            env = {
+                k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_CODE_")
+            }
+            env["CLAUDE_CODE_COMMAND"] = f"{sys.executable} {script}"
+            ctx = BackendBuildContext(
+                templates_dir=_real_templates_dir(), working_dir=str(tmp)
+            )
+
+            def started_prompts() -> list[str]:
+                if not started.exists():
+                    return []
+                return started.read_text().split()
+
+            async def scenario() -> None:
+                background = [
+                    asyncio.create_task(
+                        ClaudeCodeCliInferencer(target_path=str(tmp)).ainfer(
+                            f"hold-{i}"
+                        )
+                    )
+                    for i in range(5)
+                ]
+                try:
+                    deadline = time.monotonic() + 30
+                    while len(started_prompts()) < 4:
+                        self.assertLess(time.monotonic(), deadline)
+                        await asyncio.sleep(0.05)
+                    with patch.object(
+                        factories_mod,
+                        "_wrap_in_conversational",
+                        side_effect=lambda base, _ctx: base,
+                    ):
+                        chat = factories_mod._claude_cli_factory(ctx)
+
+                    reply = await asyncio.wait_for(chat.ainfer("chat"), timeout=30)
+
+                    self.assertEqual(reply.output, "reply to chat")
+                    self.assertEqual(len(started_prompts()), 5, started_prompts())
+                    self.assertNotIn("hold-4", started_prompts())
+                finally:
+                    for run in background:
+                        run.cancel()
+                    await asyncio.gather(*background, return_exceptions=True)
+
+            with patch.dict(os.environ, env, clear=True):
+                asyncio.run(scenario())
 
 
 class AvailabilityProbeTests(unittest.TestCase):
